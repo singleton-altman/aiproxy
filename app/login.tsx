@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
-import { Eye, EyeOff, KeyRound, Link2, LockKeyhole, LogIn, MailCheck, Server, UserRound, UserRoundPlus, Wand2 } from 'lucide-react-native';
+import { Eye, EyeOff, KeyRound, Link2, LockKeyhole, LogIn, MailCheck, UserRound, UserRoundPlus, Wand2 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { queryClient } from '@/src/lib/query-client';
@@ -153,7 +153,7 @@ export default function LoginScreen() {
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 22 }}>
     <View style={{ width: Math.min(460, Math.max(0, viewport.width - 44)), alignSelf: 'center', gap: 22 }}>
       <View style={{ gap: 8, alignItems: 'center' }}>
-        <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: Platform.OS === 'ios' ? 0.2 : 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 7 }, elevation: 3 }}><Server color="#fff" size={31} strokeWidth={2.1} /></View>
+        <Image source={require('../assets/ai-proxy-mark.png')} resizeMode="contain" style={{ width: 76, height: 76 }} />
         <Text style={{ color: colors.text, fontSize: 34, fontWeight: '800', marginTop: 5 }}>{publicConfig?.site_name || 'AI Proxy'}</Text>
         <Text style={{ color: colors.subtext, fontSize: 15 }}>管理控制台</Text>
       </View>
