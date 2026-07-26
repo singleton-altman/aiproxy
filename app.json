@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "AI Proxy",
-    "slug": "lucky-mobile",
+    "slug": "ai-proxy",
     "version": "1.0.0",
     "platforms": [
       "ios",
@@ -13,7 +13,7 @@
     "ios": {
       "supportsTablet": true,
       "icon": "./assets/icon.png",
-      "bundleIdentifier": "com.ppx.luckymobile",
+      "bundleIdentifier": "com.xiaojun5270.aiproxy",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -23,7 +23,7 @@
     },
     "android": {
       "icon": "./assets/icon.png",
-      "package": "com.ppx.luckymobile",
+      "package": "com.xiaojun5270.aiproxy",
       "adaptiveIcon": {
         "backgroundColor": "#f8fafc",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -64,6 +64,6 @@
     "experiments": {
       "reactCompiler": true
     },
-    "scheme": "luckymobile"
+    "scheme": "aiproxy"
   }
 }
