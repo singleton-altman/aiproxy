@@ -9,7 +9,8 @@ import { EmptyState, ErrorState, Page, Panel, SectionHeader } from '@/src/compon
 import { StructuredDataView } from '@/src/components/structured-form';
 import { useAppTheme } from '@/src/lib/theme';
 import { getBalance, getKeyOverview, getModels, getRequests, getUsageOverview, getUsageQuotaLimit, getUsageTrend } from '@/src/services/account';
-import { sessionState } from '@/src/store/session';
+import { getAdminQuota, getAdminRequestLogs, getAdminStatsModels, getAdminStatsOverview, getAdminStatsTrend } from '@/src/services/admin';
+import { isAdmin, sessionState } from '@/src/store/session';
 import type { RequestLogItem, UsageTrendItem } from '@/src/types/api';
 
 const { useSnapshot } = require('valtio/react');
@@ -78,6 +79,7 @@ export default function OverviewScreen() {
   const router = useRouter();
   const session = useSnapshot(sessionState);
   const apiKeyMode = session.mode === 'apikey';
+  const adminMode = !apiKeyMode && isAdmin();
   const [range, setRange] = useState<RangeKey>('week');
   const [metric, setMetric] = useState<'requests' | 'tokens' | 'cost'>('requests');
   const [refreshing, setRefreshing] = useState(false);
@@ -88,28 +90,28 @@ export default function OverviewScreen() {
     enabled: apiKeyMode,
   });
   const usage = useQuery({
-    queryKey: ['usage', 'overview', range],
-    queryFn: ({ signal }) => getUsageOverview({ range }, signal),
+    queryKey: [adminMode ? 'admin' : 'usage', 'overview', range],
+    queryFn: ({ signal }) => adminMode ? getAdminStatsOverview({ range }, signal) : getUsageOverview({ range }, signal),
     enabled: !apiKeyMode,
   });
   const trend = useQuery({
-    queryKey: ['usage', 'trend', range],
-    queryFn: ({ signal }) => getUsageTrend({ range }, signal),
+    queryKey: [adminMode ? 'admin' : 'usage', 'trend', range],
+    queryFn: ({ signal }) => adminMode ? getAdminStatsTrend({ range }, signal) : getUsageTrend({ range }, signal),
     enabled: !apiKeyMode,
   });
   const balance = useQuery({
-    queryKey: ['balance'],
-    queryFn: ({ signal }) => getBalance(signal),
+    queryKey: [adminMode ? 'admin' : 'user', 'quota'],
+    queryFn: ({ signal }) => adminMode ? getAdminQuota(signal) : getBalance(signal),
     enabled: !apiKeyMode,
   });
   const models = useQuery({
-    queryKey: ['models'],
-    queryFn: ({ signal }) => getModels(signal),
+    queryKey: [adminMode ? 'admin' : 'user', 'models'],
+    queryFn: ({ signal }) => adminMode ? getAdminStatsModels(signal) : getModels(signal),
     enabled: !apiKeyMode,
   });
   const recentRequests = useQuery({
-    queryKey: ['requests', 'recent'],
-    queryFn: ({ signal }) => getRequests({ limit: 5 }, signal),
+    queryKey: [adminMode ? 'admin' : 'user', 'requests', 'recent'],
+    queryFn: ({ signal }) => adminMode ? getAdminRequestLogs({ limit: 5 }, signal) : getRequests({ limit: 5 }, signal),
     enabled: !apiKeyMode,
   });
 
@@ -144,7 +146,7 @@ export default function OverviewScreen() {
     {usage.error ? <ErrorState message={usage.error.message} retry={() => usage.refetch()} /> : null}
 
     <Panel>
-      <SectionHeader icon={CircleDollarSign} title="余额与模型" />
+      <SectionHeader icon={CircleDollarSign} title={adminMode ? '全站额度与模型' : '余额与模型'} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         <StatTile label="当前余额" value={formatCost(balance.data?.balance, currency)} color={colors.success} />
         <StatTile label="信用额度" value={formatCost(balance.data?.credit, currency)} color={colors.cyan} />
@@ -153,7 +155,7 @@ export default function OverviewScreen() {
     </Panel>
 
     <Panel>
-      <SectionHeader icon={BarChart3} title="用量" meta={ranges.find(([key]) => key === range)?.[1]} />
+      <SectionHeader icon={BarChart3} title={adminMode ? '全站用量' : '用量'} meta={ranges.find(([key]) => key === range)?.[1]} />
       <View style={{ flexDirection: 'row', gap: 6, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>
         {ranges.map(([key, label]) => <Pressable key={key} onPress={() => setRange(key)} style={{ flex: 1, minHeight: 34, borderRadius: 9, backgroundColor: range === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: range === key ? colors.primary : colors.subtext, fontSize: 12, fontWeight: '700' }}>{label}</Text>
@@ -184,9 +186,9 @@ export default function OverviewScreen() {
 
     <Panel>
       <SectionHeader icon={Boxes} title="模型预览" meta={models.data ? `${visibleModels.length} 个可用` : undefined} />
-      {visibleModels.slice(0, 5).map((model) => <View key={String(model.id)} style={{ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+      {visibleModels.slice(0, 5).map((model, index) => <View key={String(model.id ?? model.model ?? model.name ?? index)} style={{ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 9 }}>
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: model.free ? colors.success : colors.primary }} />
-        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontFamily: 'monospace' }}>{String(model.id)}</Text>
+        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontFamily: 'monospace' }}>{String(model.id ?? model.model ?? model.name ?? '未知模型')}</Text>
         <Text style={{ color: colors.subtext, fontSize: 10 }}>{String(model.provider ?? model.owned_by ?? '')}</Text>
         <ChevronRight color={colors.disabled} size={14} />
       </View>)}
@@ -198,16 +200,16 @@ export default function OverviewScreen() {
 
     <Panel>
       <SectionHeader icon={Coins} title="额度限制" />
-      <QuotaSection />
+      <QuotaSection adminMode={adminMode} />
     </Panel>
   </Page>;
 }
 
-function QuotaSection() {
+function QuotaSection({ adminMode }: { adminMode: boolean }) {
   const colors = useAppTheme();
   const quota = useQuery({
-    queryKey: ['usage', 'quota'],
-    queryFn: ({ signal }) => getUsageQuotaLimit(signal),
+    queryKey: [adminMode ? 'admin' : 'usage', 'quota'],
+    queryFn: ({ signal }) => adminMode ? getAdminQuota(signal) : getUsageQuotaLimit(signal),
   });
   if (quota.error) return <Text style={{ color: colors.subtext, fontSize: 12 }}>额度信息暂不可用</Text>;
   if (!quota.data) return <Text style={{ color: colors.subtext, fontSize: 12 }}>加载中…</Text>;

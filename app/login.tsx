@@ -95,16 +95,17 @@ export default function LoginScreen() {
     }
   }
 
-  async function finishSessionLogin() {
-    let profile: UserProfile | null = null;
+  async function finishSessionLogin(loginPayload?: unknown) {
+    let profile: UserProfile | null = extractProfile(loginPayload);
     try {
-      profile = await getProfile();
+      const loadedProfile = await getProfile(undefined, normalizedUrl);
+      if (Object.keys(loadedProfile).length) profile = loadedProfile;
     } catch {
       // Profile 拉取失败不阻塞登录，后续页面可重试。
     }
     await saveSession({ baseUrl: normalizedUrl, mode: 'session', email: email.trim(), password, apiKey: '' }, profile);
     queryClient.clear();
-    router.replace('/overview');
+    router.replace(profile?.role === 'admin' || profile?.role === 'super_admin' ? '/admin' : '/overview');
   }
 
   async function submit() {
@@ -128,16 +129,16 @@ export default function LoginScreen() {
         return;
       }
       if (mode === 'register') {
-        await register({ email, password, name, invite_code: inviteCode, code }, normalizedUrl);
+        let payload: unknown = await register({ email, password, name, invite_code: inviteCode, code }, normalizedUrl);
         // 注册接口可能直接建立会话，也可能需要再登录一次。
         try {
-          await login({ email, password }, normalizedUrl);
+          payload = await login({ email, password }, normalizedUrl);
         } catch { /* 注册已建立会话时忽略 */ }
-        await finishSessionLogin();
+        await finishSessionLogin(payload);
         return;
       }
-      await login({ email, password }, normalizedUrl);
-      await finishSessionLogin();
+      const payload = await login({ email, password }, normalizedUrl);
+      await finishSessionLogin(payload);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '操作失败');
     } finally {

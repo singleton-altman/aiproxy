@@ -58,6 +58,21 @@ export function logout() {
   return apiJson<ApiRecord>('/auth/logout', { method: 'POST', retryAuth: false });
 }
 
+function decodeJwtProfile(token: string): UserProfile | null {
+  const payload = token.split('.')[1];
+  if (!payload) return null;
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payload.length / 4) * 4, '=');
+    const binary = atob(normalized);
+    const json = decodeURIComponent(Array.from(binary, (character) =>
+      `%${character.charCodeAt(0).toString(16).padStart(2, '0')}`).join(''));
+    const claims = JSON.parse(json) as UserProfile;
+    return typeof claims === 'object' && claims !== null ? claims : null;
+  } catch {
+    return null;
+  }
+}
+
 export function extractProfile(payload: unknown): UserProfile | null {
   if (!payload || typeof payload !== 'object') return null;
   const record = payload as ApiRecord;
@@ -65,6 +80,11 @@ export function extractProfile(payload: unknown): UserProfile | null {
     if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
       const item = candidate as UserProfile;
       if (typeof item.email === 'string' || typeof item.role === 'string' || item.id !== undefined) return item;
+      const token = (candidate as ApiRecord).token ?? (candidate as ApiRecord).access_token;
+      if (typeof token === 'string') {
+        const profile = decodeJwtProfile(token);
+        if (profile) return profile;
+      }
     }
   }
   return null;

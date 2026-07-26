@@ -108,11 +108,7 @@ export default function KeysScreen() {
   }
 
   function toggleModelHidden(modelId: string, hidden: boolean) {
-    const current = models.data ?? [];
-    const hiddenIds = new Set(current.filter((item) => item.hidden).map((item) => String(item.id)));
-    if (hidden) hiddenIds.add(modelId);
-    else hiddenIds.delete(modelId);
-    visibilityMutation.mutate({ hidden_models: [...hiddenIds] });
+    visibilityMutation.mutate({ id: modelId, hidden });
   }
 
   async function copySecret() {

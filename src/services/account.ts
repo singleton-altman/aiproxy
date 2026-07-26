@@ -13,19 +13,21 @@ import type {
 
 // ---- Profile ----
 
-export async function getProfile(signal?: AbortSignal) {
-  const payload = await apiJson<ApiRecord>('/profile', { signal });
+export async function getProfile(signal?: AbortSignal, baseUrl?: string) {
+  const payload = await apiJson<ApiRecord>('/user/me', { signal, baseUrl });
   const nested = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
   const inner = nested.user ?? nested.profile ?? nested.data ?? nested;
-  return (inner && typeof inner === 'object' && !Array.isArray(inner) ? inner : {}) as UserProfile;
+  const profile = (inner && typeof inner === 'object' && !Array.isArray(inner) ? inner : {}) as UserProfile;
+  return { ...profile, name: profile.name ?? (typeof profile.nickname === 'string' ? profile.nickname : undefined) };
 }
 
 export function updateProfile(value: ApiRecord) {
-  return apiJson<ApiRecord>('/profile', { method: 'PUT', body: JSON.stringify(value) });
+  const nickname = value.nickname ?? value.name;
+  return apiJson<ApiRecord>('/user/me', { method: 'PATCH', body: JSON.stringify({ nickname }) });
 }
 
 export function deleteProfile() {
-  return apiJson<ApiRecord>('/profile', { method: 'DELETE' });
+  return apiJson<ApiRecord>('/user/me', { method: 'DELETE' });
 }
 
 // ---- Key overview (API Key 登录) ----
@@ -37,23 +39,29 @@ export function getKeyOverview(signal?: AbortSignal) {
 // ---- API Keys ----
 
 export async function getApiKeys(signal?: AbortSignal) {
-  const payload = await apiJson<unknown>('/keys', { signal });
-  return firstArray<ApiKeyItem>(payload, ['keys', 'items', 'data', 'list']);
+  const payload = await apiJson<unknown>('/user/keys', { signal });
+  return firstArray<ApiKeyItem>(payload, ['keys', 'items', 'data', 'list']).map((item) => ({
+    ...item,
+    disabled: item.disabled ?? item.status === 'disabled',
+  }));
 }
 
 export function createApiKey(input: { name: string; expires_at?: string | null; scopes?: string[] }) {
   const body: ApiRecord = { name: input.name.trim() };
   if (input.expires_at) body.expires_at = input.expires_at;
   if (input.scopes?.length) body.scopes = input.scopes;
-  return apiJson<ApiRecord>('/keys', { method: 'POST', body: JSON.stringify(body) });
+  return apiJson<ApiRecord>('/user/keys', { method: 'POST', body: JSON.stringify(body) });
 }
 
 export function updateApiKey(id: string | number, value: ApiRecord) {
-  return apiJson<ApiRecord>(`/keys/${encodeURIComponent(String(id))}`, { method: 'PATCH', body: JSON.stringify(value) });
+  const body = typeof value.disabled === 'boolean'
+    ? { status: value.disabled ? 'disabled' : 'active' }
+    : value;
+  return apiJson<ApiRecord>(`/user/keys/${encodeURIComponent(String(id))}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
 
 export function deleteApiKey(id: string | number) {
-  return apiJson<ApiRecord>(`/keys/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
+  return apiJson<ApiRecord>(`/user/keys/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
 }
 
 export function extractKeySecret(payload: unknown): string {
@@ -74,27 +82,45 @@ export function extractKeySecret(payload: unknown): string {
 // ---- Models ----
 
 export async function getModels(signal?: AbortSignal) {
-  const payload = await apiJson<unknown>('/models', { signal });
-  return firstArray<ModelItem>(payload, ['models', 'data', 'items', 'list']);
+  const payload = await apiJson<unknown>('/user/models', { signal });
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
+  const providers = (payload as ApiRecord).providers;
+  if (!Array.isArray(providers)) return firstArray<ModelItem>(payload, ['models', 'data', 'items', 'list']);
+  return providers.flatMap((provider) => {
+    if (!provider || typeof provider !== 'object' || Array.isArray(provider)) return [];
+    const group = provider as ApiRecord;
+    const models = Array.isArray(group.models) ? group.models : [];
+    return models.flatMap((model) => {
+      if (!model || typeof model !== 'object' || Array.isArray(model)) return [];
+      const item = model as ApiRecord;
+      return [{
+        ...item,
+        provider: item.provider ?? group.provider,
+        owned_by: item.owned_by ?? item.provider ?? group.provider,
+        prompt_price_per_1m: item.prompt_price_per_1m ?? item.prompt_per_1m,
+        completion_price_per_1m: item.completion_price_per_1m ?? item.completion_per_1m,
+      } as ModelItem];
+    });
+  });
 }
 
 export function getModelVisibility(signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/models/visibility', { signal });
+  return apiJson<ApiRecord>('/user/models', { signal });
 }
 
 export function setModelVisibility(value: ApiRecord) {
-  return apiJson<ApiRecord>('/models/visibility', { method: 'PUT', body: JSON.stringify(value) });
+  return apiJson<ApiRecord>('/user/models/visibility', { method: 'PUT', body: JSON.stringify(value) });
 }
 
 // ---- Plans & balance ----
 
 export async function getPlans(signal?: AbortSignal) {
-  const payload = await apiJson<unknown>('/plans', { signal });
+  const payload = await apiJson<unknown>('/user/plans', { signal });
   return firstArray<PlanItem>(payload, ['plans', 'data', 'items', 'list']);
 }
 
 export async function getBalance(signal?: AbortSignal) {
-  const payload = await apiJson<ApiRecord>('/users/me/balance', { signal });
+  const payload = await apiJson<ApiRecord>('/user/me', { signal });
   const inner = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
     ? payload.data as ApiRecord
     : payload;
@@ -103,25 +129,63 @@ export async function getBalance(signal?: AbortSignal) {
 
 // ---- Usage ----
 
+function normalizeRange(range?: string) {
+  if (range === 'day') return '24h';
+  if (range === 'week') return '7d';
+  if (range === 'month') return '30d';
+  return range;
+}
+
+function normalizeUsageOverview(value: ApiRecord): UsageOverview {
+  return {
+    ...value,
+    request_count: Number(value.request_count ?? value.total_requests) || 0,
+    total_tokens: Number(value.total_tokens) || 0,
+    prompt_tokens: Number(value.prompt_tokens ?? value.input_tokens) || 0,
+    completion_tokens: Number(value.completion_tokens ?? value.output_tokens) || 0,
+    cost: Number(value.cost ?? value.cost_usd) || 0,
+  };
+}
+
+function normalizeTrendItem(value: UsageTrendItem): UsageTrendItem {
+  return {
+    ...value,
+    request_count: Number(value.request_count ?? value.requests ?? value.count) || 0,
+    total_tokens: Number(value.total_tokens ?? value.tokens) || 0,
+    cost: Number(value.cost ?? value.cost_usd) || 0,
+  };
+}
+
+function normalizeRequestItem(value: RequestLogItem): RequestLogItem {
+  return {
+    ...value,
+    prompt_tokens: Number(value.prompt_tokens ?? value.input_tokens) || 0,
+    completion_tokens: Number(value.completion_tokens ?? value.output_tokens) || 0,
+    total_tokens: Number(value.total_tokens) || 0,
+    cost: Number(value.cost ?? value.cost_usd) || 0,
+    error: value.error ?? (value.failed ? '请求失败' : null),
+  };
+}
+
 export async function getUsageOverview(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  const payload = await apiJson<ApiRecord>('/usage/overview', { signal, query: params });
+  const payload = await apiJson<ApiRecord>('/user/usage/overview', { signal, query: { ...params, range: normalizeRange(params?.range) } });
   const inner = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)
     ? payload.data as ApiRecord
     : payload;
-  return (inner ?? {}) as UsageOverview;
+  return normalizeUsageOverview((inner ?? {}) as ApiRecord);
 }
 
 export async function getUsageTrend(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  const payload = await apiJson<unknown>('/usage/trend', { signal, query: params });
-  return firstArray<UsageTrendItem>(payload, ['trend', 'items', 'data', 'buckets', 'list']);
+  const payload = await apiJson<unknown>('/user/usage/trend', { signal, query: { ...params, range: normalizeRange(params?.range) } });
+  return firstArray<UsageTrendItem>(payload, ['trend', 'items', 'data', 'buckets', 'list']).map(normalizeTrendItem);
 }
 
 export function getUsageAnalysis(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/usage/analysis', { signal, query: params });
+  return apiJson<ApiRecord>('/user/usage/analysis', { signal, query: { ...params, range: normalizeRange(params?.range) } });
 }
 
 export function getUsageQuotaLimit(signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/usage/quota/limit', { signal });
+  return apiJson<ApiRecord>('/user/quotas', { signal });
 }
 
 // ---- Request logs ----
@@ -133,8 +197,18 @@ export type RequestLogPage = {
 };
 
 export async function getRequests(params?: { limit?: number; cursor?: string; q?: string; model?: string; status?: string }, signal?: AbortSignal): Promise<RequestLogPage> {
-  const payload = await apiJson<unknown>('/requests', { signal, query: params });
-  const items = firstArray<RequestLogItem>(payload, ['requests', 'items', 'data', 'list', 'logs']);
+  const page = Math.max(1, Number(params?.cursor) || 1);
+  const pageSize = params?.limit ?? 20;
+  const payload = await apiJson<unknown>('/user/usage/events', {
+    signal,
+    query: {
+      page,
+      page_size: pageSize,
+      model: params?.model ?? params?.q,
+      failed: params?.status === 'failed' ? true : undefined,
+    },
+  });
+  const items = firstArray<RequestLogItem>(payload, ['events', 'requests', 'items', 'data', 'list', 'logs']).map(normalizeRequestItem);
   let nextCursor = '';
   if (payload && typeof payload === 'object') {
     const record = payload as ApiRecord;
@@ -143,6 +217,13 @@ export async function getRequests(params?: { limit?: number; cursor?: string; q?
         nextCursor = record[key] as string;
         break;
       }
+    }
+    const pagination = record.pagination && typeof record.pagination === 'object'
+      ? record.pagination as ApiRecord
+      : record.meta && typeof record.meta === 'object' ? record.meta as ApiRecord : record;
+    const totalPages = Number(pagination.total_pages ?? pagination.pages ?? pagination.page_count);
+    if (!nextCursor && (Number.isFinite(totalPages) ? page < totalPages : items.length >= pageSize)) {
+      nextCursor = String(page + 1);
     }
   }
   return { items, nextCursor, raw: payload };
