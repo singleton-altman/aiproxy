@@ -72,3 +72,6 @@ skills-lock.json
 /ios
 /android
 /artifacts/
+
+# legacy files moved by scripts/cleanup-legacy.mjs
+_to_delete/

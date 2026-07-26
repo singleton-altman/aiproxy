@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Activity, Braces, ChevronRight, LayoutGrid, ServerCog, ShieldAlert, UsersRound } from 'lucide-react-native';
+import { Activity, Braces, ChevronRight, CloudCog, Footprints, KeySquare, LayoutGrid, Network, Package, ServerCog, ShieldAlert, TicketPercent, UsersRound, Waypoints } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -72,6 +72,13 @@ export default function AdminScreen() {
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       <ServiceButton icon={UsersRound} label="用户管理" detail="账号、角色、余额与订阅" onPress={() => router.push('/admin-users' as never)} />
       <ServiceButton icon={ServerCog} label="系统管理" detail="版本、更新、重启与日志" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-system' as never)} />
+      <ServiceButton icon={CloudCog} label="上游账号" detail="账号池、恢复与额度重置" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-accounts' as never)} />
+      <ServiceButton icon={Network} label="Providers" detail="上游服务与路由前缀" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-providers' as never)} />
+      <ServiceButton icon={Waypoints} label="代理管理" detail="出口代理与连通性测试" iconColor={colors.accentText} iconBackground={colors.accentBg} onPress={() => router.push('/admin-proxies' as never)} />
+      <ServiceButton icon={TicketPercent} label="邀请码" detail="创建、限次与使用记录" onPress={() => router.push('/admin-invites' as never)} />
+      <ServiceButton icon={Package} label="套餐管理" detail="定价、限额与上下架" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-plans' as never)} />
+      <ServiceButton icon={KeySquare} label="Mgmt Tokens" detail="管理令牌创建与撤销" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-tokens' as never)} />
+      <ServiceButton icon={Footprints} label="Traces" detail="请求链路追踪明细" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-traces' as never)} />
     </View>
 
     <SectionHeader icon={Braces} title="全部管理接口" meta={`${modules.reduce((sum, item) => sum + item.endpointCount, 0)} 个端点`} />

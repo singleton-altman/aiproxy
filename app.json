@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "AI Proxy 管理",
+    "name": "AI Proxy",
     "slug": "lucky-mobile",
     "version": "1.0.0",
     "platforms": [
@@ -25,7 +25,7 @@
       "icon": "./assets/icon.png",
       "package": "com.ppx.luckymobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#5b3fd4",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -50,7 +50,10 @@
         {
           "image": "./assets/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#f5f5fb",
+          "dark": {
+            "backgroundColor": "#0b0b13"
+          }
         }
       ],
       "expo-image"

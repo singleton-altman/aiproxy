@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Bot, ChevronDown, Eraser, MessageCircle, Send, Square, UserRound } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Bot, ChevronDown, Eraser, ImagePlus, MessageCircle, Send, Square, UserRound } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -110,7 +111,12 @@ export default function ChatScreen() {
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={['top']}>
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <View style={{ width: '100%', maxWidth: 820, alignSelf: 'center', flex: 1, paddingHorizontal: 16, paddingTop: 14, gap: 12 }}>
-        <PageHeader title="聊天测试" subtitle="调用 /v1 网关接口" icon={MessageCircle} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flex: 1 }}><PageHeader title="聊天测试" subtitle="调用 /v1 网关接口" icon={MessageCircle} /></View>
+          <Pressable accessibilityLabel="图像生成" onPress={() => router.push('/images' as never)} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}>
+            <ImagePlus color={colors.primary} size={19} />
+          </Pressable>
+        </View>
 
         <View style={{ gap: 8 }}>
           {session.mode !== 'apikey' || !sessionState.apiKey ? <TextInput

@@ -56,6 +56,11 @@ export default function SettingsScreen() {
           <Text style={{ color: colors.subtext, fontSize: 12 }}>凭据由设备安全存储保护</Text>
         </View>
       </View>
+      {session.mode === 'session' ? <Pressable onPress={() => router.push('/profile' as never)} style={({ pressed }) => ({ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 9, opacity: pressed ? 0.62 : 1 })}>
+        <UserRound color={colors.primary} size={16} />
+        <Text style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>个人资料与账号管理</Text>
+        <ChevronRight color={colors.disabled} size={16} />
+      </Pressable> : null}
     </Panel>
 
     <SectionHeader icon={Braces} title="用户端接口" meta={`${userModules.reduce((sum, item) => sum + item.endpointCount, 0)} 个端点`} />
