@@ -1,18 +1,20 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, History, Power, RefreshCw, ScrollText, ServerCog } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { ErrorState, Page, Panel, SectionHeader } from '@/src/components/ui';
-import { StructuredDataView } from '@/src/components/structured-form';
+import { StructuredDataView, StructuredForm } from '@/src/components/structured-form';
 import { useAppTheme } from '@/src/lib/theme';
-import { checkAdminUpdates, getAdminAppLogs, getAdminSystemInfo, runAdminSystemAction } from '@/src/services/admin';
+import { checkAdminUpdates, getAdminAppLogs, getAdminSystemInfo, getAdminUpdateSettings, runAdminSystemAction, updateAdminUpdateSettings } from '@/src/services/admin';
+import type { ApiRecord } from '@/src/types/api';
 
 const actionLabels = { update: '执行更新', restart: '重启服务', rollback: '回滚版本' } as const;
 
 export default function AdminSystemScreen() {
   const colors = useAppTheme();
   const [refreshing, setRefreshing] = useState(false);
+  const [updateSettings, setUpdateSettings] = useState<ApiRecord>({});
 
   const info = useQuery({ queryKey: ['admin', 'system', 'info'], queryFn: ({ signal }) => getAdminSystemInfo(signal) });
   const updates = useQuery({
@@ -25,6 +27,7 @@ export default function AdminSystemScreen() {
     queryFn: ({ signal }) => getAdminAppLogs({ limit: 100 }, signal),
     retry: 0,
   });
+  const settings = useQuery({ queryKey: ['admin', 'system', 'update-settings'], queryFn: ({ signal }) => getAdminUpdateSettings(signal), retry: 0 });
 
   const actionMutation = useMutation({
     mutationFn: (action: keyof typeof actionLabels) => runAdminSystemAction(action),
@@ -35,8 +38,12 @@ export default function AdminSystemScreen() {
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    void Promise.allSettled([info.refetch(), updates.refetch(), logs.refetch()]).finally(() => setRefreshing(false));
+    void Promise.allSettled([info.refetch(), updates.refetch(), logs.refetch(), settings.refetch()]).finally(() => setRefreshing(false));
   };
+
+  useEffect(() => {
+    if (settings.data) setUpdateSettings(settings.data);
+  }, [settings.data]);
 
   function confirmAction(action: keyof typeof actionLabels) {
     Alert.alert(`确认${actionLabels[action]}`, '该操作会影响线上服务，确定继续吗？', [
@@ -70,6 +77,13 @@ export default function AdminSystemScreen() {
           <History color="#fff" size={15} /><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>回滚版本</Text>
         </Pressable>
       </View>
+    </Panel>
+
+    <Panel>
+      <SectionHeader icon={ServerCog} title="更新设置" />
+      {settings.error ? <Text style={{ color: colors.subtext, fontSize: 12 }}>更新设置暂不可用：{settings.error.message}</Text> : null}
+      <StructuredForm value={updateSettings} onChange={setUpdateSettings} />
+      <Pressable onPress={() => updateAdminUpdateSettings(updateSettings).then(() => Alert.alert('已保存', '更新设置已保存。')).catch((error) => Alert.alert('保存失败', error.message))} style={{ minHeight: 44, borderRadius: 11, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>保存更新设置</Text></Pressable>
     </Panel>
 
     <Panel>

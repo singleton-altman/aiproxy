@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Braces, ChevronRight, KeyRound, LogOut, Server, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-react-native';
+import { Braces, ChevronRight, KeyRound, LogOut, Package, Server, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
@@ -59,6 +59,11 @@ export default function SettingsScreen() {
       {session.mode === 'session' ? <Pressable onPress={() => router.push('/profile' as never)} style={({ pressed }) => ({ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 9, opacity: pressed ? 0.62 : 1 })}>
         <UserRound color={colors.primary} size={16} />
         <Text style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>个人资料与账号管理</Text>
+        <ChevronRight color={colors.disabled} size={16} />
+      </Pressable> : null}
+      {session.mode === 'session' ? <Pressable onPress={() => router.push('/plans' as never)} style={({ pressed }) => ({ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 9, opacity: pressed ? 0.62 : 1 })}>
+        <Package color={colors.primary} size={16} />
+        <Text style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>套餐计划</Text>
         <ChevronRight color={colors.disabled} size={16} />
       </Pressable> : null}
     </Panel>

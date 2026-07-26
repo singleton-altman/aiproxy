@@ -23,6 +23,8 @@ export default function AdminProvidersScreen() {
     ]}
     actions={[
       { key: 'detail', label: '完整详情', run: (item) => apiJson(`/admin/providers/${encodeURIComponent(providerId(item))}`) },
+      { key: 'builtin-models', label: '内置模型', run: (item) => apiJson(`/admin/providers/builtin/${encodeURIComponent(String(item.name ?? providerId(item)))}/models`) },
+      { key: 'route-prefix', label: '保存路由前缀', run: (item) => apiJson(`/admin/providers/builtin/${encodeURIComponent(String(item.name ?? providerId(item)))}/route-prefix`, { method: 'PUT', body: JSON.stringify({ route_prefix: item.route_prefix ?? '' }) }) },
       { key: 'quota-test', label: '额度查询测试', run: (item) => apiJson(`/admin/providers/${encodeURIComponent(providerId(item))}/quota-test`, { method: 'POST', body: '{}', timeoutMs: 60000 }) },
     ]}
     create={{

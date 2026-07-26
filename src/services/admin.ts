@@ -58,6 +58,10 @@ export async function getAdminStatsOverview(params?: { from?: string; to?: strin
   } as UsageOverview;
 }
 
+export function getAdminStats(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/stats', { signal, query: normalizeStatsParams(params) });
+}
+
 export async function getAdminStatsTrend(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/admin/stats/trend', { signal, query: normalizeStatsParams(params) });
   return firstArray<UsageTrendItem>(payload, ['trend', 'items', 'data', 'buckets', 'list']).map((value) => ({
@@ -73,8 +77,16 @@ export function getAdminRealtimeUsage(signal?: AbortSignal) {
 }
 
 export async function getAdminStatsModels(signal?: AbortSignal) {
-  const payload = await apiJson<unknown>('/admin/models', { signal });
+  const payload = await apiJson<unknown>('/admin/stats/models', { signal });
   return firstArray<ModelItem>(payload, ['models', 'items', 'data', 'list', 'rows']);
+}
+
+export function getAdminStatsAnalysis(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/stats/analysis', { signal, query: normalizeStatsParams(params) });
+}
+
+export function getAdminStatsUsers(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/stats/users', { signal, query: normalizeStatsParams(params) });
 }
 
 export async function getAdminQuota(signal?: AbortSignal) {
@@ -104,6 +116,93 @@ export async function getAdminRequestLogs(params?: { limit?: number }, signal?: 
   };
 }
 
+export function getAdminUsageEvents(params?: { range?: string; page?: number; page_size?: number }, signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/usage/events', { signal, query: params });
+}
+
+export function getAdminLogsRequests(params?: { page?: number; page_size?: number }, signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/logs/requests', { signal, query: params });
+}
+
+// ---- Models ----
+
+export async function getAdminModels(signal?: AbortSignal) {
+  const payload = await apiJson<unknown>('/admin/models', { signal });
+  return firstArray<ApiRecord>(payload, ['models', 'items', 'data', 'list', 'rows']);
+}
+
+export function createAdminModel(value: ApiRecord) {
+  return apiJson<ApiRecord>('/admin/models', { method: 'POST', body: JSON.stringify(value) });
+}
+
+export function updateAdminModel(id: string, value: ApiRecord) {
+  return apiJson<ApiRecord>(`/admin/models/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(value) });
+}
+
+export function deleteAdminModel(id: string) {
+  return apiJson<ApiRecord>(`/admin/models/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function runAdminModelAction(action: 'sync' | 'probe' | 'cleanup', value: ApiRecord = {}) {
+  return apiJson<ApiRecord>(`/admin/models/${action}`, { method: 'POST', body: JSON.stringify(value), timeoutMs: 60000 });
+}
+
+export function setAdminModelsEnabled(value: ApiRecord) {
+  return apiJson<ApiRecord>('/admin/models/enabled', { method: 'PUT', body: JSON.stringify(value) });
+}
+
+export function getAdminModelSnapshot(signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/snapshot', { signal });
+}
+
+export function getAdminModelWarnings(signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/snapshot/warnings', { signal });
+}
+
+// ---- Quota ----
+
+export function refreshAdminQuota(value: ApiRecord = {}) {
+  return apiJson<ApiRecord>('/admin/quota/refresh', { method: 'POST', body: JSON.stringify(value), timeoutMs: 60000 });
+}
+
+// ---- Configuration ----
+
+export function getAdminConfig(signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/config', { signal });
+}
+
+export function updateAdminConfig(value: ApiRecord) {
+  return apiJson<ApiRecord>('/admin/config', { method: 'PUT', body: JSON.stringify(value) });
+}
+
+export function validateAdminConfig(value: ApiRecord) {
+  return apiJson<ApiRecord>('/admin/config/validate', { method: 'POST', body: JSON.stringify(value) });
+}
+
+export function getAdminEmailSettings(signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/email/settings', { signal });
+}
+
+export function updateAdminEmailSettings(value: ApiRecord) {
+  return apiJson<ApiRecord>('/admin/email/settings', { method: 'PUT', body: JSON.stringify(value) });
+}
+
+export function runAdminEmailAction(action: 'test' | 'preview', value: ApiRecord) {
+  return apiJson<ApiRecord>(`/admin/email/${action}`, { method: 'POST', body: JSON.stringify(value) });
+}
+
+export function getAdminEmailTemplateDefaults(signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/email/templates/defaults', { signal });
+}
+
+export function getAdminGithubSettings(signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/github/settings', { signal });
+}
+
+export function updateAdminGithubSettings(value: ApiRecord) {
+  return apiJson<ApiRecord>('/admin/github/settings', { method: 'PUT', body: JSON.stringify(value) });
+}
+
 // ---- System ----
 
 export function getAdminSystemInfo(signal?: AbortSignal) {
@@ -116,6 +215,14 @@ export function checkAdminUpdates(force = false, signal?: AbortSignal) {
 
 export function runAdminSystemAction(action: 'update' | 'restart' | 'rollback') {
   return apiJson<ApiRecord>(`/admin/system/${action}`, { method: 'POST', timeoutMs: 60000 });
+}
+
+export function getAdminUpdateSettings(signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/system/update-settings', { signal });
+}
+
+export function updateAdminUpdateSettings(value: ApiRecord) {
+  return apiJson<ApiRecord>('/admin/system/update-settings', { method: 'PUT', body: JSON.stringify(value) });
 }
 
 // ---- Logs ----

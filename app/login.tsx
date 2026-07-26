@@ -8,11 +8,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import { getProfile } from '@/src/services/account';
-import { apiKeyLogin, extractProfile, getPublicConfig, login, register, resetPassword, sendCode } from '@/src/services/auth';
+import { apiKeyLogin, extractProfile, getPublicConfig, getSetupStatus, login, register, resetPassword, sendCode, setupAdmin } from '@/src/services/auth';
 import { normalizeBaseUrl, saveSession, sessionState } from '@/src/store/session';
 import type { PublicConfig, UserProfile } from '@/src/types/api';
 
-type FormMode = 'login' | 'register' | 'reset' | 'apikey';
+type FormMode = 'login' | 'register' | 'reset' | 'apikey' | 'setup';
 
 const modeTabs: readonly [FormMode, string, LucideIcon][] = [
   ['login', '登录', LogIn],
@@ -38,6 +38,7 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [publicConfig, setPublicConfig] = useState<PublicConfig>();
+  const [setupRequired, setSetupRequired] = useState(false);
   const configuredUrlRef = useRef('');
 
   const normalizedUrl = normalizeBaseUrl(baseUrl);
@@ -46,9 +47,16 @@ export default function LoginScreen() {
     if (!/^https?:\/\/.+/i.test(normalizedUrl) || configuredUrlRef.current === normalizedUrl) return;
     const timer = setTimeout(() => {
       configuredUrlRef.current = normalizedUrl;
-      getPublicConfig(normalizedUrl)
-        .then((config) => setPublicConfig(config))
-        .catch(() => setPublicConfig(undefined));
+      Promise.allSettled([getPublicConfig(normalizedUrl), getSetupStatus(normalizedUrl)]).then(([configResult, setupResult]) => {
+        if (configResult.status === 'fulfilled') setPublicConfig(configResult.value);
+        else setPublicConfig(undefined);
+        if (setupResult.status === 'fulfilled') {
+          const required = setupResult.value.initialized === false;
+          setSetupRequired(required);
+          if (required) setMode('setup');
+          else setMode((current) => current === 'setup' ? 'login' : current);
+        } else setSetupRequired(false);
+      });
     }, 600);
     return () => clearTimeout(timer);
   }, [normalizedUrl]);
@@ -68,6 +76,7 @@ export default function LoginScreen() {
       if (password.length < 8) return '新密码至少 8 位';
       return '';
     }
+    if (mode === 'setup' && password.length < 8) return '管理员密码至少 8 位';
     if (!password) return '请输入密码';
     if (mode === 'register') {
       if (password.length < 8) return '密码至少 8 位';
@@ -128,6 +137,14 @@ export default function LoginScreen() {
         setMode('login');
         return;
       }
+      if (mode === 'setup') {
+        let payload: unknown = await setupAdmin({ email, password, name }, normalizedUrl);
+        try {
+          payload = await login({ email, password }, normalizedUrl);
+        } catch { /* 初始化接口可能已经建立会话。 */ }
+        await finishSessionLogin(payload);
+        return;
+      }
       if (mode === 'register') {
         let payload: unknown = await register({ email, password, name, invite_code: inviteCode, code }, normalizedUrl);
         // 注册接口可能直接建立会话，也可能需要再登录一次。
@@ -149,7 +166,7 @@ export default function LoginScreen() {
   const fieldStyle = { minHeight: 50, backgroundColor: colors.mutedCard, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingLeft: 44, paddingRight: 13, paddingVertical: 12, color: colors.text, fontSize: 16 } as const;
   const submitLabel = busy
     ? '处理中'
-    : mode === 'login' ? '登录' : mode === 'register' ? '注册并登录' : mode === 'reset' ? '重置密码' : '使用 Key 登录';
+    : mode === 'setup' ? '创建管理员并登录' : mode === 'login' ? '登录' : mode === 'register' ? '注册并登录' : mode === 'reset' ? '重置密码' : '使用 Key 登录';
 
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 22 }}>
     <View style={{ width: Math.min(460, Math.max(0, viewport.width - 44)), alignSelf: 'center', gap: 22 }}>
@@ -160,8 +177,9 @@ export default function LoginScreen() {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 14, backgroundColor: colors.mutedCard }}>
-        {modeTabs
+        {(setupRequired ? ([['setup', '初始化管理员', Wand2]] as const) : modeTabs
           .filter(([key]) => key !== 'register' || publicConfig?.allow_open_registration !== false)
+        )
           .map(([key, label, Icon]) => {
             const selected = mode === key;
             return <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => { setMode(key); setError(''); setNotice(''); }} style={{ flex: 1, minHeight: 40, borderRadius: 10, backgroundColor: selected ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
@@ -187,13 +205,13 @@ export default function LoginScreen() {
             <View><UserRound color={colors.subtext} size={18} style={{ position: 'absolute', left: 14, top: 15, zIndex: 1 }} /><TextInput value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" style={fieldStyle} /></View>
           </View>
 
-          {mode === 'register' ? <View style={{ gap: 7 }}>
+          {mode === 'register' || mode === 'setup' ? <View style={{ gap: 7 }}>
             <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>名称（可选）</Text>
             <View><UserRoundPlus color={colors.subtext} size={18} style={{ position: 'absolute', left: 14, top: 15, zIndex: 1 }} /><TextInput value={name} onChangeText={setName} placeholder="昵称" placeholderTextColor={colors.placeholder} autoCorrect={false} style={fieldStyle} /></View>
           </View> : null}
 
           <View style={{ gap: 7 }}>
-            <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>{mode === 'reset' ? '新密码' : '密码'}</Text>
+            <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>{mode === 'reset' || mode === 'setup' ? '管理员密码' : '密码'}</Text>
             <View>
               <LockKeyhole color={colors.subtext} size={18} style={{ position: 'absolute', left: 14, top: 15, zIndex: 1 }} />
               <TextInput value={password} onChangeText={setPassword} placeholder={mode === 'reset' ? '至少 8 位新密码' : '输入密码'} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} textContentType={mode === 'login' ? 'password' : 'newPassword'} secureTextEntry={!showPassword} style={[fieldStyle, { paddingRight: 50 }]} />

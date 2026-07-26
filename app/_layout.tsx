@@ -34,16 +34,23 @@ export default function RootLayout() {
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="requests" options={{ title: '请求日志', headerBackTitle: '返回' }} />
           <Stack.Screen name="profile" options={{ title: '个人资料', headerBackTitle: '返回' }} />
+          <Stack.Screen name="plans" options={{ title: '套餐计划', headerBackTitle: '返回' }} />
           <Stack.Screen name="images" options={{ title: '图像生成', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-users" options={{ title: '用户管理', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-system" options={{ title: '系统管理', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-invites" options={{ title: '邀请码', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-plans" options={{ title: '套餐管理', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-accounts" options={{ title: '上游账号', headerBackTitle: '返回' }} />
+          <Stack.Screen name="admin-account-import" options={{ title: '账号导入', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-providers" options={{ title: 'Providers', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-proxies" options={{ title: '代理管理', headerBackTitle: '返回' }} />
+          <Stack.Screen name="admin-proxy-system" options={{ title: '系统代理', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-tokens" options={{ title: 'Management Tokens', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-traces" options={{ title: 'Traces', headerBackTitle: '返回' }} />
+          <Stack.Screen name="admin-models" options={{ title: '模型目录', headerBackTitle: '返回' }} />
+          <Stack.Screen name="admin-stats" options={{ title: '统计与日志', headerBackTitle: '返回' }} />
+          <Stack.Screen name="admin-quota" options={{ title: '额度管理', headerBackTitle: '返回' }} />
+          <Stack.Screen name="admin-config" options={{ title: '配置中心', headerBackTitle: '返回' }} />
           <Stack.Screen name="modules/[module]" options={{ title: '模块接口', headerBackTitle: '返回' }} />
           <Stack.Screen name="endpoints/[id]" options={{ title: '接口调试', headerBackTitle: '返回' }} />
         </Stack>}
