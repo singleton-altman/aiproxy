@@ -26,10 +26,10 @@ function keyId(item: ApiKeyItem) {
   return item.id !== undefined ? String(item.id) : '';
 }
 
-function KeyRow({ item, onToggle, onDelete, busy }: { item: ApiKeyItem; onToggle: (item: ApiKeyItem, disabled: boolean) => void; onDelete: (item: ApiKeyItem) => void; busy: boolean }) {
+function KeyRow({ item, onToggle, onCopy, onDelete, busy }: { item: ApiKeyItem; onToggle: (item: ApiKeyItem, disabled: boolean) => void; onCopy: (item: ApiKeyItem) => void; onDelete: (item: ApiKeyItem) => void; busy: boolean }) {
   const colors = useAppTheme();
   const disabled = Boolean(item.disabled);
-  return <View style={{ minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.rowBorder }}>
+  return <View style={{ minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.rowBorder }}>
     <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: disabled ? colors.mutedCard : colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
       <KeyRound color={disabled ? colors.subtext : colors.primary} size={16} />
     </View>
@@ -41,6 +41,9 @@ function KeyRow({ item, onToggle, onDelete, busy }: { item: ApiKeyItem; onToggle
       {item.expires_at ? <Text numberOfLines={1} style={{ color: colors.warning, fontSize: 10 }}>到期：{String(item.expires_at)}</Text> : null}
     </View>
     <Switch value={!disabled} disabled={busy || !keyId(item)} onValueChange={(enabled) => onToggle(item, !enabled)} trackColor={{ false: colors.disabled, true: colors.primary }} />
+    <Pressable accessibilityLabel="复制 Key" onPress={() => onCopy(item)} style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 8, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}>
+      <Copy color={colors.primary} size={15} />
+    </Pressable>
     <Pressable accessibilityLabel="删除 Key" disabled={busy || !keyId(item)} onPress={() => onDelete(item)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.dangerBg, alignItems: 'center', justifyContent: 'center' }}>
       <Trash2 color={colors.danger} size={15} />
     </Pressable>
@@ -74,7 +77,7 @@ export default function KeysScreen() {
         setSecret(value);
         setSecretVisible(false);
       } else {
-        Alert.alert('创建成功', '服务器未返回完整 Key，请在列表中查看。');
+        Alert.alert('创建成功，但未返回完整 Key', '服务器不会在列表中再次显示完整 Key。如需使用，请删除该 Key 后重新创建。');
       }
     },
   });
@@ -111,6 +114,16 @@ export default function KeysScreen() {
     visibilityMutation.mutate({ id: modelId, hidden });
   }
 
+  async function copyExistingKey(item: ApiKeyItem) {
+    const value = extractKeySecret(item);
+    if (!value) {
+      Alert.alert('无法复制完整 Key', '出于安全原因，服务器只在创建时返回一次完整 Key，当前列表仅包含展示前缀。请创建新 Key 并在弹窗中立即复制。');
+      return;
+    }
+    await Clipboard.setStringAsync(value);
+    Alert.alert('已复制', '完整 Key 已复制到剪贴板。');
+  }
+
   async function copySecret() {
     await Clipboard.setStringAsync(secret);
     Alert.alert('已复制', '完整 Key 已复制到剪贴板，请立即妥善保存。');
@@ -126,6 +139,7 @@ export default function KeysScreen() {
           item={item}
           busy={toggleMutation.isPending || deleteMutation.isPending}
           onToggle={(target, disabled) => toggleMutation.mutate({ item: target, disabled })}
+          onCopy={(target) => void copyExistingKey(target)}
           onDelete={confirmDelete}
         />)}
         {!keys.data?.length && !keys.isFetching ? <EmptyState message="还没有 API Key，点击下方创建" embedded /> : null}

@@ -128,6 +128,21 @@ export function getAdminLogsRequests(params?: { page?: number; page_size?: numbe
 
 export async function getAdminModels(signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/admin/models', { signal });
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const outer = payload as ApiRecord;
+    const root = outer.data && typeof outer.data === 'object' && !Array.isArray(outer.data) ? outer.data as ApiRecord : outer;
+    const providers = Array.isArray(root.providers) ? root.providers : [];
+    const grouped = providers.flatMap((value) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+      const provider = value as ApiRecord;
+      const models = Array.isArray(provider.models) ? provider.models : Array.isArray(provider.items) ? provider.items : [];
+      const providerValue = provider.name ?? provider.provider ?? provider.id;
+      return models.flatMap((model) => model && typeof model === 'object' && !Array.isArray(model)
+        ? [{ ...(model as ApiRecord), provider: (model as ApiRecord).provider ?? providerValue }]
+        : []);
+    });
+    if (grouped.length) return grouped;
+  }
   return firstArray<ApiRecord>(payload, ['models', 'items', 'data', 'list', 'rows']);
 }
 

@@ -1,13 +1,12 @@
 import { router } from 'expo-router';
-import { Braces, ChevronRight, KeyRound, LogOut, Package, Server, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-react-native';
+import { ChevronRight, KeyRound, LogOut, Package, Server, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
-import { IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
+import { IconTile, Page, Panel } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import { logout } from '@/src/services/auth';
-import { getApiModules } from '@/src/services/endpoints';
 import { endSession, sessionState } from '@/src/store/session';
 
 const { useSnapshot } = require('valtio/react');
@@ -16,7 +15,6 @@ export default function SettingsScreen() {
   const colors = useAppTheme();
   const session = useSnapshot(sessionState);
   const [busy, setBusy] = useState(false);
-  const userModules = getApiModules().filter((module) => !module.key.startsWith('admin-'));
 
   const leave = async () => {
     setBusy(true);
@@ -66,17 +64,6 @@ export default function SettingsScreen() {
         <Text style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>套餐计划</Text>
         <ChevronRight color={colors.disabled} size={16} />
       </Pressable> : null}
-    </Panel>
-
-    <SectionHeader icon={Braces} title="用户端接口" meta={`${userModules.reduce((sum, item) => sum + item.endpointCount, 0)} 个端点`} />
-    <Panel>
-      {userModules.map((module, index) => <Pressable key={module.key} onPress={() => router.push(`/modules/${encodeURIComponent(module.key)}` as never)} style={({ pressed }) => ({ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, opacity: pressed ? 0.62 : 1 })}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>{module.label}</Text>
-          <Text style={{ color: colors.subtext, fontSize: 10, marginTop: 2 }}>{module.endpointCount} 个端点 · {module.methodCount} 个方法</Text>
-        </View>
-        <ChevronRight color={colors.disabled} size={16} />
-      </Pressable>)}
     </Panel>
 
     <Panel>

@@ -111,6 +111,11 @@ export function markSessionAuthenticated(value: boolean) {
   sessionState.authenticated = value;
 }
 
+export async function saveGatewayApiKey(apiKey: string) {
+  sessionState.apiKey = apiKey.trim();
+  await persist();
+}
+
 export async function endSession() {
   sessionState.authenticated = false;
   sessionState.profile = null;

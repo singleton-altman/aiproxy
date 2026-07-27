@@ -1,7 +1,10 @@
-import { CloudCog } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { CloudCog, Plus } from 'lucide-react-native';
+import { Pressable, Text } from 'react-native';
 
 import { ResourceScreen } from '@/src/components/resource-screen';
 import { apiJson, firstArray } from '@/src/lib/api';
+import { useAppTheme } from '@/src/lib/theme';
 import type { ApiRecord } from '@/src/types/api';
 
 function accountId(item: ApiRecord) {
@@ -13,6 +16,8 @@ function accountLabel(item: ApiRecord) {
 }
 
 export default function AdminAccountsScreen() {
+  const colors = useAppTheme();
+  const router = useRouter();
   return <ResourceScreen
     title="上游账号"
     icon={CloudCog}
@@ -45,12 +50,6 @@ export default function AdminAccountsScreen() {
       { key: 'recover', label: '恢复账号', confirm: '尝试恢复该账号？', run: (item) => apiJson(`/admin/accounts/${encodeURIComponent(accountId(item))}/recover`, { method: 'POST', body: '{}' }) },
       { key: 'quota-reset', label: '重置额度', danger: true, confirm: '确定重置该账号的额度统计吗？', run: (item) => apiJson(`/admin/accounts/${encodeURIComponent(accountId(item))}/quota/reset`, { method: 'POST', body: '{}' }) },
     ]}
-    create={{
-      label: '添加账号',
-      note: '不同 provider 的凭据字段不同（api_key / token / cookie 等），请按上游要求填写；OAuth / Kiro 导入请使用「管理 → 全部管理接口」中的导入流程。',
-      template: { provider: 'openai', label: '', api_key: '', enabled: true, priority: 0 },
-      run: (value) => apiJson('/admin/accounts', { method: 'POST', body: JSON.stringify(value) }),
-    }}
     edit={{
       pick: (item) => ({
         label: item.label ?? item.name ?? '',
@@ -64,5 +63,6 @@ export default function AdminAccountsScreen() {
       confirm: (item) => `确定删除账号「${accountLabel(item)}」吗？`,
       run: (item) => apiJson(`/admin/accounts/${encodeURIComponent(accountId(item))}`, { method: 'DELETE' }),
     }}
+    footer={<Pressable onPress={() => router.push('/admin-account-import' as never)} style={{ position: 'absolute', left: 16, right: 16, bottom: 96, minHeight: 48, borderRadius: 8, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}><Plus color="#fff" size={17} /><Text style={{ color: '#fff', fontWeight: '800' }}>添加或导入账号</Text></Pressable>}
   />;
 }

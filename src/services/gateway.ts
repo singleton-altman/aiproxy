@@ -33,8 +33,20 @@ async function gatewayJson<T = ApiRecord>(path: string, apiKey: string, init: Re
 }
 
 export async function getGatewayModels(apiKey: string, signal?: AbortSignal) {
-  const payload = await gatewayJson<{ data?: ModelItem[] }>('/v1/models', apiKey, { signal });
-  return Array.isArray(payload?.data) ? payload.data : [];
+  const payload = await gatewayJson<unknown>('/v1/models', apiKey, { signal });
+  if (Array.isArray(payload)) return payload.filter((item): item is ModelItem => Boolean(item) && typeof item === 'object');
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as ApiRecord;
+  for (const key of ['data', 'models', 'items', 'list']) {
+    if (Array.isArray(record[key])) return (record[key] as unknown[]).filter((item): item is ModelItem => Boolean(item) && typeof item === 'object');
+  }
+  if (record.data && typeof record.data === 'object' && !Array.isArray(record.data)) {
+    const data = record.data as ApiRecord;
+    for (const key of ['models', 'items', 'list']) {
+      if (Array.isArray(data[key])) return (data[key] as unknown[]).filter((item): item is ModelItem => Boolean(item) && typeof item === 'object');
+    }
+  }
+  return [];
 }
 
 export function countTokens(apiKey: string, body: ApiRecord, signal?: AbortSignal) {
@@ -61,17 +73,40 @@ export function callResponsesApi(apiKey: string, body: ApiRecord, signal?: Abort
   });
 }
 
-function chatRequestBody(protocol: GatewayProtocol, model: string, messages: ChatMessage[], stream: boolean): ApiRecord {
+type ChatRequestOptions = {
+  stream: boolean;
+  temperature?: number;
+  maxTokens?: number;
+};
+
+function chatRequestBody(protocol: GatewayProtocol, model: string, messages: ChatMessage[], options: ChatRequestOptions): ApiRecord {
   if (protocol === 'anthropic') {
     const system = messages.filter((item) => item.role === 'system').map((item) => item.content).join('\n\n');
     const turns = messages
       .filter((item) => item.role !== 'system')
       .map((item) => ({ role: item.role, content: item.content }));
-    const body: ApiRecord = { model, messages: turns, max_tokens: 2048, stream };
+    const body: ApiRecord = { model, messages: turns, max_tokens: options.maxTokens ?? 2048, stream: options.stream };
     if (system.trim()) body.system = system;
+    if (options.temperature !== undefined) body.temperature = options.temperature;
     return body;
   }
-  return { model, messages: messages.map((item) => ({ role: item.role, content: item.content })), stream };
+  const body: ApiRecord = { model, messages: messages.map((item) => ({ role: item.role, content: item.content })), stream: options.stream };
+  if (options.temperature !== undefined) body.temperature = options.temperature;
+  if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens;
+  return body;
+}
+
+function extractTextValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (!Array.isArray(value)) return '';
+  return value.map((part) => {
+    if (typeof part === 'string') return part;
+    if (!part || typeof part !== 'object') return '';
+    const record = part as ApiRecord;
+    if (typeof record.text === 'string') return record.text;
+    if (typeof record.content === 'string') return record.content;
+    return '';
+  }).join('');
 }
 
 function extractOpenAiText(payload: ApiRecord) {
@@ -79,10 +114,10 @@ function extractOpenAiText(payload: ApiRecord) {
   const first = choices[0];
   if (!first || typeof first !== 'object') return '';
   const message = (first as ApiRecord).message;
-  if (message && typeof message === 'object' && typeof (message as ApiRecord).content === 'string') {
-    return (message as ApiRecord).content as string;
+  if (message && typeof message === 'object') {
+    return extractTextValue((message as ApiRecord).content);
   }
-  return '';
+  return extractTextValue((first as ApiRecord).text);
 }
 
 function extractAnthropicText(payload: ApiRecord) {
@@ -95,6 +130,7 @@ function extractAnthropicText(payload: ApiRecord) {
 }
 
 function extractStreamDelta(protocol: GatewayProtocol, payload: ApiRecord) {
+  if (payload.error) throw new Error(extractErrorMessage(payload, '流式响应返回了错误'));
   if (protocol === 'anthropic') {
     if (payload.type === 'content_block_delta') {
       const delta = payload.delta;
@@ -111,15 +147,16 @@ function extractStreamDelta(protocol: GatewayProtocol, payload: ApiRecord) {
   const first = choices[0];
   if (!first || typeof first !== 'object') return '';
   const delta = (first as ApiRecord).delta;
-  if (delta && typeof delta === 'object' && typeof (delta as ApiRecord).content === 'string') {
-    return (delta as ApiRecord).content as string;
-  }
+  if (delta && typeof delta === 'object') return extractTextValue((delta as ApiRecord).content);
   return '';
 }
 
 export type ChatStreamHandlers = {
   onDelta: (text: string) => void;
   signal?: AbortSignal;
+  stream?: boolean;
+  temperature?: number;
+  maxTokens?: number;
 };
 
 export type ChatResult = {
@@ -139,12 +176,18 @@ export async function runChat(
   const path = protocol === 'anthropic' ? '/v1/messages' : '/v1/chat/completions';
   const url = resolveApiUrl(path);
   const fetcher = Platform.OS === 'web' ? fetch : (expoFetch as unknown as typeof fetch);
-  const response = await fetcher(url, {
-    method: 'POST',
-    headers: { ...gatewayHeaders(apiKey), Accept: 'text/event-stream' },
-    body: JSON.stringify(chatRequestBody(protocol, model, messages, true)),
-    signal: handlers.signal,
-  });
+  const wantsStream = handlers.stream !== false;
+  const request = (stream: boolean) => fetcher(url, {
+      method: 'POST',
+      headers: { ...gatewayHeaders(apiKey), Accept: stream ? 'text/event-stream' : 'application/json' },
+      body: JSON.stringify(chatRequestBody(protocol, model, messages, {
+        stream,
+        temperature: handlers.temperature,
+        maxTokens: handlers.maxTokens,
+      })),
+      signal: handlers.signal,
+    });
+  let response = await request(wantsStream);
 
   if (!response.ok) {
     const raw = await response.text();
@@ -154,16 +197,26 @@ export async function runChat(
   }
 
   const contentType = response.headers.get('content-type') ?? '';
-  if (!contentType.includes('text/event-stream')) {
+  if (!wantsStream || !contentType.includes('text/event-stream')) {
     const payload = await response.json() as ApiRecord;
     const text = protocol === 'anthropic' ? extractAnthropicText(payload) : extractOpenAiText(payload);
     handlers.onDelta(text);
     return { text, usage: payload.usage && typeof payload.usage === 'object' ? payload.usage as ApiRecord : undefined };
   }
 
-  const body = response.body;
+  let body = response.body;
   if (!body) {
-    throw new Error('当前环境不支持流式响应');
+    response = await request(false);
+    if (!response.ok) {
+      const raw = await response.text();
+      let payload: unknown;
+      try { payload = JSON.parse(raw) as unknown; } catch { payload = raw; }
+      throw new Error(extractErrorMessage(payload, `请求失败（HTTP ${response.status}）`));
+    }
+    const payload = await response.json() as ApiRecord;
+    const text = protocol === 'anthropic' ? extractAnthropicText(payload) : extractOpenAiText(payload);
+    handlers.onDelta(text);
+    return { text, usage: payload.usage && typeof payload.usage === 'object' ? payload.usage as ApiRecord : undefined };
   }
 
   const reader = body.getReader();
@@ -197,6 +250,7 @@ export async function runChat(
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
+      buffer = buffer.replace(/\r\n/g, '\n');
       let boundary = buffer.indexOf('\n\n');
       while (boundary !== -1) {
         const eventBlock = buffer.slice(0, boundary);

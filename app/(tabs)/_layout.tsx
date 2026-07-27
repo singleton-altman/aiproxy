@@ -1,15 +1,18 @@
-import { Redirect } from 'expo-router';
+import { Redirect, Slot } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { useWindowDimensions } from 'react-native';
 
 import { useAppTheme } from '@/src/lib/theme';
-import { sessionState } from '@/src/store/session';
+import { isAdmin, sessionState } from '@/src/store/session';
 
 const { useSnapshot } = require('valtio/react');
 
 export default function TabLayout() {
   const colors = useAppTheme();
+  const { width } = useWindowDimensions();
   const session = useSnapshot(sessionState);
   if (!session.authenticated) return <Redirect href="/login" />;
+  if (width >= 900) return <Slot />;
 
   return <NativeTabs
     tintColor={colors.primary}
@@ -43,7 +46,7 @@ export default function TabLayout() {
       />
       <NativeTabs.Trigger.Label>聊天</NativeTabs.Trigger.Label>
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="admin">
+    <NativeTabs.Trigger name="admin" hidden={!isAdmin()}>
       <NativeTabs.Trigger.Icon
         sf={{ default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }}
         md={{ default: 'grid_view', selected: 'grid_view' }}

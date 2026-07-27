@@ -1,217 +1,302 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { Activity, BarChart3, Boxes, ChevronRight, CircleDollarSign, Coins, Gauge, KeyRound, ScrollText } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import Svg, { Line, Polyline } from 'react-native-svg';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  Activity,
+  BarChart3,
+  Boxes,
+  CheckCircle2,
+  CircleDollarSign,
+  Coins,
+  Gauge,
+  KeyRound,
+  RefreshCw,
+  Timer,
+  UsersRound,
+} from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
+import { Fragment, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 
-import { EmptyState, ErrorState, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { StructuredDataView } from '@/src/components/structured-form';
+import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
+import { firstArray } from '@/src/lib/api';
 import { useAppTheme } from '@/src/lib/theme';
-import { getBalance, getKeyOverview, getModels, getRequests, getUsageOverview, getUsageQuotaLimit, getUsageTrend } from '@/src/services/account';
-import { getAdminQuota, getAdminRequestLogs, getAdminStatsModels, getAdminStatsOverview, getAdminStatsTrend } from '@/src/services/admin';
+import { getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
+import {
+  getAdminRealtimeUsage,
+  getAdminStatsModels,
+  getAdminStatsOverview,
+  getAdminStatsTrend,
+  getAdminStatsUsers,
+} from '@/src/services/admin';
 import { isAdmin, sessionState } from '@/src/store/session';
-import type { RequestLogItem, UsageTrendItem } from '@/src/types/api';
+import type { ApiRecord, ModelItem, UsageTrendItem } from '@/src/types/api';
 
 const { useSnapshot } = require('valtio/react');
 
-const ranges = [['day', '今天'], ['week', '本周'], ['month', '本月']] as const;
-type RangeKey = typeof ranges[number][0];
+function toNumber(value: unknown) {
+  const number = typeof value === 'number'
+    ? value
+    : typeof value === 'string' ? Number(value.replace(/[$,%\s]/g, '')) : Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function firstNumber(record: ApiRecord, keys: string[]) {
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null) return toNumber(record[key]);
+  }
+  return 0;
+}
+
+function unwrapRecord(value: unknown): ApiRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const record = value as ApiRecord;
+  for (const key of ['data', 'overview', 'usage', 'realtime']) {
+    if (record[key] && typeof record[key] === 'object' && !Array.isArray(record[key])) return record[key] as ApiRecord;
+  }
+  return record;
+}
 
 function formatNumber(value: unknown) {
-  const number = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(number)) return '--';
+  const number = toNumber(value);
   if (Math.abs(number) >= 1_000_000) return `${(number / 1_000_000).toFixed(2)}M`;
   if (Math.abs(number) >= 1_000) return `${(number / 1_000).toFixed(1)}K`;
-  return String(Math.round(number * 100) / 100);
+  return Math.round(number).toLocaleString();
 }
 
-function formatCost(value: unknown, currency = '') {
-  const number = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(number)) return '--';
-  return `${currency ? `${currency} ` : ''}${number.toFixed(number >= 100 ? 1 : 4)}`;
+function formatCost(value: unknown) {
+  const number = toNumber(value);
+  return `$${number.toFixed(number >= 100 ? 2 : 4)}`;
 }
 
-function trendValue(item: UsageTrendItem, key: 'requests' | 'tokens' | 'cost') {
-  if (key === 'requests') return Number(item.request_count ?? item.count) || 0;
-  if (key === 'tokens') return Number(item.total_tokens) || 0;
-  return Number(item.cost) || 0;
+function formatRate(overview: ApiRecord) {
+  const requestCount = firstNumber(overview, ['request_count', 'total_requests', 'requests']);
+  const failedCount = firstNumber(overview, ['failed_count', 'failed_requests', 'error_count', 'errors']);
+  const supplied = overview.success_rate ?? overview.successRate;
+  const raw = supplied === undefined ? (requestCount ? (requestCount - failedCount) / requestCount : 0) : toNumber(supplied);
+  const percentage = raw <= 1 ? raw * 100 : raw;
+  return `${Math.max(0, Math.min(100, percentage)).toFixed(1)}%`;
 }
 
-function TrendChart({ items, metric }: { items: UsageTrendItem[]; metric: 'requests' | 'tokens' | 'cost' }) {
+type MetricCardProps = {
+  label: string;
+  value: string;
+  detail?: string;
+  icon: LucideIcon;
+  accent: string;
+  iconBackground: string;
+  basis: `${number}%`;
+};
+
+function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, basis }: MetricCardProps) {
   const colors = useAppTheme();
-  const values = items.map((item) => trendValue(item, metric));
-  const max = Math.max(1, ...values);
-  const points = values.map((value, index) => {
-    const x = values.length <= 1 ? 0 : index / (values.length - 1) * 320;
-    const y = 108 - Math.min(1, value / (max * 1.12)) * 96;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  return <View style={{ height: 128, borderRadius: 14, backgroundColor: colors.chartPanel, overflow: 'hidden' }}><Svg width="100%" height="128" viewBox="0 0 320 120" preserveAspectRatio="none">
-    {[12, 36, 60, 84, 108].map((y) => <Line key={y} x1="0" x2="320" y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" />)}
-    {values.length ? <Polyline points={points} fill="none" stroke={colors.primary} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" /> : null}
-  </Svg></View>;
-}
-
-function StatTile({ label, value, color }: { label: string; value: string; color: string }) {
-  const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: 100, minHeight: 64, borderRadius: 14, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, gap: 3 }}>
-    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ color, fontSize: 19, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-    <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{label}</Text>
-  </View>;
-}
-
-function RequestRow({ item }: { item: RequestLogItem }) {
-  const colors = useAppTheme();
-  const failed = Boolean(item.error) || (typeof item.status_code === 'number' && item.status_code >= 400);
-  return <View style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: failed ? colors.danger : colors.success }} />
-    <View style={{ flex: 1, minWidth: 0 }}>
-      <Text numberOfLines={1} style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{String(item.model ?? '未知模型')}</Text>
-      <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{String(item.created_at ?? '')}</Text>
+  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 108, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, justifyContent: 'space-between', gap: 8 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{label}</Text>
+      <IconTile icon={Icon} size={30} iconSize={15} color={accent} background={iconBackground} />
     </View>
-    <Text style={{ color: colors.subtext, fontSize: 10, fontVariant: ['tabular-nums'] }}>{formatNumber(item.total_tokens)} tok</Text>
+    <View style={{ gap: 3 }}>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+      {detail ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{detail}</Text> : null}
+    </View>
   </View>;
 }
 
-export default function OverviewScreen() {
+function dateLabel(item: UsageTrendItem, index: number) {
+  const source = String(item.bucket_start ?? item.date ?? item.day ?? '');
+  if (!source) return String(index + 1);
+  const date = source.slice(0, 10);
+  const parts = date.split('-');
+  return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : date.slice(0, 5);
+}
+
+function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
+  const colors = useAppTheme();
+  const chartItems = items.slice(-7);
+  const values = chartItems.map((item) => toNumber(item.request_count ?? item.count ?? item.requests));
+  const maxValue = Math.max(1, ...values);
+  const top = Math.max(4, Math.ceil(maxValue * 1.2));
+  const plotLeft = 34;
+  const plotRight = 586;
+  const plotTop = 18;
+  const plotBottom = 176;
+  const plotHeight = plotBottom - plotTop;
+  const slot = (plotRight - plotLeft) / Math.max(1, chartItems.length);
+  const barWidth = Math.min(30, slot * 0.46);
+
+  if (!chartItems.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
+
+  return <View style={{ height: 220, overflow: 'hidden' }}>
+    <Svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none">
+      {[0, 1, 2, 3, 4].map((index) => {
+        const y = plotBottom - index * plotHeight / 4;
+        const label = Math.round(top * index / 4);
+        return <Fragment key={index}>
+          <Line x1={plotLeft} x2={plotRight} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" />
+          <SvgText x="21" y={y + 4} fill={colors.subtext} fontSize="9" textAnchor="end">{label}</SvgText>
+        </Fragment>;
+      })}
+      {chartItems.map((item, index) => {
+        const value = values[index] ?? 0;
+        const height = Math.max(value ? 3 : 0, value / top * plotHeight);
+        const x = plotLeft + slot * index + (slot - barWidth) / 2;
+        return <Fragment key={`${dateLabel(item, index)}-${index}`}>
+          <Rect x={x} y={plotBottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />
+          <SvgText x={x + barWidth / 2} y="201" fill={colors.subtext} fontSize="9" textAnchor="middle">{dateLabel(item, index)}</SvgText>
+        </Fragment>;
+      })}
+    </Svg>
+  </View>;
+}
+
+function rankingName(item: ApiRecord, type: 'model' | 'user', index: number) {
+  const value = type === 'model'
+    ? item.model ?? item.id ?? item.name
+    : item.email ?? item.user_email ?? item.user ?? item.name ?? item.user_id;
+  return String(value ?? `${type === 'model' ? '模型' : '用户'} ${index + 1}`);
+}
+
+function RankingPanel({ title, icon, items, type, wide }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: 'model' | 'user'; wide: boolean }) {
+  const colors = useAppTheme();
+  const visible = items.slice(0, 5);
+  const maxCost = Math.max(0, ...visible.map((item) => firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount'])));
+  return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 12 }}>
+    <SectionHeader icon={icon} title={title} />
+    {visible.map((item, index) => {
+      const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
+      const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
+      const width = `${Math.max(3, maxCost ? cost / maxCost * 100 : 3)}%` as `${number}%`;
+      return <View key={`${rankingName(item, type, index)}-${index}`} style={{ gap: 6 }}>
+        <View style={{ minHeight: 22, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{rankingName(item, type, index)}</Text>
+          <Text style={{ color: colors.subtext, fontSize: 10 }}>{formatNumber(requests)} 次</Text>
+          <Text style={{ minWidth: 62, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+        </View>
+        <View style={{ height: 3, borderRadius: 2, backgroundColor: colors.chartTrack, overflow: 'hidden' }}><View style={{ width, height: 3, borderRadius: 2, backgroundColor: colors.cyan }} /></View>
+      </View>;
+    })}
+    {!visible.length ? <EmptyState embedded icon={icon} message="暂无排行数据" /> : null}
+  </View>;
+}
+
+function KeyOverview() {
   const colors = useAppTheme();
   const router = useRouter();
-  const session = useSnapshot(sessionState);
-  const apiKeyMode = session.mode === 'apikey';
-  const adminMode = !apiKeyMode && isAdmin();
-  const [range, setRange] = useState<RangeKey>('week');
-  const [metric, setMetric] = useState<'requests' | 'tokens' | 'cost'>('requests');
   const [refreshing, setRefreshing] = useState(false);
-
-  const keyOverview = useQuery({
-    queryKey: ['key-overview'],
-    queryFn: ({ signal }) => getKeyOverview(signal),
-    enabled: apiKeyMode,
-  });
-  const usage = useQuery({
-    queryKey: [adminMode ? 'admin' : 'usage', 'overview', range],
-    queryFn: ({ signal }) => adminMode ? getAdminStatsOverview({ range }, signal) : getUsageOverview({ range }, signal),
-    enabled: !apiKeyMode,
-  });
-  const trend = useQuery({
-    queryKey: [adminMode ? 'admin' : 'usage', 'trend', range],
-    queryFn: ({ signal }) => adminMode ? getAdminStatsTrend({ range }, signal) : getUsageTrend({ range }, signal),
-    enabled: !apiKeyMode,
-  });
-  const balance = useQuery({
-    queryKey: [adminMode ? 'admin' : 'user', 'quota'],
-    queryFn: ({ signal }) => adminMode ? getAdminQuota(signal) : getBalance(signal),
-    enabled: !apiKeyMode,
-  });
-  const models = useQuery({
-    queryKey: [adminMode ? 'admin' : 'user', 'models'],
-    queryFn: ({ signal }) => adminMode ? getAdminStatsModels(signal) : getModels(signal),
-    enabled: !apiKeyMode,
-  });
-  const recentRequests = useQuery({
-    queryKey: [adminMode ? 'admin' : 'user', 'requests', 'recent'],
-    queryFn: ({ signal }) => adminMode ? getAdminRequestLogs({ limit: 5 }, signal) : getRequests({ limit: 5 }, signal),
-    enabled: !apiKeyMode,
-  });
-
-  const queries = apiKeyMode ? [keyOverview] : [usage, trend, balance, models, recentRequests];
+  const query = useQuery({ queryKey: ['key-overview'], queryFn: ({ signal }) => getKeyOverview(signal) });
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    void Promise.allSettled(queries.map((query) => query.refetch())).finally(() => setRefreshing(false));
+    void query.refetch().finally(() => setRefreshing(false));
   };
-
-  const visibleModels = useMemo(() => (models.data ?? []).filter((item) => !item.hidden), [models.data]);
-
-  if (apiKeyMode) {
-    return <Page title="Key 总览" subtitle={session.baseUrl} icon={KeyRound} refreshing={refreshing || keyOverview.isFetching} onRefresh={refresh}>
-      {keyOverview.error ? <ErrorState message={keyOverview.error.message} retry={() => keyOverview.refetch()} /> : null}
-      {keyOverview.data ? <Panel><StructuredDataView value={keyOverview.data} /></Panel>
-        : !keyOverview.isFetching && !keyOverview.error ? <EmptyState message="暂无 Key 总览数据" /> : null}
-      <Panel>
-        <SectionHeader icon={Activity} title="聊天测试" />
-        <Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>使用当前 API Key 直接调用 /v1 网关接口测试连通性。</Text>
-        <Pressable onPress={() => router.push('/chat' as never)} style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#fff', fontWeight: '800' }}>打开聊天测试</Text>
-        </Pressable>
-      </Panel>
-    </Page>;
-  }
-
-  const overview = usage.data ?? {};
-  const currency = typeof balance.data?.currency === 'string' ? balance.data.currency : '';
-
-  return <Page title="总览" subtitle={session.profile?.email ? String(session.profile.email) : session.baseUrl} icon={Gauge} refreshing={refreshing || (!usage.data && usage.isFetching)} onRefresh={refresh}>
-    {usage.error ? <ErrorState message={usage.error.message} retry={() => usage.refetch()} /> : null}
-
-    <Panel>
-      <SectionHeader icon={CircleDollarSign} title={adminMode ? '全站额度与模型' : '余额与模型'} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        <StatTile label="当前余额" value={formatCost(balance.data?.balance, currency)} color={colors.success} />
-        <StatTile label="信用额度" value={formatCost(balance.data?.credit, currency)} color={colors.cyan} />
-        <StatTile label="可用模型" value={models.data ? String(visibleModels.length) : '--'} color={colors.primary} />
-      </View>
-    </Panel>
-
-    <Panel>
-      <SectionHeader icon={BarChart3} title={adminMode ? '全站用量' : '用量'} meta={ranges.find(([key]) => key === range)?.[1]} />
-      <View style={{ flexDirection: 'row', gap: 6, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>
-        {ranges.map(([key, label]) => <Pressable key={key} onPress={() => setRange(key)} style={{ flex: 1, minHeight: 34, borderRadius: 9, backgroundColor: range === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: range === key ? colors.primary : colors.subtext, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-        </Pressable>)}
-      </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        <StatTile label="请求数" value={formatNumber(overview.request_count)} color={colors.primary} />
-        <StatTile label="总 Token" value={formatNumber(overview.total_tokens)} color={colors.warning} />
-        <StatTile label="费用" value={formatCost(overview.cost, currency)} color={colors.danger} />
-      </View>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {([['requests', '请求'], ['tokens', 'Token'], ['cost', '费用']] as const).map(([key, label]) => <Pressable key={key} onPress={() => setMetric(key)} style={{ paddingHorizontal: 12, minHeight: 30, borderRadius: 9, backgroundColor: metric === key ? colors.primarySoft : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: metric === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text>
-        </Pressable>)}
-      </View>
-      <TrendChart items={trend.data ?? []} metric={metric} />
-    </Panel>
-
-    <Panel>
-      <Pressable onPress={() => router.push('/requests' as never)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 9, opacity: pressed ? 0.62 : 1 })}>
-        <SectionHeader icon={ScrollText} title="最近请求" meta="查看全部" />
-      </Pressable>
-      {recentRequests.error ? <ErrorState message={recentRequests.error.message} retry={() => recentRequests.refetch()} /> : null}
-      {(recentRequests.data?.items ?? []).length
-        ? (recentRequests.data?.items ?? []).map((item, index) => <RequestRow key={String(item.id ?? index)} item={item} />)
-        : !recentRequests.isFetching && !recentRequests.error ? <Text style={{ color: colors.subtext, fontSize: 12, textAlign: 'center' }}>暂无请求记录</Text> : null}
-    </Panel>
-
-    <Panel>
-      <SectionHeader icon={Boxes} title="模型预览" meta={models.data ? `${visibleModels.length} 个可用` : undefined} />
-      {visibleModels.slice(0, 5).map((model, index) => <View key={String(model.id ?? model.model ?? model.name ?? index)} style={{ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: model.free ? colors.success : colors.primary }} />
-        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontFamily: 'monospace' }}>{String(model.id ?? model.model ?? model.name ?? '未知模型')}</Text>
-        <Text style={{ color: colors.subtext, fontSize: 10 }}>{String(model.provider ?? model.owned_by ?? '')}</Text>
-        <ChevronRight color={colors.disabled} size={14} />
-      </View>)}
-      {!visibleModels.length && !models.isFetching ? <Text style={{ color: colors.subtext, fontSize: 12, textAlign: 'center' }}>暂无可用模型</Text> : null}
-      <Pressable onPress={() => router.push('/keys' as never)} style={{ minHeight: 40, borderRadius: 11, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>管理密钥与模型</Text>
-      </Pressable>
-    </Panel>
-
-    <Panel>
-      <SectionHeader icon={Coins} title="额度限制" />
-      <QuotaSection adminMode={adminMode} />
-    </Panel>
+  return <Page title="Key 总览" subtitle={sessionState.baseUrl} icon={KeyRound} refreshing={refreshing || query.isFetching} onRefresh={refresh}>
+    {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
+    {query.data ? <Panel><StructuredDataView value={query.data} /></Panel> : !query.isFetching && !query.error ? <EmptyState message="暂无 Key 总览数据" /> : null}
+    <Pressable onPress={() => router.push('/chat' as never)} style={{ minHeight: 46, borderRadius: 8, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>打开聊天测试</Text></Pressable>
   </Page>;
 }
 
-function QuotaSection({ adminMode }: { adminMode: boolean }) {
+function UsageDashboard({ admin }: { admin: boolean }) {
   const colors = useAppTheme();
-  const quota = useQuery({
-    queryKey: [adminMode ? 'admin' : 'usage', 'quota'],
-    queryFn: ({ signal }) => adminMode ? getAdminQuota(signal) : getUsageQuotaLimit(signal),
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const [refreshing, setRefreshing] = useState(false);
+  const wide = width >= 720;
+  const metricBasis: `${number}%` = wide ? '31%' : width >= 390 ? '47%' : '100%';
+
+  const overview = useQuery({
+    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'overview'],
+    queryFn: ({ signal }) => admin ? getAdminStatsOverview({ range: 'day' }, signal) : getUsageOverview({ range: 'day' }, signal),
   });
-  if (quota.error) return <Text style={{ color: colors.subtext, fontSize: 12 }}>额度信息暂不可用</Text>;
-  if (!quota.data) return <Text style={{ color: colors.subtext, fontSize: 12 }}>加载中…</Text>;
-  return <StructuredDataView value={quota.data} />;
+  const trend = useQuery({
+    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'trend'],
+    queryFn: ({ signal }) => admin ? getAdminStatsTrend({ range: 'week' }, signal) : getUsageTrend({ range: 'week' }, signal),
+  });
+  const realtime = useQuery({
+    queryKey: ['admin', 'dashboard', 'realtime'],
+    queryFn: ({ signal }) => getAdminRealtimeUsage(signal),
+    enabled: admin,
+    retry: 0,
+  });
+  const models = useQuery({
+    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'models'],
+    queryFn: ({ signal }) => admin ? getAdminStatsModels(signal) : getModels(signal),
+  });
+  const users = useQuery({
+    queryKey: ['admin', 'dashboard', 'users'],
+    queryFn: ({ signal }) => getAdminStatsUsers({ range: 'day' }, signal),
+    enabled: admin,
+    retry: 0,
+  });
+
+  const refresh = () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    const requests = [overview.refetch(), trend.refetch(), models.refetch()];
+    if (admin) requests.push(realtime.refetch(), users.refetch());
+    void Promise.allSettled(requests).finally(() => setRefreshing(false));
+  };
+
+  const summary = unwrapRecord(overview.data);
+  const live = unwrapRecord(realtime.data);
+  const requests = firstNumber(summary, ['request_count', 'total_requests', 'requests']);
+  const failed = firstNumber(summary, ['failed_count', 'failed_requests', 'error_count', 'errors']);
+  const reportedActiveUsers = firstNumber(summary, ['active_users', 'active_user_count', 'user_count']);
+  const totalTokens = firstNumber(summary, ['total_tokens', 'tokens']);
+  const inputTokens = firstNumber(summary, ['prompt_tokens', 'input_tokens']);
+  const outputTokens = firstNumber(summary, ['completion_tokens', 'output_tokens']);
+  const cost = firstNumber(summary, ['cost', 'cost_usd', 'total_cost']);
+  const latency = firstNumber(summary, ['average_latency_ms', 'avg_latency_ms', 'latency_ms', 'average_latency']);
+  const modelItems = (models.data ?? []).map((item) => item as ModelItem & ApiRecord);
+  const userItems = useMemo(() => firstArray<ApiRecord>(users.data, ['users', 'items', 'data', 'list', 'rows']), [users.data]);
+  const activeUsers = reportedActiveUsers || userItems.length;
+
+  return <Page title="" showHeader={false} contentMaxWidth={960} refreshing={refreshing} onRefresh={refresh}>
+    <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ color: colors.text, fontSize: 24, lineHeight: 31, fontWeight: '800' }}>{admin ? '管理概览' : '用量概览'}</Text>
+        <Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>{admin ? '全站近 24 小时的流量、成本与服务质量。' : '近 24 小时的调用与消费情况。'}</Text>
+      </View>
+      {admin ? <Pressable onPress={() => router.push('/admin-stats' as never)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.64 : 1 })}><BarChart3 color={colors.text} size={15} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>完整统计</Text></Pressable> : null}
+      <Pressable accessibilityLabel="刷新" disabled={refreshing} onPress={refresh} style={{ width: 38, height: 38, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>{refreshing ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={16} />}</Pressable>
+    </View>
+
+    {overview.error ? <ErrorState message={overview.error.message} retry={() => overview.refetch()} /> : null}
+
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      <MetricCard label="请求数" value={formatNumber(requests)} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
+      <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
+      <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? '24 小时内发起过调用' : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
+      <MetricCard label="Token 数" value={formatNumber(totalTokens)} detail={`输入 ${formatNumber(inputTokens)} · 输出 ${formatNumber(outputTokens)}`} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
+      <MetricCard label="费用 (USD)" value={formatCost(cost)} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
+      <MetricCard label="平均延迟" value={`${formatNumber(latency)} ms`} icon={Timer} accent={colors.accentText} iconBackground={colors.accentBg} basis={metricBasis} />
+    </View>
+
+    {admin ? <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '600' }}>实时流量（近 15 分钟）</Text></View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <MetricCard label="请求数" value={formatNumber(firstNumber(live, ['request_count', 'total_requests', 'requests']))} icon={Activity} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
+        <MetricCard label="Token 数" value={formatNumber(firstNumber(live, ['total_tokens', 'tokens']))} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
+        <MetricCard label="费用 (USD)" value={formatCost(firstNumber(live, ['cost', 'cost_usd', 'total_cost']))} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
+      </View>
+    </View> : null}
+
+    <View style={{ gap: 8 }}>
+      <SectionHeader icon={Gauge} title="近 7 天请求趋势" />
+      <View style={{ borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 8 }}><RequestTrendChart items={trend.data ?? []} /></View>
+    </View>
+
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      <RankingPanel title={admin ? 'Top 模型（按费用）' : '可用模型'} icon={Boxes} items={modelItems} type="model" wide={admin && wide} />
+      {admin ? <RankingPanel title="Top 用户（按费用）" icon={UsersRound} items={userItems} type="user" wide={wide} /> : null}
+    </View>
+  </Page>;
+}
+
+export default function OverviewScreen() {
+  useSnapshot(sessionState);
+  const { scope } = useLocalSearchParams<{ scope?: string }>();
+  if (sessionState.mode === 'apikey') return <KeyOverview />;
+  return <UsageDashboard admin={isAdmin() && scope !== 'user'} />;
 }
