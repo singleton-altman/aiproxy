@@ -25,6 +25,9 @@ function gatewayErrorMessage(payload: unknown, status: number) {
   if (/invalid api key|unauthorized api key/.test(normalized)) {
     return '网关 Key 无效，或该模型的上游账号凭据已失效，请检查密钥和账号状态';
   }
+  if (/model not allowed.*api key|api key.*not allowed.*model/.test(normalized)) {
+    return '当前 API Key 未授权使用所选模型，请选择该 Key 可用的模型或调整 Key 权限';
+  }
   if (/upstream request failed|upstream error/.test(normalized)) {
     return '上游账号请求失败，请检查该模型对应账号的状态、额度和网络';
   }

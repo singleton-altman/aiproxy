@@ -64,19 +64,21 @@ function cleanPath(href: string) {
   return href.split('?')[0];
 }
 
-function Sidebar({ admin }: { admin: boolean }) {
+function Sidebar({ admin, managementMode }: { admin: boolean; managementMode: boolean }) {
   const colors = useAppTheme();
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [mode, setMode] = useState<ViewMode>(admin && (pathname === '/overview' || pathname.startsWith('/admin')) ? 'admin' : 'user');
+  const [mode, setMode] = useState<ViewMode>(managementMode || (admin && (pathname === '/overview' || pathname.startsWith('/admin'))) ? 'admin' : 'user');
   const version = Constants.expoConfig?.version ?? '1.0.0';
-  const menu = mode === 'admin' && admin ? adminMenu : userMenu;
+  const canSwitchView = admin && !managementMode;
+  const menu = managementMode || (mode === 'admin' && admin) ? adminMenu : userMenu;
 
   useEffect(() => {
-    if (!admin) setMode('user');
+    if (managementMode) setMode('admin');
+    else if (!admin) setMode('user');
     else if (pathname.startsWith('/admin')) setMode('admin');
-  }, [admin, pathname]);
+  }, [admin, managementMode, pathname]);
 
   function changeMode(next: ViewMode) {
     setMode(next);
@@ -90,14 +92,14 @@ function Sidebar({ admin }: { admin: boolean }) {
       <Pressable accessibilityLabel={collapsed ? '展开导航' : '收起导航'} onPress={() => setCollapsed((value) => !value)} style={{ width: 30, height: 30, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{collapsed ? <ChevronRight color={colors.subtext} size={15} /> : <ChevronLeft color={colors.subtext} size={15} />}</Pressable>
     </View>
 
-    {admin && !collapsed ? <View style={{ margin: 12, padding: 3, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
+    {canSwitchView && !collapsed ? <View style={{ margin: 12, padding: 3, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
       {([['admin', '管理视图', ServerCog], ['user', '用户视图', UserRound]] as const).map(([key, label, Icon]) => {
         const selected = mode === key;
         return <Pressable key={key} onPress={() => changeMode(key)} style={{ flex: 1, minHeight: 32, borderRadius: 7, backgroundColor: selected ? colors.card : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Icon color={selected ? colors.primary : colors.subtext} size={13} /><Text style={{ color: selected ? colors.text : colors.subtext, fontSize: 10, fontWeight: selected ? '700' : '600' }}>{label}</Text></Pressable>;
       })}
     </View> : null}
 
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: collapsed ? 10 : 12, paddingTop: admin && !collapsed ? 0 : 12, paddingBottom: 18, gap: 3 }}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: collapsed ? 10 : 12, paddingTop: canSwitchView && !collapsed ? 0 : 12, paddingBottom: 18, gap: 3 }}>
       {menu.map(({ label, icon: Icon, href }) => {
         const selected = pathname === cleanPath(href);
         return <Pressable key={`${mode}-${label}`} accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 42, borderRadius: 12, paddingHorizontal: collapsed ? 0 : 7, backgroundColor: selected ? colors.primarySoft : pressed ? colors.mutedCard : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8, opacity: pressed ? 0.68 : 1 })}>
@@ -112,10 +114,10 @@ function Sidebar({ admin }: { admin: boolean }) {
 export function AppShell({ children, enabled }: { children: ReactNode; enabled: boolean }) {
   const colors = useAppTheme();
   const { width } = useWindowDimensions();
-  useSnapshot(sessionState);
+  const session = useSnapshot(sessionState);
   if (!enabled || width < 900) return children;
   return <View style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.page }}>
-    <Sidebar admin={isAdmin()} />
+    <Sidebar admin={isAdmin()} managementMode={session.mode === 'management'} />
     <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
   </View>;
 }

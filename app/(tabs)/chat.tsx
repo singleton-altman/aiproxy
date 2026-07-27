@@ -65,7 +65,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const compact = width < 620;
-  const bottomClearance = width < 900 ? Math.max(84, insets.bottom + 68) : Math.max(10, insets.bottom);
+  const bottomClearance = Math.max(10, insets.bottom);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const [apiKey, setApiKey] = useState(sessionState.apiKey);

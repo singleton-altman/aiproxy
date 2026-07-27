@@ -37,7 +37,7 @@ const lightTheme = {
   rowBorder: '#edf0f3',
   placeholder: '#98a2b3',
   shadow: '#101828',
-  sheetBackdrop: 'rgba(15, 23, 42, 0.16)',
+  sheetBackdrop: 'transparent',
 };
 
 const darkTheme: typeof lightTheme = {
@@ -77,7 +77,7 @@ const darkTheme: typeof lightTheme = {
   rowBorder: '#282d34',
   placeholder: '#737d8c',
   shadow: '#000000',
-  sheetBackdrop: 'rgba(0, 0, 0, 0.28)',
+  sheetBackdrop: 'transparent',
 };
 
 export type AppTheme = typeof lightTheme;

@@ -67,19 +67,19 @@ export default function AdminScreen() {
 
     <SectionHeader icon={ServerCog} title="常用管理" />
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      <ServiceButton icon={UsersRound} label="用户管理" detail="账号、角色、余额与订阅" onPress={() => router.push('/admin-users' as never)} />
-      <ServiceButton icon={ServerCog} label="系统管理" detail="版本、更新、重启与日志" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-system' as never)} />
-      <ServiceButton icon={Boxes} label="模型目录" detail="模型定价、隐藏与同步探测" iconColor={colors.primary} iconBackground={colors.primarySoft} onPress={() => router.push('/admin-models' as never)} />
-      <ServiceButton icon={BarChart3} label="统计与日志" detail="全站分析、用量事件与请求日志" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-stats' as never)} />
+      <ServiceButton icon={UsersRound} label="用户管理" detail="账号、角色与订阅" onPress={() => router.push('/admin-users' as never)} />
+      <ServiceButton icon={ServerCog} label="系统管理" detail="版本、更新与日志" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-system' as never)} />
+      <ServiceButton icon={Boxes} label="模型目录" detail="定价、隐藏与同步" iconColor={colors.primary} iconBackground={colors.primarySoft} onPress={() => router.push('/admin-models' as never)} />
+      <ServiceButton icon={BarChart3} label="统计与日志" detail="全站用量与日志" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-stats' as never)} />
       <ServiceButton icon={Coins} label="额度管理" detail="额度概览与刷新" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-quota' as never)} />
-      <ServiceButton icon={Settings2} label="配置中心" detail="系统、邮件与 GitHub 设置" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-config' as never)} />
-      <ServiceButton icon={CloudCog} label="上游账号" detail="账号池、恢复与额度重置" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-accounts' as never)} />
-      <ServiceButton icon={CloudCog} label="账号导入" detail="批量导入、OAuth 与 Kiro 流程" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-account-import' as never)} />
-      <ServiceButton icon={Network} label="Providers" detail="上游服务与路由前缀" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-providers' as never)} />
-      <ServiceButton icon={Waypoints} label="代理管理" detail="出口代理与连通性测试" iconColor={colors.accentText} iconBackground={colors.accentBg} onPress={() => router.push('/admin-proxies' as never)} />
-      <ServiceButton icon={TicketPercent} label="邀请码" detail="创建、限次与使用记录" onPress={() => router.push('/admin-invites' as never)} />
+      <ServiceButton icon={Settings2} label="配置中心" detail="系统、邮件与 GitHub" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-config' as never)} />
+      <ServiceButton icon={CloudCog} label="上游账号" detail="账号池与额度重置" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-accounts' as never)} />
+      <ServiceButton icon={CloudCog} label="账号导入" detail="批量导入与 OAuth" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-account-import' as never)} />
+      <ServiceButton icon={Network} label="Providers" detail="上游服务与路由" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-providers' as never)} />
+      <ServiceButton icon={Waypoints} label="代理管理" detail="出口代理与测试" iconColor={colors.accentText} iconBackground={colors.accentBg} onPress={() => router.push('/admin-proxies' as never)} />
+      <ServiceButton icon={TicketPercent} label="邀请码" detail="创建与使用记录" onPress={() => router.push('/admin-invites' as never)} />
       <ServiceButton icon={Package} label="套餐管理" detail="定价、限额与上下架" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-plans' as never)} />
-      <ServiceButton icon={KeySquare} label="Mgmt Tokens" detail="管理令牌创建与撤销" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-tokens' as never)} />
+      <ServiceButton icon={KeySquare} label="管理令牌" detail="程序凭证与权限" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-tokens' as never)} />
     </View>
 
   </Page>;

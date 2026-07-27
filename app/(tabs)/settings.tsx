@@ -18,7 +18,7 @@ export default function SettingsScreen() {
 
   const leave = async () => {
     setBusy(true);
-    try { await logout(); } catch { /* 会话已失效时忽略 */ }
+    try { if (session.mode === 'session') await logout(); } catch { /* 会话已失效时忽略 */ }
     finally {
       await endSession();
       queryClient.clear();
@@ -29,8 +29,11 @@ export default function SettingsScreen() {
 
   const identity = session.mode === 'apikey'
     ? 'API Key 登录'
-    : String(session.profile?.name || session.email || '用户');
-  const role = session.profile?.role ? String(session.profile.role) : session.mode === 'apikey' ? 'key' : 'user';
+    : session.mode === 'management' ? '管理令牌登录' : String(session.profile?.name || session.email || '用户');
+  const role = session.mode === 'management' ? 'management' : session.profile?.role ? String(session.profile.role) : session.mode === 'apikey' ? 'key' : 'user';
+  const credentialDetail = session.mode === 'apikey'
+    ? '使用网关 API Key 会话'
+    : session.mode === 'management' ? `管理令牌：${session.managementToken.slice(0, 12)}...` : `账号：${session.email || '--'}`;
 
   return <Page title="设置" subtitle="当前连接与账号" icon={SlidersHorizontal}>
     <Panel>
@@ -47,7 +50,7 @@ export default function SettingsScreen() {
       <View style={{ borderTopWidth: 1, borderTopColor: colors.rowBorder, paddingTop: 12, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
           <IconTile icon={UserRound} color={colors.subtext} background={colors.mutedCard} size={28} iconSize={14} />
-          <Text style={{ color: colors.subtext, fontSize: 12 }}>{session.mode === 'apikey' ? '使用网关 API Key 会话' : `账号：${session.email || '--'}`}</Text>
+          <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{credentialDetail}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
           <IconTile icon={KeyRound} color={colors.subtext} background={colors.mutedCard} size={28} iconSize={14} />
@@ -71,7 +74,7 @@ export default function SettingsScreen() {
         <IconTile icon={ShieldCheck} color={colors.success} background={colors.successBg} />
         <Text style={{ color: colors.text, fontWeight: '700' }}>连接安全</Text>
       </View>
-      <Text style={{ color: colors.subtext, lineHeight: 20, fontSize: 13 }}>公网访问时建议为管理端配置 HTTPS。新建 API Key 的完整密钥只显示一次；请求日志可能包含敏感 Prompt，注意保护。</Text>
+      <Text style={{ color: colors.subtext, lineHeight: 20, fontSize: 13 }}>公网访问时建议为管理端配置 HTTPS。API Key 与管理令牌都属于敏感凭据；请求日志也可能包含敏感 Prompt，注意保护。</Text>
     </Panel>
 
     <Pressable disabled={busy} onPress={() => Alert.alert('退出登录', '确定结束当前会话吗？', [{ text: '取消', style: 'cancel' }, { text: '退出', style: 'destructive', onPress: () => void leave() }])} style={{ height: 48, borderRadius: 14, borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>

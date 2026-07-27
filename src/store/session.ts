@@ -7,7 +7,7 @@ const { proxy } = require('valtio');
 
 const SESSION_KEY = 'ai_proxy_app_session';
 
-export type SessionMode = '' | 'session' | 'apikey';
+export type SessionMode = '' | 'session' | 'apikey' | 'management';
 
 type PersistedSession = {
   baseUrl: string;
@@ -15,6 +15,7 @@ type PersistedSession = {
   email: string;
   password: string;
   apiKey: string;
+  managementToken: string;
   profile?: UserProfile | null;
 };
 
@@ -30,6 +31,7 @@ export const sessionState: SessionState = proxy({
   email: '',
   password: '',
   apiKey: '',
+  managementToken: '',
   authenticated: false,
   profile: null,
   hydrated: false,
@@ -72,6 +74,7 @@ async function persist() {
     email: sessionState.email,
     password: sessionState.password,
     apiKey: sessionState.apiKey,
+    managementToken: sessionState.managementToken,
     profile: sessionState.profile,
   } satisfies PersistedSession));
 }
@@ -82,14 +85,17 @@ export async function hydrateSession() {
     if (raw) {
       const saved = JSON.parse(raw) as Partial<PersistedSession>;
       sessionState.baseUrl = normalizeBaseUrl(saved.baseUrl ?? '');
-      sessionState.mode = saved.mode === 'session' || saved.mode === 'apikey' ? saved.mode : '';
+      sessionState.mode = saved.mode === 'session' || saved.mode === 'apikey' || saved.mode === 'management' ? saved.mode : '';
       sessionState.email = saved.email ?? '';
       sessionState.password = saved.password ?? '';
       sessionState.apiKey = saved.apiKey ?? '';
+      sessionState.managementToken = saved.managementToken ?? '';
       sessionState.profile = saved.profile && typeof saved.profile === 'object' ? saved.profile : null;
       const hasCredentials = sessionState.mode === 'session'
         ? Boolean(sessionState.email && sessionState.password)
-        : sessionState.mode === 'apikey' ? Boolean(sessionState.apiKey) : false;
+        : sessionState.mode === 'apikey'
+          ? Boolean(sessionState.apiKey)
+          : sessionState.mode === 'management' ? Boolean(sessionState.managementToken) : false;
       sessionState.authenticated = Boolean(sessionState.baseUrl && hasCredentials);
     }
   } catch {
@@ -105,6 +111,7 @@ export async function saveSession(session: PersistedSession, profile: UserProfil
   sessionState.email = session.email;
   sessionState.password = session.password;
   sessionState.apiKey = session.apiKey;
+  sessionState.managementToken = session.managementToken;
   sessionState.profile = profile;
   sessionState.authenticated = true;
   await persist();
@@ -130,10 +137,12 @@ export async function endSession() {
   sessionState.mode = '';
   sessionState.password = '';
   sessionState.apiKey = '';
+  sessionState.managementToken = '';
   await persist();
 }
 
 export function isAdmin() {
+  if (sessionState.mode === 'management') return true;
   const role = sessionState.profile?.role;
   return role === 'admin' || role === 'super_admin';
 }

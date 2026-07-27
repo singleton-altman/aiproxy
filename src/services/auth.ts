@@ -1,4 +1,4 @@
-import { apiJson } from '@/src/lib/api';
+import { apiJson, extractErrorMessage, resolveApiUrl } from '@/src/lib/api';
 import type { ApiRecord, PublicConfig, UserProfile } from '@/src/types/api';
 
 export function getPublicConfig(baseUrl?: string, signal?: AbortSignal) {
@@ -52,6 +52,32 @@ export function apiKeyLogin(apiKey: string, baseUrl?: string) {
     retryAuth: false,
     body: JSON.stringify({ api_key: apiKey.trim() }),
   });
+}
+
+export async function managementTokenLogin(token: string, baseUrl?: string) {
+  const value = token.trim();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch(resolveApiUrl('/admin/management-tokens', baseUrl), {
+      method: 'GET',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${value}` },
+      signal: controller.signal,
+    });
+    let payload: unknown;
+    try { payload = await response.json(); } catch { payload = undefined; }
+    if (response.ok) return payload as ApiRecord;
+    const message = extractErrorMessage(payload, `令牌验证失败（HTTP ${response.status}）`);
+    // A valid least-privilege token may not have permission to list management tokens.
+    if (response.status === 403 && /scope|permission|forbidden|权限/i.test(message)) return {};
+    if (response.status === 401) throw new Error('管理令牌无效、已过期或已撤销');
+    throw new Error(message);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw new Error('令牌验证超时，请检查服务器连接');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function logout() {

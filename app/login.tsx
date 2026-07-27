@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Eye, EyeOff, KeyRound, Link2, LockKeyhole, LogIn, MailCheck, UserRound, UserRoundPlus, Wand2 } from 'lucide-react-native';
+import { Eye, EyeOff, KeyRound, Link2, LockKeyhole, LogIn, MailCheck, ShieldCheck, UserRound, UserRoundPlus, Wand2 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
@@ -8,23 +8,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import { getProfile } from '@/src/services/account';
-import { apiKeyLogin, extractProfile, getPublicConfig, getSetupStatus, login, register, resetPassword, sendCode, setupAdmin } from '@/src/services/auth';
+import { apiKeyLogin, extractProfile, getPublicConfig, getSetupStatus, login, managementTokenLogin, register, resetPassword, sendCode, setupAdmin } from '@/src/services/auth';
 import { normalizeBaseUrl, saveSession, sessionState } from '@/src/store/session';
 import type { PublicConfig, UserProfile } from '@/src/types/api';
 
-type FormMode = 'login' | 'register' | 'reset' | 'apikey' | 'setup';
+type FormMode = 'login' | 'register' | 'reset' | 'apikey' | 'management' | 'setup';
 
 const modeTabs: readonly [FormMode, string, LucideIcon][] = [
   ['login', '登录', LogIn],
   ['register', '注册', UserRoundPlus],
   ['reset', '重置密码', Wand2],
   ['apikey', 'API Key', KeyRound],
+  ['management', '管理令牌', ShieldCheck],
 ];
 
 export default function LoginScreen() {
   const colors = useAppTheme();
   const viewport = useWindowDimensions();
-  const [mode, setMode] = useState<FormMode>(sessionState.mode === 'apikey' ? 'apikey' : 'login');
+  const [mode, setMode] = useState<FormMode>(sessionState.mode === 'apikey' ? 'apikey' : sessionState.mode === 'management' ? 'management' : 'login');
   const [baseUrl, setBaseUrl] = useState(sessionState.baseUrl);
   const [email, setEmail] = useState(sessionState.email);
   const [password, setPassword] = useState(sessionState.password);
@@ -32,6 +33,7 @@ export default function LoginScreen() {
   const [inviteCode, setInviteCode] = useState('');
   const [code, setCode] = useState('');
   const [apiKey, setApiKey] = useState(sessionState.apiKey);
+  const [managementToken, setManagementToken] = useState(sessionState.managementToken);
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
@@ -68,6 +70,10 @@ export default function LoginScreen() {
     if (!/^https?:\/\/.+/i.test(normalizedUrl)) return '请输入完整服务地址，例如 http://192.168.1.2:18083';
     if (mode === 'apikey') {
       if (!apiKey.trim()) return '请输入网关 API Key';
+      return '';
+    }
+    if (mode === 'management') {
+      if (!managementToken.trim()) return '请输入管理令牌';
       return '';
     }
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return '请输入有效邮箱';
@@ -112,7 +118,7 @@ export default function LoginScreen() {
     } catch {
       // Profile 拉取失败不阻塞登录，后续页面可重试。
     }
-    await saveSession({ baseUrl: normalizedUrl, mode: 'session', email: email.trim(), password, apiKey: '' }, profile);
+    await saveSession({ baseUrl: normalizedUrl, mode: 'session', email: email.trim(), password, apiKey: '', managementToken: '' }, profile);
     queryClient.clear();
     router.replace(profile?.role === 'admin' || profile?.role === 'super_admin' ? '/admin' : '/overview');
   }
@@ -126,9 +132,16 @@ export default function LoginScreen() {
     try {
       if (mode === 'apikey') {
         const payload = await apiKeyLogin(apiKey, normalizedUrl);
-        await saveSession({ baseUrl: normalizedUrl, mode: 'apikey', email: '', password: '', apiKey: apiKey.trim() }, extractProfile(payload));
+        await saveSession({ baseUrl: normalizedUrl, mode: 'apikey', email: '', password: '', apiKey: apiKey.trim(), managementToken: '' }, extractProfile(payload));
         queryClient.clear();
         router.replace('/overview');
+        return;
+      }
+      if (mode === 'management') {
+        await managementTokenLogin(managementToken, normalizedUrl);
+        await saveSession({ baseUrl: normalizedUrl, mode: 'management', email: '', password: '', apiKey: '', managementToken: managementToken.trim() }, { name: '管理令牌', role: 'admin' });
+        queryClient.clear();
+        router.replace('/admin');
         return;
       }
       if (mode === 'reset') {
@@ -166,7 +179,7 @@ export default function LoginScreen() {
   const fieldStyle = { minHeight: 50, backgroundColor: colors.mutedCard, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingLeft: 44, paddingRight: 13, paddingVertical: 12, color: colors.text, fontSize: 16 } as const;
   const submitLabel = busy
     ? '处理中'
-    : mode === 'setup' ? '创建管理员并登录' : mode === 'login' ? '登录' : mode === 'register' ? '注册并登录' : mode === 'reset' ? '重置密码' : '使用 Key 登录';
+    : mode === 'setup' ? '创建管理员并登录' : mode === 'login' ? '登录' : mode === 'register' ? '注册并登录' : mode === 'reset' ? '重置密码' : mode === 'management' ? '使用管理令牌登录' : '使用 Key 登录';
 
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }}><ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 22 }}>
     <View style={{ width: Math.min(460, Math.max(0, viewport.width - 44)), alignSelf: 'center', gap: 22 }}>
@@ -195,10 +208,14 @@ export default function LoginScreen() {
           <View><Link2 color={colors.subtext} size={18} style={{ position: 'absolute', left: 14, top: 15, zIndex: 1 }} /><TextInput value={baseUrl} onChangeText={setBaseUrl} placeholder="http://192.168.1.2:18083" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} keyboardType="url" textContentType="URL" style={fieldStyle} /></View>
         </View>
 
-        {mode === 'apikey' ? <View style={{ gap: 7 }}>
-          <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>网关 API Key</Text>
-          <View><KeyRound color={colors.subtext} size={18} style={{ position: 'absolute', left: 14, top: 15, zIndex: 1 }} /><TextInput value={apiKey} onChangeText={setApiKey} placeholder="aps_..." placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} secureTextEntry={!showPassword} style={[fieldStyle, { paddingRight: 50 }]} /></View>
-          <Pressable accessibilityLabel={showPassword ? '隐藏 Key' : '显示 Key'} onPress={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 5, top: 32, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>{showPassword ? <EyeOff color={colors.subtext} size={19} /> : <Eye color={colors.subtext} size={19} />}</Pressable>
+        {mode === 'apikey' || mode === 'management' ? <View style={{ gap: 7 }}>
+          <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>{mode === 'management' ? '管理令牌' : '网关 API Key'}</Text>
+          <View>
+            {mode === 'management' ? <ShieldCheck color={colors.subtext} size={18} style={{ position: 'absolute', left: 14, top: 15, zIndex: 1 }} /> : <KeyRound color={colors.subtext} size={18} style={{ position: 'absolute', left: 14, top: 15, zIndex: 1 }} />}
+            <TextInput value={mode === 'management' ? managementToken : apiKey} onChangeText={mode === 'management' ? setManagementToken : setApiKey} placeholder={mode === 'management' ? 'apm_...' : 'aps_...'} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} secureTextEntry={!showPassword} style={[fieldStyle, { paddingRight: 50 }]} />
+            <Pressable accessibilityLabel={showPassword ? '隐藏凭据' : '显示凭据'} onPress={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 5, top: 4, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>{showPassword ? <EyeOff color={colors.subtext} size={19} /> : <Eye color={colors.subtext} size={19} />}</Pressable>
+          </View>
+          {mode === 'management' ? <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 17 }}>仅能访问该令牌已授权的管理模块。</Text> : null}
         </View> : <>
           <View style={{ gap: 7 }}>
             <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>邮箱</Text>
@@ -245,7 +262,7 @@ export default function LoginScreen() {
       </View>
 
       <Text style={{ color: colors.subtext, fontSize: 11, textAlign: 'center', lineHeight: 17 }}>
-        管理端默认地址为 http://&lt;服务器&gt;:18083；公网访问建议配置 HTTPS。{'\n'}API Key 登录仅提供 Key 总览与聊天测试。
+        管理端默认地址为 http://&lt;服务器&gt;:18083；公网访问建议配置 HTTPS。{'\n'}API Key 用于模型调用，管理令牌用于授权的管理接口。
       </Text>
     </View>
   </ScrollView></SafeAreaView>;

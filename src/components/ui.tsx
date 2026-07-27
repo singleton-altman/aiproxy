@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { ChevronRight, Inbox, RefreshCw, Search, TriangleAlert } from 'lucide-react-native';
+import { Inbox, RefreshCw, Search, TriangleAlert } from 'lucide-react-native';
 import type { ComponentProps, ReactNode } from 'react';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
@@ -127,6 +127,6 @@ export function SearchField({ value, onChangeText, placeholder }: { value: strin
 export function ServiceButton({ icon: Icon, label, detail, onPress, iconColor, iconBackground }: { icon: LucideIcon; label: string; detail: string; onPress: () => void; iconColor?: string; iconBackground?: string }) {
   const colors = useAppTheme();
   return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 160, minHeight: 82, padding: 11, borderRadius: 16, backgroundColor: pressed ? colors.mutedCard : colors.card, borderWidth: 1, borderColor: pressed ? colors.primary : iconBackground ?? colors.border, ...surfaceShadow(Platform.OS), opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={36} iconSize={18} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: '700', fontSize: 13 }}>{label}</Text><Text numberOfLines={2} style={{ color: iconColor ?? colors.primary, fontSize: 9, lineHeight: 13 }}>{detail}</Text></View><View style={{ width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.mutedCard }}><ChevronRight color={colors.subtext} size={15} strokeWidth={2.25} /></View></View>
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={36} iconSize={18} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: '800', fontSize: 15, lineHeight: 20 }}>{label}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={{ color: iconColor ?? colors.primary, fontSize: 10, lineHeight: 14 }}>{detail}</Text></View></View>
   </Pressable>;
 }

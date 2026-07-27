@@ -11,6 +11,7 @@ export default function TabLayout() {
   const colors = useAppTheme();
   const { width } = useWindowDimensions();
   const session = useSnapshot(sessionState);
+  const managementMode = session.mode === 'management';
   if (!session.authenticated) return <Redirect href="/login" />;
   if (width >= 900) return <Slot />;
 
@@ -32,14 +33,14 @@ export default function TabLayout() {
       />
       <NativeTabs.Trigger.Label>总览</NativeTabs.Trigger.Label>
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="keys">
+    <NativeTabs.Trigger name="keys" hidden={managementMode}>
       <NativeTabs.Trigger.Icon
         sf={{ default: 'key', selected: 'key.fill' }}
         md={{ default: 'key', selected: 'key' }}
       />
       <NativeTabs.Trigger.Label>密钥</NativeTabs.Trigger.Label>
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="chat">
+    <NativeTabs.Trigger name="chat" hidden={managementMode}>
       <NativeTabs.Trigger.Icon
         sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }}
         md={{ default: 'chat', selected: 'chat' }}

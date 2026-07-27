@@ -1,7 +1,7 @@
 import '@/src/global.css';
 
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -20,6 +20,7 @@ export default function RootLayout() {
   const session = useSnapshot(sessionState);
   const router = useRouter();
   const segments = useSegments();
+  const pathname = usePathname();
 
   useEffect(() => { hydrateSession(); }, []);
   useEffect(() => {
@@ -38,11 +39,16 @@ export default function RootLayout() {
       router.replace('/login');
       return;
     }
+    if (session.authenticated && session.mode === 'management' && segments[0] !== 'login'
+      && pathname !== '/overview' && pathname !== '/settings' && !pathname.startsWith('/admin')) {
+      router.replace('/admin');
+      return;
+    }
     if (session.authenticated && segments[0] === 'login') {
       const role = session.profile?.role;
-      router.replace(role === 'admin' || role === 'super_admin' ? '/admin' : '/overview');
+      router.replace(session.mode === 'management' || role === 'admin' || role === 'super_admin' ? '/admin' : '/overview');
     }
-  }, [router, segments, session.hydrated, session.authenticated, session.profile?.role]);
+  }, [pathname, router, segments, session.hydrated, session.authenticated, session.mode, session.profile?.role]);
 
   return <GestureHandlerRootView style={{ flex: 1 }}>
     <StatusBar style={colors.mode === 'dark' ? 'light' : 'dark'} />
@@ -64,7 +70,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin-providers" options={{ title: 'Providers', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-proxies" options={{ title: '代理管理', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-proxy-system" options={{ title: '系统代理', headerBackTitle: '返回' }} />
-          <Stack.Screen name="admin-tokens" options={{ title: 'Management Tokens', headerBackTitle: '返回' }} />
+          <Stack.Screen name="admin-tokens" options={{ title: '管理令牌', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-traces" options={{ title: 'Traces', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-models" options={{ title: '模型目录', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-stats" options={{ title: '统计与日志', headerBackTitle: '返回' }} />

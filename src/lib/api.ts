@@ -84,6 +84,7 @@ function decodeFilename(value: string | null) {
 
 async function performRelogin() {
   const { mode, email, password, apiKey } = sessionState;
+  if (mode === 'management') throw new ApiAuthError('管理令牌无效或已撤销');
   const body = mode === 'apikey'
     ? { api_key: apiKey }
     : { email: email.trim(), password };
@@ -156,6 +157,10 @@ export async function apiFetch(path: string, options: ApiRequestOptions = {}): P
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const isBlob = typeof Blob !== 'undefined' && options.body instanceof Blob;
   if (options.body && !isFormData && !isBlob && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const isAdminRequest = /^\/(?:api\/v1\/)?admin(?:\/|$)/i.test(path);
+  if (sessionState.mode === 'management' && sessionState.managementToken && isAdminRequest && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${sessionState.managementToken}`);
+  }
 
   try {
     const response = await fetch(`${resolveApiUrl(path, baseUrl)}${buildQuery(query)}`, {
@@ -207,6 +212,13 @@ export async function apiFetch(path: string, options: ApiRequestOptions = {}): P
     }
 
     if (isAuthFailure(response.status, payload)) {
+      if (sessionState.mode === 'management') {
+        if (isAdminRequest) {
+          await endSession();
+          throw new ApiAuthError('管理令牌无效、已过期或已撤销');
+        }
+        throw new ApiAuthError('管理令牌仅能访问管理接口');
+      }
       if (retryAuth && sessionState.mode) {
         try {
           await refreshApiSession();
