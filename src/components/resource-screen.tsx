@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import { StructuredDataView, StructuredForm } from '@/src/components/structured-form';
-import { EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField } from '@/src/components/ui';
+import { EmptyState, ErrorState, FullScreenSafeArea, IconTile, Page, SearchField, SheetHandle } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import type { ApiRecord } from '@/src/types/api';
@@ -17,6 +17,12 @@ export type ResourceAction = {
   danger?: boolean;
   confirm?: string;
   run: (item: ApiRecord) => Promise<unknown>;
+};
+
+type ResourceFormExtension = {
+  renderForm?: (props: { value: ApiRecord; onChange: (value: ApiRecord) => void }) => ReactNode;
+  validate?: (value: ApiRecord) => string | undefined;
+  submitLabel?: string;
 };
 
 export type ResourceScreenProps = {
@@ -32,8 +38,8 @@ export type ResourceScreenProps = {
   searchText?: (item: ApiRecord) => string;
   toggle?: { label: string; value: (item: ApiRecord) => boolean; run: (item: ApiRecord, next: boolean) => Promise<unknown> };
   actions?: ResourceAction[];
-  create?: { label: string; template: ApiRecord; run: (value: ApiRecord) => Promise<unknown>; note?: string };
-  edit?: { pick: (item: ApiRecord) => ApiRecord; run: (item: ApiRecord, value: ApiRecord) => Promise<unknown> };
+  create?: ResourceFormExtension & { label: string; template: ApiRecord; run: (value: ApiRecord) => Promise<unknown>; note?: string };
+  edit?: ResourceFormExtension & { pick: (item: ApiRecord) => ApiRecord; run: (item: ApiRecord, value: ApiRecord) => Promise<unknown> };
   remove?: { run: (item: ApiRecord) => Promise<unknown>; confirm: (item: ApiRecord) => string };
   headerActions?: ResourceAction[];
   footer?: ReactNode;
@@ -93,8 +99,16 @@ export function ResourceScreen(props: ResourceScreenProps) {
   });
   const formMutation = useMutation({
     mutationFn: async () => {
-      if (formVisible === 'create') return props.create!.run(formValue);
-      if (formVisible === 'edit' && selected) return props.edit!.run(selected, formValue);
+      if (formVisible === 'create') {
+        const validation = props.create!.validate?.(formValue);
+        if (validation) throw new Error(validation);
+        return props.create!.run(formValue);
+      }
+      if (formVisible === 'edit' && selected) {
+        const validation = props.edit!.validate?.(formValue);
+        if (validation) throw new Error(validation);
+        return props.edit!.run(selected, formValue);
+      }
       throw new Error('无效操作');
     },
     onSuccess: (payload) => {
@@ -139,6 +153,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
     warning: { bg: colors.warningBg, fg: colors.warning },
     muted: { bg: colors.mutedCard, fg: colors.subtext },
   } as const;
+  const activeForm = formVisible === 'create' ? props.create : formVisible === 'edit' ? props.edit : undefined;
 
   return <Page title={props.title} subtitle={props.subtitle ?? (query.data ? `${query.data.length} 项` : undefined)} icon={props.icon} safeTop={false} scrollable={false} refreshing={query.isFetching} onRefresh={() => query.refetch()}>
     <SearchField value={search} onChangeText={setSearch} placeholder="搜索…" />
@@ -167,14 +182,17 @@ export function ResourceScreen(props: ResourceScreenProps) {
       renderItem={({ item }) => {
         const badge = props.badgeOf?.(item);
         const tone = badge ? badgeColors[badge.tone] : undefined;
-        return <Pressable onPress={() => setSelectedId(idOf(item))} style={({ pressed }) => ({ borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 5, opacity: pressed ? 0.7 : 1 })}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>{props.titleOf(item)}</Text>
-            {badge && tone ? <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: tone.bg }}>
-              <Text style={{ color: tone.fg, fontSize: 9, fontWeight: '800' }}>{badge.text}</Text>
-            </View> : null}
+        return <Pressable onPress={() => setSelectedId(idOf(item))} style={({ pressed }) => ({ borderRadius: 16, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 11, opacity: pressed ? 0.78 : 1 })}>
+          <IconTile icon={props.icon} size={38} iconSize={18} />
+          <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>{props.titleOf(item)}</Text>
+              {badge && tone ? <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, backgroundColor: tone.bg }}>
+                <Text style={{ color: tone.fg, fontSize: 9, fontWeight: '800' }}>{badge.text}</Text>
+              </View> : null}
+            </View>
+            {props.subtitleOf ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 10, lineHeight: 15 }}>{props.subtitleOf(item)}</Text> : null}
           </View>
-          {props.subtitleOf ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 10, lineHeight: 14 }}>{props.subtitleOf(item)}</Text> : null}
         </Pressable>;
       }}
     />
@@ -190,6 +208,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
     <Modal visible={Boolean(selected)} transparent animationType="slide" onRequestClose={() => setSelectedId('')}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
         {selected ? <View style={{ maxHeight: '82%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 18, gap: 12 }}>
+          <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{props.titleOf(selected)}</Text>
             {props.edit ? <Pressable accessibilityLabel="编辑" onPress={() => { setFormValue(props.edit!.pick(selected)); setFormVisible('edit'); formMutation.reset(); }} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Pencil color={colors.primary} size={15} /></Pressable> : null}
@@ -230,17 +249,20 @@ export function ResourceScreen(props: ResourceScreenProps) {
     <Modal visible={Boolean(formVisible)} transparent animationType="slide" onRequestClose={() => setFormVisible('')}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
         <View style={{ maxHeight: '86%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 18, gap: 12 }}>
+          <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{formVisible === 'create' ? props.create?.label ?? '创建' : '编辑'}</Text>
             <Pressable accessibilityLabel="关闭" onPress={() => setFormVisible('')} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
           {formVisible === 'create' && props.create?.note ? <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 16 }}>{props.create.note}</Text> : null}
           <ScrollView keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
-            <StructuredForm value={formValue} onChange={setFormValue} />
+            {activeForm?.renderForm
+              ? activeForm.renderForm({ value: formValue, onChange: (value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); } })
+              : <StructuredForm value={formValue} onChange={(value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); }} />}
           </ScrollView>
           {formMutation.error ? <Text style={{ color: colors.danger, fontSize: 12 }}>{formMutation.error.message}</Text> : null}
           <Pressable disabled={formMutation.isPending} onPress={() => formMutation.mutate()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: formMutation.isPending ? colors.disabled : colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '800' }}>{formMutation.isPending ? '提交中…' : '提交'}</Text>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>{formMutation.isPending ? '提交中…' : activeForm?.submitLabel ?? '提交'}</Text>
           </Pressable>
         </View>
       </FullScreenSafeArea>

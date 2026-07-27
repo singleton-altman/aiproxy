@@ -100,9 +100,9 @@ function Sidebar({ admin }: { admin: boolean }) {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: collapsed ? 10 : 12, paddingTop: admin && !collapsed ? 0 : 12, paddingBottom: 18, gap: 3 }}>
       {menu.map(({ label, icon: Icon, href }) => {
         const selected = pathname === cleanPath(href);
-        return <Pressable key={`${mode}-${label}`} accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 38, borderRadius: 12, paddingHorizontal: collapsed ? 0 : 11, backgroundColor: selected ? colors.mutedCard : pressed ? colors.mutedCard : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, opacity: pressed ? 0.68 : 1 })}>
-          <Icon color={selected ? colors.text : colors.subtext} size={15} strokeWidth={selected ? 2.3 : 2} />
-          {!collapsed ? <Text numberOfLines={1} style={{ color: selected ? colors.text : colors.subtext, fontSize: 12, fontWeight: selected ? '700' : '600' }}>{label}</Text> : null}
+        return <Pressable key={`${mode}-${label}`} accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 42, borderRadius: 12, paddingHorizontal: collapsed ? 0 : 7, backgroundColor: selected ? colors.primarySoft : pressed ? colors.mutedCard : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8, opacity: pressed ? 0.68 : 1 })}>
+          <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: selected ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Icon color={selected ? colors.primary : colors.subtext} size={16} strokeWidth={selected ? 2.4 : 2} /></View>
+          {!collapsed ? <Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.subtext, fontSize: 12, fontWeight: selected ? '700' : '600' }}>{label}</Text> : null}
         </Pressable>;
       })}
     </ScrollView>

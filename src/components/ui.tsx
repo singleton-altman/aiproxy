@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { ChevronRight, Inbox, RefreshCw, Search, TriangleAlert } from 'lucide-react-native';
 import type { ComponentProps, ReactNode } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,9 +19,9 @@ export function FullScreenSafeArea({ style, ...props }: ComponentProps<typeof Vi
 function surfaceShadow(platform: typeof Platform.OS) {
   return {
     shadowColor: '#000000',
-    shadowOpacity: platform === 'ios' || platform === 'web' ? 0.055 : 0,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: platform === 'ios' || platform === 'web' ? 0.06 : 0,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
     elevation: platform === 'android' ? 2 : 0,
   } as const;
 }
@@ -29,9 +30,9 @@ type PageHeaderProps = { title: string; subtitle?: string; icon?: LucideIcon; re
 
 export function PageHeader({ title, subtitle, icon: Icon, refreshing, onRefresh }: PageHeaderProps) {
   const colors = useAppTheme();
-  return <View style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>{Icon ? <IconTile icon={Icon} size={44} iconSize={22} /> : null}<View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 26, lineHeight: 32, fontWeight: '800' }}>{title}</Text>{subtitle ? <Text style={{ color: colors.subtext, fontSize: 13, lineHeight: 18 }}>{subtitle}</Text> : null}</View></View>
-    {onRefresh ? <Pressable accessibilityLabel="刷新" onPress={onRefresh} disabled={refreshing} style={({ pressed }) => ({ width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, ...surfaceShadow(Platform.OS), opacity: refreshing ? 0.55 : pressed ? 0.62 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}>{refreshing ? <ActivityIndicator color={colors.primary} /> : <RefreshCw color={colors.primary} size={19} strokeWidth={2.2} />}</Pressable> : null}
+  return <View style={{ minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>{Icon ? <IconTile icon={Icon} size={46} iconSize={22} /> : null}<View style={{ flex: 1, gap: 2 }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 24, lineHeight: 30, fontWeight: '800' }}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>{subtitle}</Text> : null}</View></View>
+    {onRefresh ? <Pressable accessibilityLabel="刷新" onPress={onRefresh} disabled={refreshing} style={({ pressed }) => ({ width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primarySoft, opacity: refreshing ? 0.55 : pressed ? 0.62 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}>{refreshing ? <ActivityIndicator color={colors.primary} /> : <RefreshCw color={colors.primary} size={19} strokeWidth={2.25} />}</Pressable> : null}
   </View>;
 }
 
@@ -88,12 +89,12 @@ export function ResponsiveTabBar<Key extends string>({ tabs, value, onChange, ma
 
 export function Panel({ children }: { children: ReactNode }) {
   const colors = useAppTheme();
-  return <View style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: CARD_RADIUS, padding: 16, gap: 12, ...surfaceShadow(Platform.OS) }}>{children}</View>;
+  return <View style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: CARD_RADIUS, padding: 16, gap: 13, ...surfaceShadow(Platform.OS) }}>{children}</View>;
 }
 
 export function IconTile({ icon: Icon, color, background, size = 36, iconSize = 18 }: { icon: LucideIcon; color?: string; background?: string; size?: number; iconSize?: number }) {
   const colors = useAppTheme();
-  return <View style={{ width: size, height: size, borderRadius: Math.max(9, Math.round(size * 0.28)), alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: background ?? colors.primarySoft }}><Icon color={color ?? colors.primary} size={iconSize} strokeWidth={2.2} /></View>;
+  return <View style={{ width: size, height: size, borderRadius: Math.max(10, Math.round(size * 0.3)), borderWidth: 1, borderColor: background ?? colors.primarySoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: background ?? colors.primarySoft }}><Icon color={color ?? colors.primary} size={iconSize} strokeWidth={2.25} /></View>;
 }
 
 export function EmptyState({ message, icon: Icon = Inbox, embedded = false }: { message: string; icon?: LucideIcon; embedded?: boolean }) {
@@ -109,7 +110,7 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
 
 export function SectionHeader({ icon: Icon, title, meta }: { icon: LucideIcon; title: string; meta?: string }) {
   const colors = useAppTheme();
-  return <View style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 9 }}><IconTile icon={Icon} size={32} iconSize={16} /><Text style={{ flex: 1, color: colors.text, fontSize: 16, lineHeight: 21, fontWeight: '700' }}>{title}</Text>{meta ? <View style={{ paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{meta}</Text></View> : null}</View>;
+  return <View style={{ minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 9 }}><IconTile icon={Icon} size={32} iconSize={16} /><Text style={{ flex: 1, color: colors.text, fontSize: 15, lineHeight: 21, fontWeight: '700' }}>{title}</Text>{meta ? <View style={{ paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '700' }}>{meta}</Text></View> : null}</View>;
 }
 
 export function SheetHandle() {
@@ -119,13 +120,14 @@ export function SheetHandle() {
 
 export function SearchField({ value, onChangeText, placeholder }: { value: string; onChangeText: (value: string) => void; placeholder: string }) {
   const colors = useAppTheme();
-  return <View style={{ height: 46, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12 }}><Search color={colors.subtext} size={17} strokeWidth={2.1} /><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ flex: 1, color: colors.text, paddingVertical: 10, fontSize: 15 }} /></View>;
+  const [focused, setFocused] = useState(false);
+  return <View style={{ height: 46, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: focused ? colors.primary : colors.border, paddingHorizontal: 12 }}><Search color={focused ? colors.primary : colors.subtext} size={17} strokeWidth={2.15} /><TextInput value={value} onChangeText={onChangeText} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} placeholder={placeholder} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ flex: 1, color: colors.text, paddingVertical: 10, fontSize: 14 }} /></View>;
 }
 
 export function ServiceButton({ icon: Icon, label, detail, onPress, iconColor, iconBackground }: { icon: LucideIcon; label: string; detail: string; onPress: () => void; iconColor?: string; iconBackground?: string }) {
   const colors = useAppTheme();
-  return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 150, minHeight: 124, padding: 15, gap: 10, borderRadius: CARD_RADIUS, backgroundColor: pressed ? colors.mutedCard : colors.card, borderWidth: 1, borderColor: colors.border, ...surfaceShadow(Platform.OS), opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={42} iconSize={21} /><View style={{ width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.mutedCard }}><ChevronRight color={colors.subtext} size={16} /></View></View>
-    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>{label}</Text><Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>{detail}</Text>
+  return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 150, minHeight: 124, padding: 15, gap: 10, borderRadius: CARD_RADIUS, backgroundColor: pressed ? colors.mutedCard : colors.card, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, ...surfaceShadow(Platform.OS), opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={42} iconSize={21} /><View style={{ width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.mutedCard }}><ChevronRight color={colors.subtext} size={16} strokeWidth={2.25} /></View></View>
+    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 15 }}>{label}</Text><Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 11, lineHeight: 17 }}>{detail}</Text>
   </Pressable>;
 }

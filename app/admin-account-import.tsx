@@ -22,7 +22,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { StructuredDataView } from '@/src/components/structured-form';
-import { ErrorState, Page, Panel, SectionHeader } from '@/src/components/ui';
+import { EmptyState, ErrorState, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
@@ -67,6 +67,25 @@ const methodLabels: Record<Method, string> = {
   sso: 'Builder ID',
   iam: 'IAM SSO',
 };
+
+const customProviderColors = ['#2563eb', '#0f766e', '#7c3aed', '#c2410c', '#be123c', '#0369a1'];
+
+function customProvider(item: ApiRecord, index: number): Provider | undefined {
+  const key = String(item.name ?? item.provider ?? item.slug ?? item.id ?? '').trim();
+  if (!key) return undefined;
+  const label = String(item.display_name ?? item.label ?? item.name ?? item.provider ?? key).trim();
+  const mark = Array.from(label)[0]?.toUpperCase() ?? 'P';
+  let hash = 0;
+  for (const character of key) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return {
+    key,
+    label,
+    mark,
+    color: customProviderColors[(hash + index) % customProviderColors.length],
+    methods: ['api_key'],
+    group: 'credential',
+  };
+}
 
 function nestedString(value: unknown, keys: string[]): string {
   if (!value || typeof value !== 'object') return '';
@@ -145,6 +164,16 @@ export default function AdminAccountImportScreen() {
   const proxies = useQuery({
     queryKey: ['admin', 'proxies', 'import-options'],
     queryFn: async ({ signal }) => firstArray<ApiRecord>(await apiJson('/admin/proxies', { signal }), ['proxies', 'items', 'data', 'list']),
+    retry: 0,
+  });
+
+  const providerOptions = useQuery({
+    queryKey: ['admin', 'providers', 'import-options'],
+    queryFn: async ({ signal }) => {
+      const payload = await apiJson<unknown>('/admin/providers', { signal });
+      const direct = firstArray<ApiRecord>(payload, ['providers', 'items', 'data', 'list']);
+      return direct.length ? direct : nestedRecords(payload, ['providers', 'items', 'data', 'list']);
+    },
     retry: 0,
   });
 
@@ -234,11 +263,15 @@ export default function AdminAccountImportScreen() {
   }
 
   const proxyOptions = useMemo(() => proxies.data ?? [], [proxies.data]);
+  const customProviders = useMemo(() => (providerOptions.data ?? []).flatMap((item, index) => {
+    const provider = customProvider(item, index);
+    return provider ? [provider] : [];
+  }), [providerOptions.data]);
   const oauthProviders = providers.filter((provider) => provider.group === 'oauth');
   const credentialProviders = providers.filter((provider) => provider.group === 'credential');
   const oauthMethod = method === 'oauth' || method === 'sso' || method === 'iam';
 
-  return <Page title={selected ? `接入 ${selected.label}` : '选择提供商'} subtitle={selected ? '选择接入方式并完成授权' : '添加一个新的上游账号'} icon={selected ? KeyRound : CloudDownload} safeTop={false} contentMaxWidth={920} refreshing={flow.isPending || fileImport.isPending}>
+  return <Page title={selected ? `接入 ${selected.label}` : '选择提供商'} subtitle={selected ? '选择接入方式并完成授权' : '添加一个新的上游账号'} icon={selected ? KeyRound : CloudDownload} safeTop={false} contentMaxWidth={920} refreshing={flow.isPending || fileImport.isPending || providerOptions.isFetching || proxies.isFetching} onRefresh={() => { void providerOptions.refetch(); void proxies.refetch(); }}>
     {selected ? <Pressable onPress={() => setSelected(undefined)} style={{ alignSelf: 'flex-start', minHeight: 38, paddingHorizontal: 11, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6 }}><ArrowLeft color={colors.text} size={16} /><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>重新选择</Text></Pressable> : null}
 
     {!selected ? <>
@@ -249,6 +282,13 @@ export default function AdminAccountImportScreen() {
       <View style={{ gap: 10 }}>
         <SectionHeader icon={KeyRound} title="粘贴令牌接入" />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>{credentialProviders.map((provider) => <ProviderCard key={provider.key} provider={provider} basis={cardBasis} onPress={() => chooseProvider(provider)} />)}</View>
+      </View>
+      <View style={{ gap: 10 }}>
+        <SectionHeader icon={Server} title="自定义上游" meta={customProviders.length ? `${customProviders.length} 个` : undefined} />
+        {providerOptions.isLoading ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: 18 }} /> : null}
+        {providerOptions.error ? <ErrorState message={`自定义上游加载失败：${providerOptions.error.message}`} retry={() => providerOptions.refetch()} /> : null}
+        {!providerOptions.isLoading && !providerOptions.error && !customProviders.length ? <EmptyState embedded icon={Server} message="暂无自定义上游" /> : null}
+        {customProviders.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>{customProviders.map((provider) => <ProviderCard key={`custom-${provider.key}`} provider={provider} basis={cardBasis} onPress={() => chooseProvider(provider)} />)}</View> : null}
       </View>
       <Panel>
         <SectionHeader icon={FileJson} title="批量文件" />
