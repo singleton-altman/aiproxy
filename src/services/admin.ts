@@ -8,9 +8,85 @@ export type AdminUserItem = UserProfile & {
 
 // ---- Users ----
 
+function recordValue(value: unknown): ApiRecord {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as ApiRecord : {};
+}
+
+function unwrapAdminUser(value: unknown, depth = 0): ApiRecord {
+  const record = recordValue(value);
+  if (depth >= 3) return record;
+  for (const key of ['user', 'profile', 'item', 'data']) {
+    const nested = recordValue(record[key]);
+    if (Object.keys(nested).length) return { ...record, ...unwrapAdminUser(nested, depth + 1) };
+  }
+  return record;
+}
+
+function numericValue(value: unknown) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const parsed = Number(value.replace(/[$,\s]/g, ''));
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function extractAdminUserBalance(item: ApiRecord) {
+  const containers = [
+    item,
+    recordValue(item.balance),
+    recordValue(item.wallet),
+    recordValue(item.billing),
+    recordValue(item.account),
+  ];
+  for (const container of containers) {
+    for (const key of ['balance', 'balance_usd', 'available_balance', 'wallet_balance', 'credit_balance', 'credit', 'credits', 'amount', 'value']) {
+      const balance = numericValue(container[key]);
+      if (balance !== undefined) return balance;
+    }
+    const cents = numericValue(container.balance_cents ?? container.credit_cents);
+    if (cents !== undefined) return cents / 100;
+    const micros = numericValue(container.balance_micro_usd ?? container.balance_micros);
+    if (micros !== undefined) return micros / 1_000_000;
+  }
+  return undefined;
+}
+
+function normalizeAdminUser(value: unknown): AdminUserItem {
+  const item = unwrapAdminUser(value) as AdminUserItem;
+  const balance = extractAdminUserBalance(item);
+  const status = String(item.status ?? '').toLowerCase();
+  return {
+    ...item,
+    name: item.name ?? (typeof item.nickname === 'string' ? item.nickname : undefined),
+    disabled: item.disabled ?? (status === 'disabled' || status === 'inactive' || status === 'banned'),
+    balance,
+  };
+}
+
+async function enrichAdminUserBalances(items: AdminUserItem[], signal?: AbortSignal) {
+  const result = [...items];
+  const pending = items.map((item, index) => ({ item, index })).filter(({ item }) => item.balance === undefined && item.id !== undefined);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < pending.length && !signal?.aborted) {
+      const current = pending[cursor++];
+      try {
+        const payload = await apiJson<unknown>(`/admin/users/${encodeURIComponent(String(current.item.id))}`, { signal });
+        const detail = normalizeAdminUser(payload);
+        result[current.index] = { ...current.item, ...detail, balance: detail.balance ?? current.item.balance };
+      } catch {
+        // Keep the list item usable when a deployment does not expose user details.
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, pending.length) }, worker));
+  return result;
+}
+
 export async function getAdminUsers(params?: { q?: string; limit?: number; cursor?: string }, signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/admin/users', { signal, query: params });
-  return { items: firstArray<AdminUserItem>(payload, ['users', 'items', 'data', 'list']), raw: payload };
+  const items = firstArray<AdminUserItem>(payload, ['users', 'items', 'data', 'list']).map(normalizeAdminUser);
+  const enrichedItems = await enrichAdminUserBalances(items, signal);
+  return { items: enrichedItems, raw: payload };
 }
 
 export function getAdminUser(id: string | number, signal?: AbortSignal) {

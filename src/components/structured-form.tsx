@@ -134,7 +134,7 @@ function FieldHeader({ name, onRemove }: { name: string; onRemove?: () => void }
   const colors = useAppTheme();
   return <View style={{ minHeight: 24, flexDirection: "row", alignItems: "center", gap: 8 }}>
     <Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: "700" }}>{fieldLabel(name)}</Text>
-    {onRemove ? <Pressable accessibilityLabel={`删除${fieldLabel(name)}`} onPress={onRemove} style={{ width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" }}><Trash2 color={colors.danger} size={14} /></Pressable> : null}
+    {onRemove ? <Pressable accessibilityLabel={`删除${fieldLabel(name)}`} onPress={onRemove} style={{ width: 28, height: 28, borderRadius: 12, alignItems: "center", justifyContent: "center" }}><Trash2 color={colors.danger} size={14} /></Pressable> : null}
   </View>;
 }
 

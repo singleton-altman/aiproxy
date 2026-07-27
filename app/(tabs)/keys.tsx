@@ -26,6 +26,18 @@ function keyId(item: ApiKeyItem) {
   return item.id !== undefined ? String(item.id) : '';
 }
 
+function keyUsageLabel(item: ApiKeyItem) {
+  if (item.last_used_at) {
+    const date = new Date(String(item.last_used_at));
+    const value = Number.isNaN(date.getTime())
+      ? String(item.last_used_at)
+      : date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return `最近使用 ${value}`;
+  }
+  const count = Number(item.usage_count ?? item.request_count ?? item.total_requests);
+  return Number.isFinite(count) && count > 0 ? `已使用 ${count} 次` : '未使用';
+}
+
 function KeyRow({ item, onToggle, onCopy, onDelete, busy }: { item: ApiKeyItem; onToggle: (item: ApiKeyItem, disabled: boolean) => void; onCopy: (item: ApiKeyItem) => void; onDelete: (item: ApiKeyItem) => void; busy: boolean }) {
   const colors = useAppTheme();
   const disabled = Boolean(item.disabled);
@@ -36,12 +48,12 @@ function KeyRow({ item, onToggle, onCopy, onDelete, busy }: { item: ApiKeyItem; 
     <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
       <Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>{String(item.name ?? '未命名 Key')}</Text>
       <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, fontFamily: 'monospace' }}>
-        {String(item.prefix ?? '')}{item.prefix ? '…' : ''} {item.last_used_at ? `· 最近使用 ${item.last_used_at}` : '· 未使用过'}
+        {String(item.prefix ?? '')}{item.prefix ? '…' : ''} · {keyUsageLabel(item)}
       </Text>
       {item.expires_at ? <Text numberOfLines={1} style={{ color: colors.warning, fontSize: 10 }}>到期：{String(item.expires_at)}</Text> : null}
     </View>
     <Switch value={!disabled} disabled={busy || !keyId(item)} onValueChange={(enabled) => onToggle(item, !enabled)} trackColor={{ false: colors.disabled, true: colors.primary }} />
-    <Pressable accessibilityLabel="复制 Key" onPress={() => onCopy(item)} style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 8, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}>
+    <Pressable accessibilityLabel="复制 Key" onPress={() => onCopy(item)} style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}>
       <Copy color={colors.primary} size={15} />
     </Pressable>
     <Pressable accessibilityLabel="删除 Key" disabled={busy || !keyId(item)} onPress={() => onDelete(item)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.dangerBg, alignItems: 'center', justifyContent: 'center' }}>

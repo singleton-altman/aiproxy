@@ -29,7 +29,6 @@ import { useAppTheme } from '@/src/lib/theme';
 import {
   getAdminLogsRequests,
   getAdminRealtimeUsage,
-  getAdminStats,
   getAdminStatsAnalysis,
   getAdminStatsModels,
   getAdminStatsOverview,
@@ -152,8 +151,8 @@ function rangeParams(range: Range) {
 function RangePicker({ value, onChange }: { value: Range; onChange: (value: Range) => void }) {
   const colors = useAppTheme();
   return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-    {rangeOptions.map(([key, label]) => <Pressable key={key} onPress={() => onChange(key)} style={({ pressed }) => ({ minHeight: 34, paddingHorizontal: 11, borderRadius: 8, borderWidth: 1, borderColor: value === key ? colors.primary : colors.border, backgroundColor: value === key ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
-      <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text>
+    {rangeOptions.map(([key, label]) => <Pressable key={key} onPress={() => onChange(key)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: value === key ? colors.primary : colors.border, backgroundColor: value === key ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
+      <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 12, fontWeight: '700' }}>{label}</Text>
     </Pressable>)}
   </ScrollView>;
 }
@@ -161,19 +160,19 @@ function RangePicker({ value, onChange }: { value: Range; onChange: (value: Rang
 function StatsTabs({ value, onChange }: { value: Tab; onChange: (value: Tab) => void }) {
   const colors = useAppTheme();
   return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7 }}>
-    {tabs.map(([key, label, Icon]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: value === key }} onPress={() => onChange(key)} style={({ pressed }) => ({ minWidth: 76, minHeight: 42, paddingHorizontal: 10, borderRadius: 8, backgroundColor: value === key ? colors.primarySoft : colors.card, borderWidth: 1, borderColor: value === key ? colors.primary : colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, opacity: pressed ? 0.65 : 1 })}>
-      <Icon color={value === key ? colors.primary : colors.subtext} size={15} />
-      <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text>
+    {tabs.map(([key, label, Icon]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: value === key }} onPress={() => onChange(key)} style={({ pressed }) => ({ minWidth: label.length > 3 ? 98 : 82, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: value === key ? colors.primarySoft : colors.card, borderWidth: 1, borderColor: value === key ? colors.primary : colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.65 : 1 })}>
+      <Icon color={value === key ? colors.primary : colors.subtext} size={16} />
+      <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 12, fontWeight: '700' }}>{label}</Text>
     </Pressable>)}
   </ScrollView>;
 }
 
 function MetricCard({ label, value, detail, icon: Icon, accent, background, basis }: { label: string; value: string; detail?: string; icon: LucideIcon; accent: string; background: string; basis: `${number}%` }) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 102, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, justifyContent: 'space-between', gap: 7 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 10 }}>{label}</Text><IconTile icon={Icon} size={28} iconSize={14} color={accent} background={background} /></View>
-    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 20, lineHeight: 25, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-    {detail ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9 }}>{detail}</Text> : null}
+  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 112, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, justifyContent: 'space-between', gap: 8 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{label}</Text><IconTile icon={Icon} size={30} iconSize={15} color={accent} background={background} /></View>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+    {detail ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{detail}</Text> : null}
   </View>;
 }
 
@@ -233,14 +232,14 @@ function TrendChart({ items, metric }: { items: ApiRecord[]; metric: TrendMetric
       const y = bottom - index * plotHeight / 4;
       const value = top * index / 4;
       const label = metric === 'cost' ? `$${value.toFixed(3)}` : formatNumber(value);
-      return <Fragment key={index}><Line x1={left} x2={right} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" /><SvgText x="36" y={y + 3} fill={colors.subtext} fontSize="8" textAnchor="end">{label}</SvgText></Fragment>;
+      return <Fragment key={index}><Line x1={left} x2={right} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" /><SvgText x="36" y={y + 3} fill={colors.subtext} fontSize="9" textAnchor="end">{label}</SvgText></Fragment>;
     })}
     {chartItems.map((item, index) => {
       const value = values[index] ?? 0;
       const height = Math.max(value ? 3 : 0, value / top * plotHeight);
       const x = left + slot * index + (slot - barWidth) / 2;
       const showLabel = chartItems.length <= 10 || index % Math.ceil(chartItems.length / 7) === 0 || index === chartItems.length - 1;
-      return <Fragment key={`${trendLabel(item, index)}-${index}`}><Rect x={x} y={bottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />{showLabel ? <SvgText x={x + barWidth / 2} y="207" fill={colors.subtext} fontSize="8" textAnchor="middle">{trendLabel(item, index)}</SvgText> : null}</Fragment>;
+      return <Fragment key={`${trendLabel(item, index)}-${index}`}><Rect x={x} y={bottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />{showLabel ? <SvgText x={x + barWidth / 2} y="207" fill={colors.subtext} fontSize="9" textAnchor="middle">{trendLabel(item, index)}</SvgText> : null}</Fragment>;
     })}
   </Svg></View>;
 }
@@ -248,10 +247,10 @@ function TrendChart({ items, metric }: { items: ApiRecord[]; metric: TrendMetric
 function TrendPanel({ value, metric, onMetricChange }: { value: unknown; metric: TrendMetric; onMetricChange: (value: TrendMetric) => void }) {
   const colors = useAppTheme();
   const items = records(value, ['trend', 'items', 'buckets', 'data', 'list']) as UsageTrendItem[];
-  return <View style={{ borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 10 }}>
+  return <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 10 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ flex: 1, minWidth: 110 }}><SectionHeader icon={BarChart3} title="每日趋势" /></View>
-      <View style={{ flexDirection: 'row', borderRadius: 7, backgroundColor: colors.mutedCard, padding: 3 }}>
-        {([['requests', '请求数'], ['tokens', 'Token'], ['cost', '费用']] as const).map(([key, label]) => <Pressable key={key} onPress={() => onMetricChange(key)} style={{ minHeight: 28, paddingHorizontal: 8, borderRadius: 5, backgroundColor: metric === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: metric === key ? colors.text : colors.subtext, fontSize: 9, fontWeight: '700' }}>{label}</Text></Pressable>)}
+      <View style={{ flexDirection: 'row', borderRadius: 10, backgroundColor: colors.mutedCard, padding: 3 }}>
+        {([['requests', '请求数'], ['tokens', 'Token'], ['cost', '费用']] as const).map(([key, label]) => <Pressable key={key} onPress={() => onMetricChange(key)} style={{ minHeight: 32, paddingHorizontal: 10, borderRadius: 7, backgroundColor: metric === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: metric === key ? colors.text : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
       </View>
     </View>
     <TrendChart items={items} metric={metric} />
@@ -287,12 +286,12 @@ function Heatmap({ events, analysis }: { events: unknown; analysis?: unknown }) 
   const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
   return <View style={{ gap: 9 }}>
     <SectionHeader icon={CalendarDays} title="请求热力图" meta="按小时" />
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}><View style={{ minWidth: 590, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 11, gap: 4 }}>
-      {matrix.map((row, dayIndex) => <View key={days[dayIndex]} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><Text style={{ width: 28, color: colors.subtext, fontSize: 8 }}>{days[dayIndex]}</Text>{row.map((count, hour) => {
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}><View style={{ minWidth: 590, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 11, gap: 4 }}>
+      {matrix.map((row, dayIndex) => <View key={days[dayIndex]} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><Text style={{ width: 28, color: colors.subtext, fontSize: 9 }}>{days[dayIndex]}</Text>{row.map((count, hour) => {
         const level = count && max ? Math.max(1, Math.ceil(count / max * 4)) : 0;
         return <View key={hour} accessibilityLabel={`${days[dayIndex]} ${hour} 时 ${count} 次`} style={{ width: 20, height: 20, borderRadius: 2, backgroundColor: palette[level] }} />;
       })}</View>)}
-      <View style={{ marginLeft: 31, flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: colors.subtext, fontSize: 8 }}>00</Text><Text style={{ color: colors.subtext, fontSize: 8 }}>06</Text><Text style={{ color: colors.subtext, fontSize: 8 }}>12</Text><Text style={{ color: colors.subtext, fontSize: 8 }}>18</Text><Text style={{ color: colors.subtext, fontSize: 8 }}>23</Text></View>
+      <View style={{ marginLeft: 31, flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: colors.subtext, fontSize: 9 }}>00</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>06</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>12</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>18</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>23</Text></View>
     </View></ScrollView>
   </View>;
 }
@@ -309,8 +308,8 @@ function DonutCard({ title, icon: Icon, rows, dimension }: { title: string; icon
   const cost = visible.reduce((sum, item) => sum + firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']), 0);
   const circumference = 2 * Math.PI * 38;
   let progress = 0;
-  return <View style={{ flexGrow: 1, flexBasis: 210, minWidth: 0, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 8 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Icon color={colors.subtext} size={14} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>{title}</Text></View>
+  return <View style={{ flexGrow: 1, flexBasis: 210, minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 8 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon color={colors.subtext} size={16} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>{title}</Text></View>
     {visible.length ? <>
       <View style={{ height: 108, alignItems: 'center', justifyContent: 'center' }}><Svg width="108" height="108" viewBox="0 0 108 108">
         <Circle cx="54" cy="54" r="38" fill="none" stroke={colors.chartTrack} strokeWidth="10" />
@@ -320,9 +319,9 @@ function DonutCard({ title, icon: Icon, rows, dimension }: { title: string; icon
           progress += ratio;
           return <Circle key={`${dimensionLabel(item, dimension, index)}-${index}`} cx="54" cy="54" r="38" fill="none" stroke={segmentColors[index]} strokeWidth="10" strokeDasharray={`${ratio * circumference} ${circumference}`} strokeDashoffset={-offset * circumference} rotation="-90" origin="54,54" />;
         })}
-        <SvgText x="54" y="49" fill={colors.subtext} fontSize="7" textAnchor="middle">总费用</SvgText><SvgText x="54" y="62" fill={colors.text} fontSize="9" fontWeight="700" textAnchor="middle">{formatCost(cost)}</SvgText>
+        <SvgText x="54" y="49" fill={colors.subtext} fontSize="9" textAnchor="middle">总费用</SvgText><SvgText x="54" y="63" fill={colors.text} fontSize="11" fontWeight="700" textAnchor="middle">{formatCost(cost)}</SvgText>
       </Svg></View>
-      {visible.slice(0, 3).map((item, index) => <View key={`${dimensionLabel(item, dimension, index)}-legend`} style={{ minHeight: 20, flexDirection: 'row', alignItems: 'center', gap: 6 }}><View style={{ width: 6, height: 6, borderRadius: 2, backgroundColor: segmentColors[index] }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 9 }}>{dimensionLabel(item, dimension, index)}</Text><Text style={{ color: colors.subtext, fontSize: 8 }}>{formatCost(firstNumber(item, ['cost', 'cost_usd', 'total_cost']))}</Text></View>)}
+      {visible.slice(0, 3).map((item, index) => <View key={`${dimensionLabel(item, dimension, index)}-legend`} style={{ minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: segmentColors[index] }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11 }}>{dimensionLabel(item, dimension, index)}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{formatCost(firstNumber(item, ['cost', 'cost_usd', 'total_cost']))}</Text></View>)}
     </> : <EmptyState embedded icon={Icon} message="暂无数据" />}
   </View>;
 }
@@ -342,10 +341,10 @@ function BreakdownSection({ title, icon, rows, dimension, full = false }: { titl
   const colors = useAppTheme();
   return <View style={{ flexGrow: 1, flexBasis: full ? '100%' : 360, minWidth: 0, gap: 8 }}>
     <SectionHeader icon={icon} title={title} />
-    <View style={{ borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
-      {rows.slice(0, 8).map((item, index) => <View key={`${dimensionLabel(item, dimension, index)}-${index}`} style={{ minHeight: 48, paddingHorizontal: 10, paddingVertical: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 5 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>{dimensionLabel(item, dimension, index)}</Text><Text style={{ color: colors.text, fontSize: 10, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{formatCost(firstNumber(item, ['cost', 'cost_usd', 'total_cost']))}</Text></View>
-        <View style={{ flexDirection: 'row', gap: 12 }}><Text style={{ color: colors.subtext, fontSize: 9 }}>请求 {formatNumber(firstNumber(item, ['request_count', 'requests', 'count']))}</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>Token {formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>成功 {successRate(item).toFixed(1)}%</Text></View>
+    <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
+      {rows.slice(0, 8).map((item, index) => <View key={`${dimensionLabel(item, dimension, index)}-${index}`} style={{ minHeight: 56, paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>{dimensionLabel(item, dimension, index)}</Text><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{formatCost(firstNumber(item, ['cost', 'cost_usd', 'total_cost']))}</Text></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}><Text style={{ color: colors.subtext, fontSize: 10 }}>请求 {formatNumber(firstNumber(item, ['request_count', 'requests', 'count']))}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>Token {formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>成功 {successRate(item).toFixed(1)}%</Text></View>
       </View>)}
       {!rows.length ? <EmptyState embedded icon={icon} message="暂无数据" /> : null}
     </View>
@@ -360,16 +359,16 @@ function eventFailed(item: ApiRecord) {
 function EventRow({ item, index }: { item: ApiRecord; index: number }) {
   const colors = useAppTheme();
   const failed = eventFailed(item);
-  return <View style={{ minHeight: 62, paddingHorizontal: 11, paddingVertical: 9, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 6 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: failed ? colors.danger : colors.success }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700', fontFamily: 'monospace' }}>{firstText(item, ['model', 'model_id'], '未知模型')}</Text><View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: failed ? colors.dangerBg : colors.successBg }}><Text style={{ color: failed ? colors.danger : colors.success, fontSize: 8, fontWeight: '800' }}>{failed ? '失败' : '正常'}</Text></View></View>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}><Text style={{ flexGrow: 1, color: colors.subtext, fontSize: 9 }}>{firstText(item, ['created_at', 'timestamp', 'time'], '--')}</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>Token {formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>{formatNumber(firstNumber(item, ['latency_ms', 'duration_ms', 'latency']))} ms</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>{formatCost(firstNumber(item, ['cost', 'cost_usd']))}</Text></View>
+  return <View style={{ minHeight: 68, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 7 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: failed ? colors.danger : colors.success }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700', fontFamily: 'monospace' }}>{firstText(item, ['model', 'model_id'], '未知模型')}</Text><View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: failed ? colors.dangerBg : colors.successBg }}><Text style={{ color: failed ? colors.danger : colors.success, fontSize: 10, fontWeight: '800' }}>{failed ? '失败' : '正常'}</Text></View></View>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}><Text style={{ flexGrow: 1, color: colors.subtext, fontSize: 10 }}>{firstText(item, ['created_at', 'timestamp', 'time'], '--')}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>Token {formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{formatNumber(firstNumber(item, ['latency_ms', 'duration_ms', 'latency']))} ms</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{formatCost(firstNumber(item, ['cost', 'cost_usd']))}</Text></View>
   </View>;
 }
 
 function EventsPanel({ value, title = '最近事件', limit = 8 }: { value: unknown; title?: string; limit?: number }) {
   const colors = useAppTheme();
   const rows = records(value, ['events', 'requests', 'logs', 'items', 'rows', 'data']).slice(0, limit);
-  return <View style={{ gap: 8 }}><SectionHeader icon={Activity} title={title} /><View style={{ borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>{rows.map((item, index) => <EventRow key={firstText(item, ['id', 'request_id'], String(index))} item={item} index={index} />)}{!rows.length ? <EmptyState embedded icon={Activity} message="暂无事件" /> : null}</View></View>;
+  return <View style={{ gap: 8 }}><SectionHeader icon={Activity} title={title} /><View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>{rows.map((item, index) => <EventRow key={firstText(item, ['id', 'request_id'], String(index))} item={item} index={index} />)}{!rows.length ? <EmptyState embedded icon={Activity} message="暂无事件" /> : null}</View></View>;
 }
 
 function OverviewContent({ bundle, trendMetric, onTrendMetricChange }: { bundle: DashboardBundle; trendMetric: TrendMetric; onTrendMetricChange: (value: TrendMetric) => void }) {
@@ -417,8 +416,8 @@ function RequestList({ value, search, loading, title }: { value: unknown; search
     const keyword = search.trim().toLowerCase();
     return records(value, ['events', 'requests', 'logs', 'items', 'rows', 'data']).filter((item) => !keyword || JSON.stringify(item).toLowerCase().includes(keyword));
   }, [search, value]);
-  return <View style={{ flex: 1, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
-    <View style={{ minHeight: 38, paddingHorizontal: 11, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center' }}><ScrollText color={colors.subtext} size={14} /><Text style={{ flex: 1, marginLeft: 7, color: colors.text, fontSize: 11, fontWeight: '700' }}>{title}</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>{rows.length} 条</Text></View>
+  return <View style={{ flex: 1, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
+    <View style={{ minHeight: 44, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center' }}><ScrollText color={colors.subtext} size={16} /><Text style={{ flex: 1, marginLeft: 8, color: colors.text, fontSize: 13, fontWeight: '700' }}>{title}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{rows.length} 条</Text></View>
     <FlatList data={rows} keyExtractor={(item, index) => firstText(item, ['id', 'request_id', 'trace_id'], String(index))} keyboardShouldPersistTaps="handled" removeClippedSubviews={Platform.OS === 'android'} initialNumToRender={20} maxToRenderPerBatch={20} windowSize={9} contentContainerStyle={{ flexGrow: rows.length ? 0 : 1 }} ListEmptyComponent={!loading ? <EmptyState embedded icon={ScrollText} message={search ? '没有匹配的记录' : '暂无记录'} /> : null} ListFooterComponent={loading ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: 16 }} /> : null} renderItem={({ item, index }) => <EventRow item={item} index={index} />} />
   </View>;
 }
@@ -445,7 +444,7 @@ export default function AdminStatsScreen() {
         ]);
         return { overview, trend, analysis, models, users, events } satisfies DashboardBundle;
       }
-      if (tab === 'summary') return getAdminStats(rangeParams(range), signal);
+      if (tab === 'summary') return getAdminStatsOverview(rangeParams(range), signal);
       if (tab === 'trend') return getAdminStatsTrend(rangeParams(range), signal);
       if (tab === 'analysis') return getAdminStatsAnalysis(rangeParams(range), signal);
       if (tab === 'models') return getAdminStatsModels(signal);

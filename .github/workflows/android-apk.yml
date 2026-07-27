@@ -74,14 +74,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          cp android/app/build/outputs/apk/release/app-release.apk artifacts/lucky-mobile.apk
-          file artifacts/lucky-mobile.apk
+          cp android/app/build/outputs/apk/release/app-release.apk "artifacts/AI Proxy.apk"
+          file "artifacts/AI Proxy.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: lucky-mobile-apk
-          path: artifacts/lucky-mobile.apk
+          name: AI Proxy Android APK
+          path: "artifacts/AI Proxy.apk"
           if-no-files-found: error
 
       - name: Publish build summary
@@ -91,6 +91,6 @@ jobs:
             echo "## Android APK Build"
             echo ""
             echo "- Build type: release APK signed with the generated debug key"
-            echo "- GitHub artifact: lucky-mobile-apk"
-            echo "- File: lucky-mobile.apk"
+            echo "- GitHub artifact: AI Proxy Android APK"
+            echo "- File: AI Proxy.apk"
           } >> "$GITHUB_STEP_SUMMARY"

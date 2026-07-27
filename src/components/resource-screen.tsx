@@ -170,7 +170,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
         return <Pressable onPress={() => setSelectedId(idOf(item))} style={({ pressed }) => ({ borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 5, opacity: pressed ? 0.7 : 1 })}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>{props.titleOf(item)}</Text>
-            {badge && tone ? <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: tone.bg }}>
+            {badge && tone ? <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: tone.bg }}>
               <Text style={{ color: tone.fg, fontSize: 9, fontWeight: '800' }}>{badge.text}</Text>
             </View> : null}
           </View>

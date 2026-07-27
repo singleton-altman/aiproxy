@@ -1,13 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Activity, BarChart3, Braces, ChevronRight, CloudCog, Coins, Footprints, Globe2, KeySquare, LayoutGrid, Network, Package, ServerCog, Settings2, ShieldAlert, TicketPercent, UsersRound, Waypoints, Boxes } from 'lucide-react-native';
+import { Activity, BarChart3, CloudCog, Coins, KeySquare, LayoutGrid, Network, Package, ServerCog, Settings2, ShieldAlert, TicketPercent, UsersRound, Waypoints, Boxes } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ErrorState, Page, Panel, SectionHeader, ServiceButton } from '@/src/components/ui';
 import { useAppTheme } from '@/src/lib/theme';
 import { getAdminStatsOverview } from '@/src/services/admin';
-import { getApiModules } from '@/src/services/endpoints';
 import { isAdmin, sessionState } from '@/src/store/session';
 
 const { useSnapshot } = require('valtio/react');
@@ -40,8 +39,6 @@ export default function AdminScreen() {
     void stats.refetch().finally(() => setRefreshing(false));
   };
 
-  const modules = getApiModules().filter((module) => module.key.startsWith('admin-'));
-
   if (!admin && sessionState.mode === 'apikey') {
     return <Page title="管理" icon={LayoutGrid}>
       <Panel>
@@ -51,7 +48,7 @@ export default function AdminScreen() {
     </Page>;
   }
 
-  return <Page title="管理" subtitle={admin ? '管理端功能与全部接口' : '当前账号可能没有管理员权限'} icon={LayoutGrid} refreshing={refreshing || stats.isFetching} onRefresh={refresh}>
+  return <Page title="管理" subtitle={admin ? '管理端功能' : '当前账号可能没有管理员权限'} icon={LayoutGrid} refreshing={refreshing || stats.isFetching} onRefresh={refresh}>
     {!admin ? <Panel>
       <SectionHeader icon={ShieldAlert} title="权限提示" />
       <Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>未检测到管理员角色。若你确认自己是管理员，下方功能仍可尝试访问；无权限的请求会返回错误。</Text>
@@ -80,22 +77,10 @@ export default function AdminScreen() {
       <ServiceButton icon={CloudCog} label="账号导入" detail="批量导入、OAuth 与 Kiro 流程" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-account-import' as never)} />
       <ServiceButton icon={Network} label="Providers" detail="上游服务与路由前缀" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-providers' as never)} />
       <ServiceButton icon={Waypoints} label="代理管理" detail="出口代理与连通性测试" iconColor={colors.accentText} iconBackground={colors.accentBg} onPress={() => router.push('/admin-proxies' as never)} />
-      <ServiceButton icon={Globe2} label="系统代理" detail="统一出口代理配置" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-proxy-system' as never)} />
       <ServiceButton icon={TicketPercent} label="邀请码" detail="创建、限次与使用记录" onPress={() => router.push('/admin-invites' as never)} />
       <ServiceButton icon={Package} label="套餐管理" detail="定价、限额与上下架" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-plans' as never)} />
       <ServiceButton icon={KeySquare} label="Mgmt Tokens" detail="管理令牌创建与撤销" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-tokens' as never)} />
-      <ServiceButton icon={Footprints} label="Traces" detail="请求链路追踪明细" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-traces' as never)} />
     </View>
 
-    <SectionHeader icon={Braces} title="全部管理接口" meta={`${modules.reduce((sum, item) => sum + item.endpointCount, 0)} 个端点`} />
-    <Panel>
-      {modules.map((module, index) => <Pressable key={module.key} onPress={() => router.push(`/modules/${encodeURIComponent(module.key)}` as never)} style={({ pressed }) => ({ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, opacity: pressed ? 0.62 : 1 })}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>{module.label}</Text>
-          <Text style={{ color: colors.subtext, fontSize: 10, marginTop: 2 }}>{module.endpointCount} 个端点 · {module.methodCount} 个方法</Text>
-        </View>
-        <ChevronRight color={colors.disabled} size={16} />
-      </Pressable>)}
-    </Panel>
   </Page>;
 }

@@ -97,12 +97,12 @@ function nestedRecords(value: unknown, keys: string[]): ApiRecord[] {
 }
 
 function ProviderMark({ provider, size = 42 }: { provider: Provider; size?: number }) {
-  return <View style={{ width: size, height: size, borderRadius: 8, backgroundColor: provider.color, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: size * 0.4, fontWeight: '900' }}>{provider.mark}</Text></View>;
+  return <View style={{ width: size, height: size, borderRadius: 12, backgroundColor: provider.color, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: size * 0.4, fontWeight: '900' }}>{provider.mark}</Text></View>;
 }
 
 function ProviderCard({ provider, basis, onPress }: { provider: Provider; basis: `${number}%`; onPress: () => void }) {
   const colors = useAppTheme();
-  return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 100, borderRadius: 8, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', gap: 9, opacity: pressed ? 0.7 : 1 })}>
+  return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 100, borderRadius: 18, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', gap: 9, opacity: pressed ? 0.7 : 1 })}>
     <ProviderMark provider={provider} />
     <Text numberOfLines={2} style={{ maxWidth: '92%', color: colors.text, fontSize: 12, lineHeight: 16, fontWeight: '700', textAlign: 'center' }}>{provider.label}</Text>
   </Pressable>;
@@ -114,7 +114,7 @@ function CredentialField({ label, value, onChangeText, secure = false, placehold
   return <View style={{ gap: 7 }}>
     <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text>
     <View>
-      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} secureTextEntry={secure && !visible} style={{ minHeight: 46, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, paddingRight: secure ? 46 : 12, color: colors.text, fontSize: 14 }} />
+      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} secureTextEntry={secure && !visible} style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, paddingRight: secure ? 46 : 12, color: colors.text, fontSize: 14 }} />
       {secure ? <Pressable accessibilityLabel={visible ? '隐藏凭据' : '显示凭据'} onPress={() => setVisible((current) => !current)} style={{ position: 'absolute', right: 4, top: 3, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>{visible ? <EyeOff color={colors.subtext} size={16} /> : <Eye color={colors.subtext} size={16} />}</Pressable> : null}
     </View>
   </View>;
@@ -239,7 +239,7 @@ export default function AdminAccountImportScreen() {
   const oauthMethod = method === 'oauth' || method === 'sso' || method === 'iam';
 
   return <Page title={selected ? `接入 ${selected.label}` : '选择提供商'} subtitle={selected ? '选择接入方式并完成授权' : '添加一个新的上游账号'} icon={selected ? KeyRound : CloudDownload} safeTop={false} contentMaxWidth={920} refreshing={flow.isPending || fileImport.isPending}>
-    {selected ? <Pressable onPress={() => setSelected(undefined)} style={{ alignSelf: 'flex-start', minHeight: 38, paddingHorizontal: 11, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6 }}><ArrowLeft color={colors.text} size={16} /><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>重新选择</Text></Pressable> : null}
+    {selected ? <Pressable onPress={() => setSelected(undefined)} style={{ alignSelf: 'flex-start', minHeight: 38, paddingHorizontal: 11, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6 }}><ArrowLeft color={colors.text} size={16} /><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>重新选择</Text></Pressable> : null}
 
     {!selected ? <>
       <View style={{ gap: 10 }}>
@@ -252,10 +252,10 @@ export default function AdminAccountImportScreen() {
       </View>
       <Panel>
         <SectionHeader icon={FileJson} title="批量文件" />
-        <Pressable onPress={() => void chooseFile()} style={{ minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: file ? colors.success : colors.border, backgroundColor: colors.mutedCard, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 }}><FileUp color={file ? colors.success : colors.primary} size={17} /><Text numberOfLines={1} style={{ flex: 1, color: file ? colors.text : colors.subtext, fontSize: 12 }}>{file ? `${file.name}${file.size ? ` · ${file.size} bytes` : ''}` : '选择 JSON、CSV 或文本文件'}</Text></Pressable>
+        <Pressable onPress={() => void chooseFile()} style={{ minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: file ? colors.success : colors.border, backgroundColor: colors.mutedCard, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 }}><FileUp color={file ? colors.success : colors.primary} size={17} /><Text numberOfLines={1} style={{ flex: 1, color: file ? colors.text : colors.subtext, fontSize: 12 }}>{file ? `${file.name}${file.size ? ` · ${file.size} bytes` : ''}` : '选择 JSON、CSV 或文本文件'}</Text></Pressable>
         {file ? <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Pressable disabled={fileImport.isPending} onPress={() => fileImport.mutate({ asset: file, dryRun: true })} style={{ flex: 1, minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12 }}>先检查文件</Text></Pressable>
-          <Pressable disabled={fileImport.isPending} onPress={() => fileImport.mutate({ asset: file, dryRun: false })} style={{ flex: 1, minHeight: 44, borderRadius: 8, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>正式导入</Text></Pressable>
+          <Pressable disabled={fileImport.isPending} onPress={() => fileImport.mutate({ asset: file, dryRun: true })} style={{ flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12 }}>先检查文件</Text></Pressable>
+          <Pressable disabled={fileImport.isPending} onPress={() => fileImport.mutate({ asset: file, dryRun: false })} style={{ flex: 1, minHeight: 44, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>正式导入</Text></Pressable>
         </View> : null}
       </Panel>
     </> : <>
@@ -268,8 +268,8 @@ export default function AdminAccountImportScreen() {
       <Panel>
         <SectionHeader icon={Server} title="网络出口" />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-          <Pressable onPress={() => setProxyId('')} style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 8, borderWidth: 1, borderColor: !proxyId ? colors.primary : colors.border, backgroundColor: !proxyId ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: !proxyId ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>默认网络</Text></Pressable>
-          {proxyOptions.map((proxy, index) => { const id = String(proxy.id ?? proxy.name ?? index); const active = proxyId === id; return <Pressable key={id} onPress={() => setProxyId(id)} style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 8, borderWidth: 1, borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: active ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{String(proxy.name ?? `${proxy.host ?? ''}:${proxy.port ?? ''}`)}</Text></Pressable>; })}
+          <Pressable onPress={() => setProxyId('')} style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 12, borderWidth: 1, borderColor: !proxyId ? colors.primary : colors.border, backgroundColor: !proxyId ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: !proxyId ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>默认网络</Text></Pressable>
+          {proxyOptions.map((proxy, index) => { const id = String(proxy.id ?? proxy.name ?? index); const active = proxyId === id; return <Pressable key={id} onPress={() => setProxyId(id)} style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 12, borderWidth: 1, borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: active ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{String(proxy.name ?? `${proxy.host ?? ''}:${proxy.port ?? ''}`)}</Text></Pressable>; })}
         </View>
       </Panel>
 
@@ -278,15 +278,15 @@ export default function AdminAccountImportScreen() {
         {sessionId ? <CredentialField label="授权会话" value={sessionId} onChangeText={setSessionId} placeholder="自动获取" /> : null}
         {(sessionId || result !== undefined) ? <CredentialField label="验证码（按需填写）" value={verificationCode} onChangeText={setVerificationCode} placeholder="授权页面未自动回传时填写" /> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Pressable disabled={flow.isPending} onPress={startFlow} style={{ flexGrow: 1, minHeight: 44, paddingHorizontal: 13, borderRadius: 8, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>{flow.isPending ? <ActivityIndicator color="#fff" /> : <Play color="#fff" size={15} />}<Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>开始授权</Text></Pressable>
-          {method !== 'iam' ? <Pressable disabled={flow.isPending || !result} onPress={pollFlow} style={{ flexGrow: 1, minHeight: 44, paddingHorizontal: 13, borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: result ? 1 : 0.45 }}><RefreshCw color={colors.primary} size={15} /><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>检查状态</Text></Pressable> : null}
-          <Pressable disabled={flow.isPending || !result} onPress={submitFlow} style={{ flexGrow: 1, minHeight: 44, paddingHorizontal: 13, borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: result ? 1 : 0.45 }}><Send color={colors.primary} size={15} /><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>{method === 'iam' ? '完成接入' : '提交授权'}</Text></Pressable>
+          <Pressable disabled={flow.isPending} onPress={startFlow} style={{ flexGrow: 1, minHeight: 44, paddingHorizontal: 13, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>{flow.isPending ? <ActivityIndicator color="#fff" /> : <Play color="#fff" size={15} />}<Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>开始授权</Text></Pressable>
+          {method !== 'iam' ? <Pressable disabled={flow.isPending || !result} onPress={pollFlow} style={{ flexGrow: 1, minHeight: 44, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: result ? 1 : 0.45 }}><RefreshCw color={colors.primary} size={15} /><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>检查状态</Text></Pressable> : null}
+          <Pressable disabled={flow.isPending || !result} onPress={submitFlow} style={{ flexGrow: 1, minHeight: 44, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: result ? 1 : 0.45 }}><Send color={colors.primary} size={15} /><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>{method === 'iam' ? '完成接入' : '提交授权'}</Text></Pressable>
         </View>
       </Panel> : <Panel>
         <SectionHeader icon={KeyRound} title={methodLabels[method]} />
         <CredentialField label="账号名称（可选）" value={label} onChangeText={setLabel} placeholder={selected.label} />
         <CredentialField label={method === 'api_key' ? 'API Key' : 'Token'} value={secret} onChangeText={setSecret} secure placeholder="粘贴凭据" />
-        <Pressable disabled={flow.isPending || !secret.trim()} onPress={submitCredential} style={{ minHeight: 46, borderRadius: 8, backgroundColor: secret.trim() ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{flow.isPending ? <ActivityIndicator color="#fff" /> : <KeyRound color="#fff" size={16} />}<Text style={{ color: '#fff', fontWeight: '800' }}>添加账号</Text></Pressable>
+        <Pressable disabled={flow.isPending || !secret.trim()} onPress={submitCredential} style={{ minHeight: 46, borderRadius: 12, backgroundColor: secret.trim() ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{flow.isPending ? <ActivityIndicator color="#fff" /> : <KeyRound color="#fff" size={16} />}<Text style={{ color: '#fff', fontWeight: '800' }}>添加账号</Text></Pressable>
       </Panel>}
     </>}
 
@@ -294,9 +294,9 @@ export default function AdminAccountImportScreen() {
     {result !== undefined ? <Panel>
       <SectionHeader icon={CheckCircle2} title="接入状态" />
       {status ? <Text style={{ color: colors.success, fontSize: 12, fontWeight: '700' }}>{status}</Text> : null}
-      {userCode ? <View style={{ borderRadius: 8, backgroundColor: colors.mutedCard, padding: 12 }}><Text style={{ color: colors.subtext, fontSize: 10 }}>授权码</Text><Text selectable style={{ color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 4 }}>{userCode}</Text></View> : null}
-      {selected?.key === 'kiro' && profiles.length ? <View style={{ gap: 7 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>选择 Profile</Text>{profiles.map((profile, index) => <Pressable key={String(profile.id ?? profile.profile_id ?? index)} onPress={() => selectKiroProfile(profile)} style={{ minHeight: 42, borderRadius: 8, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{String(profile.name ?? profile.email ?? profile.id ?? `Profile ${index + 1}`)}</Text><Send color={colors.primary} size={14} /></Pressable>)}</View> : null}
-      {authUrl ? <Pressable onPress={() => void Linking.openURL(authUrl)} style={{ minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}><ExternalLink color={colors.primary} size={16} /><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>打开授权页面</Text></Pressable> : null}
+      {userCode ? <View style={{ borderRadius: 14, backgroundColor: colors.mutedCard, padding: 12 }}><Text style={{ color: colors.subtext, fontSize: 10 }}>授权码</Text><Text selectable style={{ color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 4 }}>{userCode}</Text></View> : null}
+      {selected?.key === 'kiro' && profiles.length ? <View style={{ gap: 7 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>选择 Profile</Text>{profiles.map((profile, index) => <Pressable key={String(profile.id ?? profile.profile_id ?? index)} onPress={() => selectKiroProfile(profile)} style={{ minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{String(profile.name ?? profile.email ?? profile.id ?? `Profile ${index + 1}`)}</Text><Send color={colors.primary} size={14} /></Pressable>)}</View> : null}
+      {authUrl ? <Pressable onPress={() => void Linking.openURL(authUrl)} style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}><ExternalLink color={colors.primary} size={16} /><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>打开授权页面</Text></Pressable> : null}
       <Pressable onPress={() => setShowRaw((value) => !value)} style={{ minHeight: 38, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>{showRaw ? '收起详细响应' : '查看详细响应'}</Text></Pressable>
       {showRaw ? <StructuredDataView value={result} /> : null}
     </Panel> : null}

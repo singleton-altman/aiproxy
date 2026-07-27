@@ -15,6 +15,7 @@ type PersistedSession = {
   email: string;
   password: string;
   apiKey: string;
+  profile?: UserProfile | null;
 };
 
 type SessionState = PersistedSession & {
@@ -71,6 +72,7 @@ async function persist() {
     email: sessionState.email,
     password: sessionState.password,
     apiKey: sessionState.apiKey,
+    profile: sessionState.profile,
   } satisfies PersistedSession));
 }
 
@@ -84,6 +86,11 @@ export async function hydrateSession() {
       sessionState.email = saved.email ?? '';
       sessionState.password = saved.password ?? '';
       sessionState.apiKey = saved.apiKey ?? '';
+      sessionState.profile = saved.profile && typeof saved.profile === 'object' ? saved.profile : null;
+      const hasCredentials = sessionState.mode === 'session'
+        ? Boolean(sessionState.email && sessionState.password)
+        : sessionState.mode === 'apikey' ? Boolean(sessionState.apiKey) : false;
+      sessionState.authenticated = Boolean(sessionState.baseUrl && hasCredentials);
     }
   } catch {
     await writeSession(null);
@@ -105,6 +112,7 @@ export async function saveSession(session: PersistedSession, profile: UserProfil
 
 export function setSessionProfile(profile: UserProfile | null) {
   sessionState.profile = profile;
+  void persist();
 }
 
 export function markSessionAuthenticated(value: boolean) {

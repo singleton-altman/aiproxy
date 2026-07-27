@@ -118,7 +118,7 @@ function FieldGrid({ fields }: { fields: Array<[string, unknown]> }) {
   const { width } = useWindowDimensions();
   const twoColumns = width >= 430;
   return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-    {fields.map(([label, value]) => <View key={label} style={{ flexGrow: 1, flexBasis: twoColumns ? '46%' : '100%', minWidth: 0, minHeight: 58, borderRadius: 8, backgroundColor: colors.mutedCard, paddingHorizontal: 11, paddingVertical: 9, gap: 4 }}>
+    {fields.map(([label, value]) => <View key={label} style={{ flexGrow: 1, flexBasis: twoColumns ? '46%' : '100%', minWidth: 0, minHeight: 58, borderRadius: 14, backgroundColor: colors.mutedCard, paddingHorizontal: 11, paddingVertical: 9, gap: 4 }}>
       <Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text>
       <Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: '700' }}>{displayValue(value)}</Text>
     </View>)}
@@ -126,7 +126,7 @@ function FieldGrid({ fields }: { fields: Array<[string, unknown]> }) {
 }
 
 function ActionButton({ action, icon: Icon, color, busy, pending, onPress }: { action: SystemAction; icon: typeof Power; color: string; busy: boolean; pending: boolean; onPress: () => void }) {
-  return <Pressable disabled={busy} onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 140, minHeight: 42, paddingHorizontal: 10, borderRadius: 8, backgroundColor: color, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: busy ? 0.55 : pressed ? 0.72 : 1 })}>
+  return <Pressable disabled={busy} onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 140, minHeight: 42, paddingHorizontal: 10, borderRadius: 12, backgroundColor: color, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: busy ? 0.55 : pressed ? 0.72 : 1 })}>
     {pending ? <ActivityIndicator color="#fff" size="small" /> : <Icon color="#fff" size={15} />}
     <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>{actionLabels[action]}</Text>
   </Pressable>;
@@ -195,14 +195,14 @@ function OverviewTab({ active }: { active: boolean }) {
         ['自更新状态', firstValue(selfUpdate, ['reason', 'message', 'status'])],
       ]} />}
 
-      {notes ? <Pressable onPress={() => setNotesVisible(true)} style={({ pressed }) => ({ minHeight: 42, borderRadius: 8, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}>
+      {notes ? <Pressable onPress={() => setNotesVisible(true)} style={({ pressed }) => ({ minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}>
         <FileText color={colors.primary} size={15} />
         <Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>查看更新说明</Text>
         <ChevronRight color={colors.subtext} size={15} />
       </Pressable> : null}
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <Pressable disabled={updateQuery.isFetching} onPress={() => void updateQuery.refetch()} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 140, minHeight: 42, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: updateQuery.isFetching ? 0.55 : pressed ? 0.65 : 1 })}>
+        <Pressable disabled={updateQuery.isFetching} onPress={() => void updateQuery.refetch()} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 140, minHeight: 42, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: updateQuery.isFetching ? 0.55 : pressed ? 0.65 : 1 })}>
           {updateQuery.isFetching ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={15} />}
           <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12 }}>重新检查</Text>
         </Pressable>
@@ -214,7 +214,7 @@ function OverviewTab({ active }: { active: boolean }) {
 
     <Modal visible={notesVisible} transparent animationType="fade" onRequestClose={() => setNotesVisible(false)}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.48)' }}>
-        <View style={{ width: '100%', maxWidth: 720, maxHeight: '82%', alignSelf: 'center', borderRadius: 8, backgroundColor: colors.page, padding: 16, gap: 12 }}>
+        <View style={{ width: '100%', maxWidth: 720, maxHeight: '82%', alignSelf: 'center', borderRadius: 18, backgroundColor: colors.page, padding: 16, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <FileText color={colors.primary} size={18} />
             <Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>更新说明</Text>
@@ -285,12 +285,12 @@ function SettingsTab({ active }: { active: boolean }) {
             autoCapitalize="none"
             autoCorrect={false}
             placeholderTextColor={colors.placeholder}
-            style={{ minHeight: 42, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, color: colors.text, fontSize: 12 }}
+            style={{ minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, color: colors.text, fontSize: 12 }}
           />
         </View>)}
       </View> : null}
 
-      {advancedEntries.length ? <Pressable onPress={() => setAdvancedVisible(true)} style={({ pressed }) => ({ minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}>
+      {advancedEntries.length ? <Pressable onPress={() => setAdvancedVisible(true)} style={({ pressed }) => ({ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}>
         <Settings2 color={colors.subtext} size={15} />
         <Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>高级配置</Text>
         <Text style={{ color: colors.subtext, fontSize: 10 }}>{advancedEntries.length} 项</Text>
@@ -298,7 +298,7 @@ function SettingsTab({ active }: { active: boolean }) {
       </Pressable> : null}
 
       {!query.isFetching && !query.error && !entries.length ? <EmptyState embedded icon={Settings2} message="暂无更新设置" /> : null}
-      <Pressable disabled={saveMutation.isPending || !entries.length} onPress={() => saveMutation.mutate()} style={({ pressed }) => ({ minHeight: 44, borderRadius: 8, backgroundColor: entries.length ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, opacity: saveMutation.isPending ? 0.55 : pressed ? 0.72 : 1 })}>
+      <Pressable disabled={saveMutation.isPending || !entries.length} onPress={() => saveMutation.mutate()} style={({ pressed }) => ({ minHeight: 44, borderRadius: 12, backgroundColor: entries.length ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, opacity: saveMutation.isPending ? 0.55 : pressed ? 0.72 : 1 })}>
         {saveMutation.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Save color="#fff" size={15} />}
         <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{saveMutation.isPending ? '保存中...' : '保存更新设置'}</Text>
       </Pressable>
@@ -306,7 +306,7 @@ function SettingsTab({ active }: { active: boolean }) {
 
     <Modal visible={advancedVisible} transparent animationType="fade" onRequestClose={() => setAdvancedVisible(false)}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.48)' }}>
-        <View style={{ width: '100%', maxWidth: 720, maxHeight: '82%', alignSelf: 'center', borderRadius: 8, backgroundColor: colors.page, padding: 16, gap: 12 }}>
+        <View style={{ width: '100%', maxWidth: 720, maxHeight: '82%', alignSelf: 'center', borderRadius: 18, backgroundColor: colors.page, padding: 16, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>高级配置</Text><Pressable accessibilityLabel="关闭" onPress={() => setAdvancedVisible(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={18} /></Pressable></View>
           <ScrollView><Text selectable style={{ color: colors.text, fontFamily: 'monospace', fontSize: 11, lineHeight: 18 }}>{JSON.stringify(advancedData, null, 2)}</Text></ScrollView>
         </View>
@@ -333,12 +333,12 @@ function LogsTab({ active }: { active: boolean }) {
   return <View style={{ flex: 1, gap: 10 }}>
     <View style={{ flexDirection: 'row', gap: 8 }}>
       <View style={{ flex: 1 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索日志" /></View>
-      <Pressable accessibilityLabel="刷新日志" disabled={query.isFetching} onPress={() => void query.refetch()} style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', opacity: query.isFetching ? 0.55 : pressed ? 0.65 : 1 })}>
+      <Pressable accessibilityLabel="刷新日志" disabled={query.isFetching} onPress={() => void query.refetch()} style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', opacity: query.isFetching ? 0.55 : pressed ? 0.65 : 1 })}>
         {query.isFetching ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={17} />}
       </Pressable>
     </View>
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
-    <View style={{ flex: 1, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
+    <View style={{ flex: 1, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
       <View style={{ minHeight: 38, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center' }}>
         <ScrollText color={colors.subtext} size={14} />
         <Text style={{ flex: 1, marginLeft: 7, color: colors.text, fontSize: 12, fontWeight: '700' }}>应用日志</Text>

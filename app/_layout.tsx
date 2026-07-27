@@ -10,7 +10,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import { AppShell } from '@/src/components/app-shell';
-import { hydrateSession, sessionState } from '@/src/store/session';
+import { getProfile } from '@/src/services/account';
+import { hydrateSession, sessionState, setSessionProfile } from '@/src/store/session';
 
 const { useSnapshot } = require('valtio/react');
 
@@ -22,9 +23,26 @@ export default function RootLayout() {
 
   useEffect(() => { hydrateSession(); }, []);
   useEffect(() => {
-    if (!session.hydrated || session.authenticated || segments[0] === 'login') return;
-    router.replace('/login');
-  }, [router, segments, session.hydrated, session.authenticated]);
+    if (!session.hydrated || !session.authenticated || session.mode !== 'session') return;
+    let cancelled = false;
+    void getProfile().then((profile) => {
+      if (!cancelled) setSessionProfile(profile);
+    }).catch(() => {
+      // apiJson handles expired sessions and clears credentials when automatic login fails.
+    });
+    return () => { cancelled = true; };
+  }, [session.authenticated, session.baseUrl, session.email, session.hydrated, session.mode]);
+  useEffect(() => {
+    if (!session.hydrated) return;
+    if (!session.authenticated && segments[0] !== 'login') {
+      router.replace('/login');
+      return;
+    }
+    if (session.authenticated && segments[0] === 'login') {
+      const role = session.profile?.role;
+      router.replace(role === 'admin' || role === 'super_admin' ? '/admin' : '/overview');
+    }
+  }, [router, segments, session.hydrated, session.authenticated, session.profile?.role]);
 
   return <GestureHandlerRootView style={{ flex: 1 }}>
     <StatusBar style={colors.mode === 'dark' ? 'light' : 'dark'} />

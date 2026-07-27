@@ -6,12 +6,35 @@ import type { ApiRecord, ChatMessage, ModelItem } from '@/src/types/api';
 
 export type GatewayProtocol = 'openai' | 'anthropic';
 
-function gatewayHeaders(apiKey: string) {
+function gatewayHeaders(apiKey: string, protocol?: GatewayProtocol) {
+  const key = apiKey.trim();
   return {
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey.trim()}`,
+    Authorization: `Bearer ${key}`,
+    'x-api-key': key,
+    ...(protocol === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {}),
   };
+}
+
+function gatewayErrorMessage(payload: unknown, status: number) {
+  const fallback = `请求失败（HTTP ${status}）`;
+  const message = extractErrorMessage(payload, fallback).trim();
+  const normalized = message.toLowerCase().replace(/_/g, ' ');
+  if (/missing api key/.test(normalized)) return '未发送网关 API Key，请重新粘贴后再试';
+  if (/invalid api key|unauthorized api key/.test(normalized)) {
+    return '网关 Key 无效，或该模型的上游账号凭据已失效，请检查密钥和账号状态';
+  }
+  if (/upstream request failed|upstream error/.test(normalized)) {
+    return '上游账号请求失败，请检查该模型对应账号的状态、额度和网络';
+  }
+  if (/no (available|healthy) (account|provider)|no account available/.test(normalized)) {
+    return '当前模型没有可用的上游账号，请检查账号池状态';
+  }
+  if (status === 429 || /rate limit|quota exceeded/.test(normalized)) {
+    return '请求过于频繁或额度不足，请稍后重试并检查账号额度';
+  }
+  return message || fallback;
 }
 
 async function gatewayJson<T = ApiRecord>(path: string, apiKey: string, init: RequestInit = {}): Promise<T> {
@@ -27,7 +50,7 @@ async function gatewayJson<T = ApiRecord>(path: string, apiKey: string, init: Re
     payload = raw;
   }
   if (!response.ok) {
-    throw new Error(extractErrorMessage(payload, `请求失败（HTTP ${response.status}）`));
+    throw new Error(gatewayErrorMessage(payload, response.status));
   }
   return payload as T;
 }
@@ -175,11 +198,12 @@ export async function runChat(
 ): Promise<ChatResult> {
   const path = protocol === 'anthropic' ? '/v1/messages' : '/v1/chat/completions';
   const url = resolveApiUrl(path);
-  const fetcher = Platform.OS === 'web' ? fetch : (expoFetch as unknown as typeof fetch);
   const wantsStream = handlers.stream !== false;
-  const request = (stream: boolean) => fetcher(url, {
+  const request = (stream: boolean) => {
+    const fetcher = Platform.OS === 'web' || !stream ? fetch : (expoFetch as unknown as typeof fetch);
+    return fetcher(url, {
       method: 'POST',
-      headers: { ...gatewayHeaders(apiKey), Accept: stream ? 'text/event-stream' : 'application/json' },
+      headers: { ...gatewayHeaders(apiKey, protocol), Accept: stream ? 'text/event-stream' : 'application/json' },
       body: JSON.stringify(chatRequestBody(protocol, model, messages, {
         stream,
         temperature: handlers.temperature,
@@ -187,13 +211,20 @@ export async function runChat(
       })),
       signal: handlers.signal,
     });
+  };
   let response = await request(wantsStream);
+
+  // Some upstreams reject streaming before producing an SSE body. A plain
+  // JSON retry also avoids native streaming transport differences on iOS.
+  if (!response.ok && wantsStream && response.status >= 500) {
+    response = await request(false);
+  }
 
   if (!response.ok) {
     const raw = await response.text();
     let payload: unknown;
     try { payload = JSON.parse(raw) as unknown; } catch { payload = raw; }
-    throw new Error(extractErrorMessage(payload, `请求失败（HTTP ${response.status}）`));
+    throw new Error(gatewayErrorMessage(payload, response.status));
   }
 
   const contentType = response.headers.get('content-type') ?? '';
@@ -211,7 +242,7 @@ export async function runChat(
       const raw = await response.text();
       let payload: unknown;
       try { payload = JSON.parse(raw) as unknown; } catch { payload = raw; }
-      throw new Error(extractErrorMessage(payload, `请求失败（HTTP ${response.status}）`));
+      throw new Error(gatewayErrorMessage(payload, response.status));
     }
     const payload = await response.json() as ApiRecord;
     const text = protocol === 'anthropic' ? extractAnthropicText(payload) : extractOpenAiText(payload);

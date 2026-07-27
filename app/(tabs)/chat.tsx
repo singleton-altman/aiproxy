@@ -22,10 +22,11 @@ import {
   X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState, ErrorState, FullScreenSafeArea, PageHeader, SearchField } from '@/src/components/ui';
+import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import { createApiKey, extractKeySecret, getModels } from '@/src/services/account';
 import { getGatewayModels, runChat, type GatewayProtocol } from '@/src/services/gateway';
@@ -67,6 +68,7 @@ export default function ChatScreen() {
   const { width } = useWindowDimensions();
   const compact = width < 620;
   const bottomClearance = width < 900 ? Math.max(84, insets.bottom + 68) : Math.max(10, insets.bottom);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const [apiKey, setApiKey] = useState(sessionState.apiKey);
   const [keyVisible, setKeyVisible] = useState(false);
@@ -82,10 +84,23 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [streaming, setStreaming] = useState(false);
-  const [error, setError] = useState('');
   const nextIdRef = useRef(0);
   const controllerRef = useRef<AbortController>(undefined);
   const listRef = useRef<FlatList<ChatEntry>>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!apiKey && session.apiKey) setApiKey(String(session.apiKey));
@@ -159,7 +174,6 @@ export default function ChatScreen() {
     const controller = new AbortController();
     controllerRef.current = controller;
     setStreaming(true);
-    setError('');
     try {
       const result = await runChat(effectiveKey, effectiveProtocol, model.trim(), history, {
         signal: controller.signal,
@@ -178,9 +192,9 @@ export default function ChatScreen() {
         ? (caught.name === 'AbortError' ? '已停止生成' : caught.message)
         : '请求失败';
       patchEntry(assistantId, (entry) => ({ pending: false, error: message, content: entry.content }));
-      if (!(caught instanceof Error && caught.name === 'AbortError')) setError(message);
     } finally {
       setStreaming(false);
+      void queryClient.invalidateQueries({ queryKey: ['keys'] });
       if (controllerRef.current === controller) controllerRef.current = undefined;
     }
   }
@@ -211,7 +225,6 @@ export default function ChatScreen() {
   function clearChat() {
     stop();
     setEntries([]);
-    setError('');
   }
 
   async function pasteKey() {
@@ -230,24 +243,26 @@ export default function ChatScreen() {
     else void sessionModels.refetch();
   }
 
-  const inputBoxStyle = { minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, paddingVertical: 10, fontSize: 13 } as const;
-  const keyConnected = Boolean(effectiveKey && gatewayModels.data && !gatewayModels.error);
+  const inputBoxStyle = { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13 } as const;
+  const keyConnected = Boolean(effectiveKey && gatewayModels.data?.length && !gatewayModels.error);
+  const composerBottomClearance = keyboardVisible ? 8 : bottomClearance;
+  const keyboardVerticalOffset = keyboardVisible && width < 900 ? 44 : 0;
 
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={['top']}>
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={keyboardVerticalOffset} style={{ flex: 1 }}>
       <View style={{ width: '100%', maxWidth: 900, alignSelf: 'center', flex: 1, paddingHorizontal: 16, paddingTop: 14, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ flex: 1 }}><PageHeader title="聊天测试" subtitle="调用 /v1 网关接口" icon={MessageCircle} /></View>
-          <Pressable accessibilityLabel="聊天设置" onPress={() => setSettingsOpen(true)} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}><Settings2 color={colors.subtext} size={18} /></Pressable>
-          <Pressable accessibilityLabel="图像生成" onPress={() => router.push('/images' as never)} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 8, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}><ImagePlus color={colors.primary} size={19} /></Pressable>
+          <Pressable accessibilityLabel="聊天设置" onPress={() => setSettingsOpen(true)} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}><Settings2 color={colors.subtext} size={18} /></Pressable>
+          <Pressable accessibilityLabel="图像生成" onPress={() => router.push('/images' as never)} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}><ImagePlus color={colors.primary} size={19} /></Pressable>
         </View>
 
         <View style={{ gap: 7 }}>
-          <View style={{ minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: keyConnected ? colors.success : colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ minHeight: 44, borderRadius: 14, borderWidth: 1, borderColor: keyConnected ? colors.success : colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }}>
             <KeyRound color={keyConnected ? colors.success : colors.subtext} size={16} style={{ marginLeft: 11 }} />
             <TextInput
               value={apiKey}
-              onChangeText={(value) => { setApiKey(value); setError(''); }}
+              onChangeText={setApiKey}
               onEndEditing={() => void saveGatewayApiKey(apiKey)}
               placeholder="网关 API Key（aps_...）"
               placeholderTextColor={colors.placeholder}
@@ -261,23 +276,22 @@ export default function ChatScreen() {
           </View>
 
           <View style={{ flexDirection: compact ? 'column' : 'row', gap: 7 }}>
-            <Pressable onPress={() => setModelPickerOpen(true)} style={{ flex: compact ? undefined : 1, minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Pressable onPress={() => setModelPickerOpen(true)} style={{ flex: compact ? undefined : 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text numberOfLines={1} style={{ flex: 1, color: model ? colors.text : colors.placeholder, fontSize: 12, fontFamily: 'monospace' }}>{model || '选择模型'}</Text>
               {(sessionModels.isFetching || gatewayModels.isFetching) ? <ActivityIndicator color={colors.primary} size="small" /> : <ChevronDown color={colors.subtext} size={16} />}
             </Pressable>
-            <View style={{ flexDirection: 'row', gap: 3, padding: 3, borderRadius: 8, backgroundColor: colors.mutedCard }}>
-              {([['auto', '自动'], ['openai', 'OpenAI'], ['anthropic', 'Claude']] as const).map(([key, label]) => <Pressable key={key} onPress={() => setProtocol(key)} style={{ flex: compact ? 1 : undefined, minWidth: compact ? 0 : 70, minHeight: 38, paddingHorizontal: 8, borderRadius: 6, backgroundColor: protocol === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: protocol === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text></Pressable>)}
+            <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>
+              {([['auto', '自动'], ['openai', 'OpenAI'], ['anthropic', 'Claude']] as const).map(([key, label]) => <Pressable key={key} onPress={() => setProtocol(key)} style={{ flex: compact ? 1 : undefined, minWidth: compact ? 0 : 70, minHeight: 36, paddingHorizontal: 8, borderRadius: 9, backgroundColor: protocol === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: protocol === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text></Pressable>)}
             </View>
           </View>
 
           <View style={{ minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
             {keyConnected ? <><CheckCircle2 color={colors.success} size={13} /><Text style={{ flex: 1, color: colors.success, fontSize: 9 }}>Key 已连接 · {gatewayModels.data?.length ?? 0} 个模型 · {effectiveProtocol === 'anthropic' ? 'Claude' : 'OpenAI'} 协议</Text></> : effectiveKey && gatewayModels.isFetching ? <><ActivityIndicator color={colors.primary} size="small" /><Text style={{ flex: 1, color: colors.subtext, fontSize: 9 }}>正在验证 Key...</Text></> : <Text style={{ flex: 1, color: colors.subtext, fontSize: 9 }}>{session.mode === 'session' ? '填写已有 Key，或创建聊天测试 Key' : '等待有效网关 Key'}</Text>}
-            {session.mode === 'session' && !effectiveKey ? <Pressable disabled={createKey.isPending} onPress={() => createKey.mutate()} style={{ minHeight: 28, paddingHorizontal: 9, borderRadius: 7, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 5 }}>{createKey.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Plus color={colors.primary} size={12} />}<Text style={{ color: colors.primary, fontSize: 9, fontWeight: '800' }}>创建 Key</Text></Pressable> : null}
+            {session.mode === 'session' && !effectiveKey ? <Pressable disabled={createKey.isPending} onPress={() => createKey.mutate()} style={{ minHeight: 28, paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 5 }}>{createKey.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Plus color={colors.primary} size={12} />}<Text style={{ color: colors.primary, fontSize: 9, fontWeight: '800' }}>创建 Key</Text></Pressable> : null}
           </View>
         </View>
 
         {gatewayModels.error && effectiveKey ? <ErrorState message={`Key 或模型接口不可用：${gatewayModels.error.message}`} retry={() => gatewayModels.refetch()} /> : null}
-        {error ? <ErrorState message={error} /> : null}
 
         <FlatList
           ref={listRef}
@@ -285,6 +299,7 @@ export default function ChatScreen() {
           keyExtractor={(entry) => String(entry.id)}
           style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           contentContainerStyle={{ gap: 10, paddingVertical: 4, flexGrow: 1 }}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 28 }}><Bot color={colors.disabled} size={34} /><Text style={{ color: colors.subtext, fontSize: 11, textAlign: 'center' }}>{!effectiveKey ? '配置网关 Key' : !model ? '选择可用模型' : '发送消息开始测试'}</Text></View>}
@@ -293,59 +308,59 @@ export default function ChatScreen() {
             const lastAssistant = item.role === 'assistant' && index === entries.findLastIndex((entry) => entry.role === 'assistant');
             const usage = usageLabel(item.usage);
             return <View style={{ flexDirection: 'row', justifyContent: mine ? 'flex-end' : 'flex-start', gap: 7 }}>
-              {!mine ? <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}><Bot color={colors.primary} size={14} /></View> : null}
+              {!mine ? <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}><Bot color={colors.primary} size={14} /></View> : null}
               <View style={{ maxWidth: '84%', gap: 4 }}>
-                <View style={{ borderRadius: 8, padding: 11, backgroundColor: mine ? colors.primary : colors.card, borderWidth: mine ? 0 : 1, borderColor: colors.border, gap: 6 }}>
+                <View style={{ borderRadius: 16, padding: 12, backgroundColor: mine ? colors.primary : colors.card, borderWidth: mine ? 0 : 1, borderColor: colors.border, gap: 6 }}>
                   {item.content ? <Text selectable style={{ color: mine ? '#fff' : colors.text, fontSize: 13, lineHeight: 20 }}>{item.content}</Text> : null}
                   {item.pending && !item.content ? <ActivityIndicator color={colors.primary} /> : null}
                   {item.error ? <Text style={{ color: mine ? '#fff' : colors.danger, fontSize: 10 }}>{item.error}</Text> : null}
                 </View>
-                {!mine && (item.content || usage) ? <View style={{ minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                {!mine && (item.content || usage || item.error) ? <View style={{ minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   {usage ? <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 8 }}>{usage}</Text> : <View style={{ flex: 1 }} />}
-                  <Pressable accessibilityLabel="复制回复" onPress={() => void copyMessage(item.content)} style={{ width: 26, height: 24, alignItems: 'center', justifyContent: 'center' }}><Copy color={colors.subtext} size={12} /></Pressable>
+                  {item.content ? <Pressable accessibilityLabel="复制回复" onPress={() => void copyMessage(item.content)} style={{ width: 26, height: 24, alignItems: 'center', justifyContent: 'center' }}><Copy color={colors.subtext} size={12} /></Pressable> : null}
                   {lastAssistant && !streaming ? <Pressable accessibilityLabel="重新生成" onPress={() => void regenerate()} style={{ width: 26, height: 24, alignItems: 'center', justifyContent: 'center' }}><RotateCcw color={colors.subtext} size={12} /></Pressable> : null}
                 </View> : null}
               </View>
-              {mine ? <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}><UserRound color={colors.subtext} size={14} /></View> : null}
+              {mine ? <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}><UserRound color={colors.subtext} size={14} /></View> : null}
             </View>;
           }}
         />
 
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 7, paddingBottom: bottomClearance }}>
-          <Pressable accessibilityLabel="清空对话" disabled={!entries.length} onPress={clearChat} style={{ width: 40, height: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', opacity: entries.length ? 1 : 0.45 }}><Eraser color={colors.subtext} size={16} /></Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 7, paddingBottom: composerBottomClearance }}>
+          <Pressable accessibilityLabel="清空对话" disabled={!entries.length} onPress={clearChat} style={{ width: 40, height: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', opacity: entries.length ? 1 : 0.45 }}><Eraser color={colors.subtext} size={16} /></Pressable>
           <TextInput value={input} onChangeText={setInput} placeholder={!effectiveKey ? '请先配置网关 Key' : !model ? '请先选择模型' : '输入消息...'} placeholderTextColor={colors.placeholder} editable={!streaming} multiline textAlignVertical="top" style={[inputBoxStyle, { flex: 1, maxHeight: 120 }]} />
-          <Pressable accessibilityLabel={streaming ? '停止生成' : '发送'} disabled={!streaming && !canSend} onPress={streaming ? stop : () => void send()} style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 8, backgroundColor: streaming ? colors.danger : canSend ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>{streaming ? <Square color="#fff" size={15} /> : <Send color="#fff" size={16} />}</Pressable>
+          <Pressable accessibilityLabel={streaming ? '停止生成' : '发送'} disabled={!streaming && !canSend} onPress={streaming ? stop : () => void send()} style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 12, backgroundColor: streaming ? colors.danger : canSend ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>{streaming ? <Square color="#fff" size={15} /> : <Send color="#fff" size={16} />}</Pressable>
         </View>
       </View>
     </KeyboardAvoidingView>
 
     <Modal visible={modelPickerOpen} transparent animationType="slide" onRequestClose={() => setModelPickerOpen(false)}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
-        <View style={{ maxHeight: '82%', borderTopLeftRadius: 16, borderTopRightRadius: 16, backgroundColor: colors.page, padding: 16, gap: 10 }}>
+        <View style={{ maxHeight: '82%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 18, gap: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>选择模型</Text><Pressable accessibilityLabel="刷新模型" onPress={refreshModels} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><RefreshCw color={colors.primary} size={16} /></Pressable><Pressable accessibilityLabel="关闭" onPress={() => setModelPickerOpen(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View>
           <SearchField value={modelSearch} onChangeText={setModelSearch} placeholder="搜索模型或供应商" />
           {(sessionModels.isFetching || gatewayModels.isFetching) ? <ActivityIndicator color={colors.primary} /> : null}
           <FlatList data={filteredModels} keyExtractor={(item, index) => modelId(item) || String(index)} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 6, paddingBottom: 8 }} ListEmptyComponent={<EmptyState embedded icon={Bot} message="没有匹配的模型，可在下方手动输入" />} renderItem={({ item }) => {
             const id = modelId(item);
             const selected = id === model;
-            return <Pressable onPress={() => { setModel(id); setModelPickerOpen(false); }} style={({ pressed }) => ({ minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primarySoft : colors.card, paddingHorizontal: 11, justifyContent: 'center', gap: 3, opacity: pressed ? 0.65 : 1 })}><Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.text, fontSize: 12, fontFamily: 'monospace', fontWeight: '700' }}>{id}</Text><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9 }}>{String(item.provider ?? item.owned_by ?? '')}{item.family ? ` · ${String(item.family)}` : ''}</Text></Pressable>;
+            return <Pressable onPress={() => { setModel(id); setModelPickerOpen(false); }} style={({ pressed }) => ({ minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primarySoft : colors.card, paddingHorizontal: 12, justifyContent: 'center', gap: 3, opacity: pressed ? 0.65 : 1 })}><Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.text, fontSize: 12, fontFamily: 'monospace', fontWeight: '700' }}>{id}</Text><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9 }}>{String(item.provider ?? item.owned_by ?? '')}{item.family ? ` · ${String(item.family)}` : ''}</Text></Pressable>;
           }} />
-          <View style={{ flexDirection: 'row', gap: 7 }}><TextInput value={model} onChangeText={setModel} placeholder="手动输入模型 ID" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={[inputBoxStyle, { flex: 1, fontFamily: 'monospace' }]} /><Pressable disabled={!model.trim()} onPress={() => setModelPickerOpen(false)} style={{ minWidth: 74, minHeight: 44, borderRadius: 8, backgroundColor: model.trim() ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>确定</Text></Pressable></View>
+          <View style={{ flexDirection: 'row', gap: 7 }}><TextInput value={model} onChangeText={setModel} placeholder="手动输入模型 ID" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={[inputBoxStyle, { flex: 1, fontFamily: 'monospace' }]} /><Pressable disabled={!model.trim()} onPress={() => setModelPickerOpen(false)} style={{ minWidth: 74, minHeight: 44, borderRadius: 12, backgroundColor: model.trim() ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>确定</Text></Pressable></View>
         </View>
       </FullScreenSafeArea>
     </Modal>
 
     <Modal visible={settingsOpen} transparent animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
-        <View style={{ maxHeight: '88%', borderTopLeftRadius: 16, borderTopRightRadius: 16, backgroundColor: colors.page, padding: 16, gap: 12 }}>
+        <View style={{ maxHeight: '88%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 18, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>聊天设置</Text><Pressable accessibilityLabel="关闭" onPress={() => setSettingsOpen(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12 }}>
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>系统提示词</Text><TextInput value={systemPrompt} onChangeText={setSystemPrompt} placeholder="可选" placeholderTextColor={colors.placeholder} multiline textAlignVertical="top" style={[inputBoxStyle, { minHeight: 90 }]} /></View>
-            <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>温度</Text><View style={{ flexDirection: 'row', gap: 4, padding: 3, borderRadius: 8, backgroundColor: colors.mutedCard }}>{[0, 0.3, 0.7, 1].map((value) => <Pressable key={value} onPress={() => setTemperature(value)} style={{ flex: 1, minHeight: 38, borderRadius: 6, backgroundColor: temperature === value ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: temperature === value ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{value}</Text></Pressable>)}</View></View>
+            <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>温度</Text><View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>{[0, 0.3, 0.7, 1].map((value) => <Pressable key={value} onPress={() => setTemperature(value)} style={{ flex: 1, minHeight: 36, borderRadius: 9, backgroundColor: temperature === value ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: temperature === value ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{value}</Text></Pressable>)}</View></View>
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>最大输出 Token</Text><TextInput value={maxTokens} onChangeText={setMaxTokens} keyboardType="number-pad" placeholder="2048" placeholderTextColor={colors.placeholder} style={inputBoxStyle} /></View>
             <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>流式响应</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>关闭后使用普通 JSON 响应</Text></View><Switch value={streamEnabled} onValueChange={setStreamEnabled} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>
           </ScrollView>
-          <Pressable onPress={() => setSettingsOpen(false)} style={{ minHeight: 44, borderRadius: 8, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>完成</Text></Pressable>
+          <Pressable onPress={() => setSettingsOpen(false)} style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>完成</Text></Pressable>
         </View>
       </FullScreenSafeArea>
     </Modal>

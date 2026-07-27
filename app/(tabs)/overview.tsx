@@ -35,6 +35,14 @@ import type { ApiRecord, ModelItem, UsageTrendItem } from '@/src/types/api';
 
 const { useSnapshot } = require('valtio/react');
 
+type DashboardRange = 'day' | 'week' | 'month';
+
+const dashboardRanges: Array<{ value: DashboardRange; label: string }> = [
+  { value: 'day', label: '今日' },
+  { value: 'week', label: '本周' },
+  { value: 'month', label: '本月' },
+];
+
 function toNumber(value: unknown) {
   const number = typeof value === 'number'
     ? value
@@ -91,7 +99,7 @@ type MetricCardProps = {
 
 function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, basis }: MetricCardProps) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 108, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, justifyContent: 'space-between', gap: 8 }}>
+  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 108, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, justifyContent: 'space-between', gap: 8 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{label}</Text>
       <IconTile icon={Icon} size={30} iconSize={15} color={accent} background={iconBackground} />
@@ -103,17 +111,23 @@ function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, 
   </View>;
 }
 
-function dateLabel(item: UsageTrendItem, index: number) {
-  const source = String(item.bucket_start ?? item.date ?? item.day ?? '');
+function dateLabel(item: UsageTrendItem, index: number, range: DashboardRange) {
+  const source = String(item.bucket_start ?? item.date ?? item.day ?? item.hour ?? item.time ?? '');
   if (!source) return String(index + 1);
+  if (range === 'day') {
+    const time = source.match(/(?:T|\s)(\d{1,2}):(\d{2})/);
+    if (time) return `${time[1].padStart(2, '0')}:${time[2]}`;
+    const hour = source.match(/^(\d{1,2})(?::\d{2})?$/);
+    if (hour) return `${hour[1].padStart(2, '0')}:00`;
+  }
   const date = source.slice(0, 10);
   const parts = date.split('-');
   return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : date.slice(0, 5);
 }
 
-function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
+function RequestTrendChart({ items, range }: { items: UsageTrendItem[]; range: DashboardRange }) {
   const colors = useAppTheme();
-  const chartItems = items.slice(-7);
+  const chartItems = items.slice(-(range === 'day' ? 24 : range === 'week' ? 7 : 30));
   const values = chartItems.map((item) => toNumber(item.request_count ?? item.count ?? item.requests));
   const maxValue = Math.max(1, ...values);
   const top = Math.max(4, Math.ceil(maxValue * 1.2));
@@ -124,6 +138,7 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const plotHeight = plotBottom - plotTop;
   const slot = (plotRight - plotLeft) / Math.max(1, chartItems.length);
   const barWidth = Math.min(30, slot * 0.46);
+  const labelStep = Math.max(1, Math.ceil(chartItems.length / 7));
 
   if (!chartItems.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
 
@@ -141,9 +156,11 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
         const value = values[index] ?? 0;
         const height = Math.max(value ? 3 : 0, value / top * plotHeight);
         const x = plotLeft + slot * index + (slot - barWidth) / 2;
-        return <Fragment key={`${dateLabel(item, index)}-${index}`}>
+        const label = dateLabel(item, index, range);
+        const showLabel = index % labelStep === 0 || index === chartItems.length - 1;
+        return <Fragment key={`${label}-${index}`}>
           <Rect x={x} y={plotBottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />
-          <SvgText x={x + barWidth / 2} y="201" fill={colors.subtext} fontSize="9" textAnchor="middle">{dateLabel(item, index)}</SvgText>
+          {showLabel ? <SvgText x={x + barWidth / 2} y="201" fill={colors.subtext} fontSize="9" textAnchor="middle">{label}</SvgText> : null}
         </Fragment>;
       })}
     </Svg>
@@ -161,7 +178,7 @@ function RankingPanel({ title, icon, items, type, wide }: { title: string; icon:
   const colors = useAppTheme();
   const visible = items.slice(0, 5);
   const maxCost = Math.max(0, ...visible.map((item) => firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount'])));
-  return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 12 }}>
+  return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 12 }}>
     <SectionHeader icon={icon} title={title} />
     {visible.map((item, index) => {
       const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
@@ -193,7 +210,7 @@ function KeyOverview() {
   return <Page title="Key 总览" subtitle={sessionState.baseUrl} icon={KeyRound} refreshing={refreshing || query.isFetching} onRefresh={refresh}>
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
     {query.data ? <Panel><StructuredDataView value={query.data} /></Panel> : !query.isFetching && !query.error ? <EmptyState message="暂无 Key 总览数据" /> : null}
-    <Pressable onPress={() => router.push('/chat' as never)} style={{ minHeight: 46, borderRadius: 8, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>打开聊天测试</Text></Pressable>
+    <Pressable onPress={() => router.push('/chat' as never)} style={{ minHeight: 46, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>打开聊天测试</Text></Pressable>
   </Page>;
 }
 
@@ -202,16 +219,18 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [refreshing, setRefreshing] = useState(false);
+  const [range, setRange] = useState<DashboardRange>('day');
   const wide = width >= 720;
   const metricBasis: `${number}%` = wide ? '31%' : width >= 390 ? '47%' : '100%';
+  const rangeLabel = dashboardRanges.find((item) => item.value === range)?.label ?? '今日';
 
   const overview = useQuery({
-    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'overview'],
-    queryFn: ({ signal }) => admin ? getAdminStatsOverview({ range: 'day' }, signal) : getUsageOverview({ range: 'day' }, signal),
+    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'overview', range],
+    queryFn: ({ signal }) => admin ? getAdminStatsOverview({ range }, signal) : getUsageOverview({ range }, signal),
   });
   const trend = useQuery({
-    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'trend'],
-    queryFn: ({ signal }) => admin ? getAdminStatsTrend({ range: 'week' }, signal) : getUsageTrend({ range: 'week' }, signal),
+    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'trend', range],
+    queryFn: ({ signal }) => admin ? getAdminStatsTrend({ range }, signal) : getUsageTrend({ range }, signal),
   });
   const realtime = useQuery({
     queryKey: ['admin', 'dashboard', 'realtime'],
@@ -224,8 +243,8 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     queryFn: ({ signal }) => admin ? getAdminStatsModels(signal) : getModels(signal),
   });
   const users = useQuery({
-    queryKey: ['admin', 'dashboard', 'users'],
-    queryFn: ({ signal }) => getAdminStatsUsers({ range: 'day' }, signal),
+    queryKey: ['admin', 'dashboard', 'users', range],
+    queryFn: ({ signal }) => getAdminStatsUsers({ range }, signal),
     enabled: admin,
     retry: 0,
   });
@@ -255,11 +274,26 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   return <Page title="" showHeader={false} contentMaxWidth={960} refreshing={refreshing} onRefresh={refresh}>
     <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: colors.text, fontSize: 24, lineHeight: 31, fontWeight: '800' }}>{admin ? '管理概览' : '用量概览'}</Text>
-        <Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>{admin ? '全站近 24 小时的流量、成本与服务质量。' : '近 24 小时的调用与消费情况。'}</Text>
+        <Text style={{ color: colors.text, fontSize: 24, lineHeight: 31, fontWeight: '800' }}>{admin ? '全站用量' : '用量概览'}</Text>
+        <Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>{admin ? `${rangeLabel}全站流量、成本与服务质量。` : `${rangeLabel}调用与消费情况。`}</Text>
       </View>
-      {admin ? <Pressable onPress={() => router.push('/admin-stats' as never)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.64 : 1 })}><BarChart3 color={colors.text} size={15} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>完整统计</Text></Pressable> : null}
-      <Pressable accessibilityLabel="刷新" disabled={refreshing} onPress={refresh} style={{ width: 38, height: 38, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>{refreshing ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={16} />}</Pressable>
+      {admin ? <Pressable onPress={() => router.push('/admin-stats' as never)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.64 : 1 })}><BarChart3 color={colors.text} size={15} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>完整统计</Text></Pressable> : null}
+      <Pressable accessibilityLabel="刷新" disabled={refreshing} onPress={refresh} style={{ width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>{refreshing ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={16} />}</Pressable>
+    </View>
+
+    <View accessibilityRole="tablist" style={{ minHeight: 44, padding: 3, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
+      {dashboardRanges.map((option) => {
+        const selected = range === option.value;
+        return <Pressable
+          key={option.value}
+          accessibilityRole="tab"
+          accessibilityState={{ selected }}
+          onPress={() => setRange(option.value)}
+          style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 36, borderRadius: 11, backgroundColor: selected ? colors.card : 'transparent', borderWidth: selected ? 1 : 0, borderColor: selected ? colors.border : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}
+        >
+          <Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '800' }}>{option.label}</Text>
+        </Pressable>;
+      })}
     </View>
 
     {overview.error ? <ErrorState message={overview.error.message} retry={() => overview.refetch()} /> : null}
@@ -267,7 +301,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
       <MetricCard label="请求数" value={formatNumber(requests)} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
       <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
-      <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? '24 小时内发起过调用' : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
+      <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? `${rangeLabel}内发起过调用` : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
       <MetricCard label="Token 数" value={formatNumber(totalTokens)} detail={`输入 ${formatNumber(inputTokens)} · 输出 ${formatNumber(outputTokens)}`} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
       <MetricCard label="费用 (USD)" value={formatCost(cost)} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
       <MetricCard label="平均延迟" value={`${formatNumber(latency)} ms`} icon={Timer} accent={colors.accentText} iconBackground={colors.accentBg} basis={metricBasis} />
@@ -283,8 +317,8 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     </View> : null}
 
     <View style={{ gap: 8 }}>
-      <SectionHeader icon={Gauge} title="近 7 天请求趋势" />
-      <View style={{ borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 8 }}><RequestTrendChart items={trend.data ?? []} /></View>
+      <SectionHeader icon={Gauge} title={`${rangeLabel}请求趋势`} />
+      <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 8 }}><RequestTrendChart items={trend.data ?? []} range={range} /></View>
     </View>
 
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>

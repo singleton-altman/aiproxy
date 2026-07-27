@@ -55,7 +55,6 @@ const adminMenu: MenuItem[] = [
   { label: '配额', icon: CircleDollarSign, href: '/admin-quota' },
   { label: '网络与出口', icon: Network, href: '/admin-proxies' },
   { label: '统计', icon: BarChart3, href: '/admin-stats' },
-  { label: '日志', icon: ScrollText, href: '/admin-traces' },
   { label: '模型', icon: Boxes, href: '/admin-models' },
   { label: '凭证', icon: FileKey2, href: '/admin-tokens' },
   { label: '系统', icon: ServerCog, href: '/admin-system' },
@@ -87,8 +86,8 @@ function Sidebar({ admin }: { admin: boolean }) {
   return <SafeAreaView edges={['top', 'bottom', 'left']} style={{ width: collapsed ? 72 : 218, backgroundColor: colors.card, borderRightWidth: 1, borderRightColor: colors.border }}>
     <View style={{ minHeight: 58, paddingHorizontal: collapsed ? 12 : 14, borderBottomWidth: 1, borderBottomColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9 }}>
       <Image source={require('../../assets/ai-proxy-mark.png')} resizeMode="contain" style={{ width: 28, height: 28 }} />
-      {!collapsed ? <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '800' }}>AI Proxy</Text><View style={{ alignSelf: 'flex-start', marginTop: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.warningBg }}><Text style={{ color: colors.warning, fontSize: 9, fontWeight: '700' }}>v{version}</Text></View></View> : null}
-      <Pressable accessibilityLabel={collapsed ? '展开导航' : '收起导航'} onPress={() => setCollapsed((value) => !value)} style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{collapsed ? <ChevronRight color={colors.subtext} size={15} /> : <ChevronLeft color={colors.subtext} size={15} />}</Pressable>
+      {!collapsed ? <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '800' }}>AI Proxy</Text><View style={{ alignSelf: 'flex-start', marginTop: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 12, backgroundColor: colors.warningBg }}><Text style={{ color: colors.warning, fontSize: 9, fontWeight: '700' }}>v{version}</Text></View></View> : null}
+      <Pressable accessibilityLabel={collapsed ? '展开导航' : '收起导航'} onPress={() => setCollapsed((value) => !value)} style={{ width: 30, height: 30, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{collapsed ? <ChevronRight color={colors.subtext} size={15} /> : <ChevronLeft color={colors.subtext} size={15} />}</Pressable>
     </View>
 
     {admin && !collapsed ? <View style={{ margin: 12, padding: 3, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
@@ -101,7 +100,7 @@ function Sidebar({ admin }: { admin: boolean }) {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: collapsed ? 10 : 12, paddingTop: admin && !collapsed ? 0 : 12, paddingBottom: 18, gap: 3 }}>
       {menu.map(({ label, icon: Icon, href }) => {
         const selected = pathname === cleanPath(href);
-        return <Pressable key={`${mode}-${label}`} accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 38, borderRadius: 8, paddingHorizontal: collapsed ? 0 : 11, backgroundColor: selected ? colors.mutedCard : pressed ? colors.mutedCard : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, opacity: pressed ? 0.68 : 1 })}>
+        return <Pressable key={`${mode}-${label}`} accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 38, borderRadius: 12, paddingHorizontal: collapsed ? 0 : 11, backgroundColor: selected ? colors.mutedCard : pressed ? colors.mutedCard : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, opacity: pressed ? 0.68 : 1 })}>
           <Icon color={selected ? colors.text : colors.subtext} size={15} strokeWidth={selected ? 2.3 : 2} />
           {!collapsed ? <Text numberOfLines={1} style={{ color: selected ? colors.text : colors.subtext, fontSize: 12, fontWeight: selected ? '700' : '600' }}>{label}</Text> : null}
         </Pressable>;

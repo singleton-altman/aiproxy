@@ -133,20 +133,20 @@ jobs:
           cp -R "$APP_PATH" artifacts/Payload/
           (
             cd artifacts
-            ditto -c -k --sequesterRsrc --keepParent Payload lucky-mobile-unsigned.ipa
+            ditto -c -k --sequesterRsrc --keepParent Payload "AI Proxy-unsigned.ipa"
           )
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
-          name: lucky-mobile-unsigned-ipa
-          path: artifacts/lucky-mobile-unsigned.ipa
+          name: AI Proxy unsigned IPA
+          path: "artifacts/AI Proxy-unsigned.ipa"
           if-no-files-found: error
 
       - name: Upload build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lucky-mobile-ios-build-diagnostics
+          name: AI Proxy iOS build diagnostics
           path: artifacts/diagnostics
           if-no-files-found: ignore

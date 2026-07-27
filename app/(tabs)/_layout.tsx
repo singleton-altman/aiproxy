@@ -22,7 +22,7 @@ export default function TabLayout() {
       selected: { color: colors.primary, fontSize: 11, fontWeight: '700' },
     }}
     blurEffect="systemDefault"
-    minimizeBehavior="onScrollDown"
+    minimizeBehavior="never"
   >
     <NativeTabs.Trigger name="index" hidden />
     <NativeTabs.Trigger name="overview">
