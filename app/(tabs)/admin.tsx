@@ -66,7 +66,7 @@ export default function AdminScreen() {
     </Panel> : null}
 
     <SectionHeader icon={ServerCog} title="常用管理" />
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       <ServiceButton icon={UsersRound} label="用户管理" detail="账号、角色、余额与订阅" onPress={() => router.push('/admin-users' as never)} />
       <ServiceButton icon={ServerCog} label="系统管理" detail="版本、更新、重启与日志" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-system' as never)} />
       <ServiceButton icon={Boxes} label="模型目录" detail="模型定价、隐藏与同步探测" iconColor={colors.primary} iconBackground={colors.primarySoft} onPress={() => router.push('/admin-models' as never)} />

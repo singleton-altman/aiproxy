@@ -182,8 +182,8 @@ export default function KeysScreen() {
       {!models.data?.length && !models.isFetching ? <EmptyState message="暂无模型" embedded /> : null}
     </Panel>
 
-    <Modal visible={creating} transparent animationType="slide" onRequestClose={() => setCreating(false)}>
-      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+    <Modal visible={creating} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setCreating(false)}>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
         <View style={{ borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 20, gap: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ flex: 1, color: colors.text, fontSize: 17, fontWeight: '800' }}>创建 API Key</Text>

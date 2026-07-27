@@ -116,15 +116,13 @@ type MetricCardProps = {
 
 function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, basis }: MetricCardProps) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 108, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, justifyContent: 'space-between', gap: 8 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{label}</Text>
-      <IconTile icon={Icon} size={30} iconSize={15} color={accent} background={iconBackground} />
+  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 92, borderRadius: 16, borderWidth: 1, borderColor: iconBackground, backgroundColor: colors.card, padding: 10, justifyContent: 'space-between', gap: 5 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+      <IconTile icon={Icon} size={27} iconSize={14} color={accent} background={iconBackground} />
+      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text>
     </View>
-    <View style={{ gap: 3 }}>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-      {detail ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{detail}</Text> : null}
-    </View>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={{ color: colors.text, fontSize: 21, lineHeight: 25, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 9, lineHeight: 12, fontWeight: '600' }}>{detail}</Text> : null}
   </View>;
 }
 
@@ -309,7 +307,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const [refreshing, setRefreshing] = useState(false);
   const [range, setRange] = useState<DashboardRange>('day');
   const wide = width >= 720;
-  const metricBasis: `${number}%` = wide ? '31%' : width >= 390 ? '47%' : '100%';
+  const metricBasis: `${number}%` = wide ? '31%' : width >= 350 ? '47%' : '100%';
   const rangeLabel = dashboardRanges.find((item) => item.value === range)?.label ?? '今日';
 
   const overview = useQuery({
@@ -394,7 +392,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
 
     {overview.error ? <ErrorState message={overview.error.message} retry={() => overview.refetch()} /> : null}
 
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       <MetricCard label="请求数" value={formatNumber(requests)} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
       <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
       <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? `${rangeLabel}内发起过调用` : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
@@ -405,7 +403,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
 
     {admin ? <View style={{ gap: 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '600' }}>实时流量（近 15 分钟）</Text></View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <MetricCard label="请求数" value={formatNumber(firstNumber(live, ['request_count', 'total_requests', 'requests']))} icon={Activity} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
         <MetricCard label="Token 数" value={formatNumber(firstNumber(live, ['total_tokens', 'tokens']))} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
         <MetricCard label="费用 (USD)" value={formatCost(firstNumber(live, ['cost', 'cost_usd', 'total_cost']))} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />

@@ -205,8 +205,8 @@ export function ResourceScreen(props: ResourceScreenProps) {
     </Pressable> : null}
 
     {/* 详情弹层 */}
-    <Modal visible={Boolean(selected)} transparent animationType="slide" onRequestClose={() => setSelectedId('')}>
-      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+    <Modal visible={Boolean(selected)} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setSelectedId('')}>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
         {selected ? <View style={{ maxHeight: '82%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 18, gap: 12 }}>
           <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -246,8 +246,8 @@ export function ResourceScreen(props: ResourceScreenProps) {
     </Modal>
 
     {/* 创建 / 编辑表单弹层 */}
-    <Modal visible={Boolean(formVisible)} transparent animationType="slide" onRequestClose={() => setFormVisible('')}>
-      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+    <Modal visible={Boolean(formVisible)} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setFormVisible('')}>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
         <View style={{ maxHeight: '86%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 18, gap: 12 }}>
           <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>

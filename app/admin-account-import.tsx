@@ -121,9 +121,9 @@ function ProviderMark({ provider, size = 42 }: { provider: Provider; size?: numb
 
 function ProviderCard({ provider, basis, onPress }: { provider: Provider; basis: `${number}%`; onPress: () => void }) {
   const colors = useAppTheme();
-  return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 100, borderRadius: 18, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', gap: 9, opacity: pressed ? 0.7 : 1 })}>
-    <ProviderMark provider={provider} />
-    <Text numberOfLines={2} style={{ maxWidth: '92%', color: colors.text, fontSize: 12, lineHeight: 16, fontWeight: '700', textAlign: 'center' }}>{provider.label}</Text>
+  return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 74, borderRadius: 16, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, backgroundColor: colors.card, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 9, opacity: pressed ? 0.7 : 1 })}>
+    <ProviderMark provider={provider} size={36} />
+    <Text numberOfLines={2} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, lineHeight: 15, fontWeight: '700' }}>{provider.label}</Text>
   </Pressable>;
 }
 

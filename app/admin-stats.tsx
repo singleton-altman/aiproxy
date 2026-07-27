@@ -159,29 +159,31 @@ function rangeParams(range: Range) {
 
 function RangePicker({ value, onChange }: { value: Range; onChange: (value: Range) => void }) {
   const colors = useAppTheme();
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-    {rangeOptions.map(([key, label]) => <Pressable key={key} onPress={() => onChange(key)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: value === key ? colors.primary : colors.border, backgroundColor: value === key ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
-      <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 12, fontWeight: '700' }}>{label}</Text>
+  return <View accessibilityRole="tablist" style={{ minHeight: 40, padding: 3, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
+    {rangeOptions.map(([key, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: value === key }} onPress={() => onChange(key)} style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 32, borderRadius: 10, borderWidth: value === key ? 1 : 0, borderColor: value === key ? colors.border : 'transparent', backgroundColor: value === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
+      <Text numberOfLines={1} style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text>
     </Pressable>)}
-  </ScrollView>;
+  </View>;
 }
 
 function StatsTabs({ value, onChange }: { value: Tab; onChange: (value: Tab) => void }) {
   const colors = useAppTheme();
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7 }}>
-    {tabs.map(([key, label, Icon]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: value === key }} onPress={() => onChange(key)} style={({ pressed }) => ({ minWidth: label.length > 3 ? 98 : 82, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: value === key ? colors.primarySoft : colors.card, borderWidth: 1, borderColor: value === key ? colors.primary : colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.65 : 1 })}>
-      <Icon color={value === key ? colors.primary : colors.subtext} size={16} />
-      <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-    </Pressable>)}
-  </ScrollView>;
+  return <View style={{ minHeight: 44, padding: 3, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, overflow: 'hidden' }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 3 }}>
+      {tabs.map(([key, label, Icon]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: value === key }} onPress={() => onChange(key)} style={({ pressed }) => ({ minWidth: label.length > 3 ? 82 : 68, minHeight: 36, paddingHorizontal: 9, borderRadius: 10, backgroundColor: value === key ? colors.card : 'transparent', borderWidth: value === key ? 1 : 0, borderColor: value === key ? colors.border : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, opacity: pressed ? 0.65 : 1 })}>
+        <Icon color={value === key ? colors.primary : colors.subtext} size={14} strokeWidth={value === key ? 2.4 : 2} />
+        <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text>
+      </Pressable>)}
+    </ScrollView>
+  </View>;
 }
 
 function MetricCard({ label, value, detail, icon: Icon, accent, background, basis }: { label: string; value: string; detail?: string; icon: LucideIcon; accent: string; background: string; basis: `${number}%` }) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 112, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, justifyContent: 'space-between', gap: 8 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{label}</Text><IconTile icon={Icon} size={30} iconSize={15} color={accent} background={background} /></View>
-    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-    {detail ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{detail}</Text> : null}
+  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 92, borderRadius: 16, borderWidth: 1, borderColor: background, backgroundColor: colors.card, padding: 10, justifyContent: 'space-between', gap: 5 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><IconTile icon={Icon} size={27} iconSize={14} color={accent} background={background} /><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text></View>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 21, lineHeight: 25, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 9, lineHeight: 12, fontWeight: '600' }}>{detail}</Text> : null}
   </View>;
 }
 
@@ -477,8 +479,10 @@ export default function AdminStatsScreen() {
   };
 
   return <Page title="统计与日志" subtitle="全站请求、用量与运行分析" icon={BarChart3} safeTop={false} contentMaxWidth={1180} scrollable={!listMode} refreshing={query.isFetching} onRefresh={() => query.refetch()}>
-    <StatsTabs value={tab} onChange={(next) => { setTab(next); setSearch(''); }} />
-    {showRange ? <RangePicker value={range} onChange={setRange} /> : null}
+    <View style={{ gap: 6 }}>
+      <StatsTabs value={tab} onChange={(next) => { setTab(next); setSearch(''); }} />
+      {showRange ? <RangePicker value={range} onChange={setRange} /> : null}
+    </View>
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
     {listMode ? <><SearchField value={search} onChangeText={setSearch} placeholder="搜索模型、用户、请求 ID 或状态" /><RequestList value={query.data} search={search} loading={query.isFetching} title={tab === 'events' ? '用量事件' : '请求日志'} /></> : content()}
   </Page>;

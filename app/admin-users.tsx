@@ -174,8 +174,8 @@ export default function AdminUsersScreen() {
       }}
     />
 
-    <Modal visible={Boolean(selected)} transparent animationType="slide" onRequestClose={() => setSelected(undefined)}>
-      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+    <Modal visible={Boolean(selected)} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setSelected(undefined)}>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
         {selected ? <View style={{ maxHeight: '92%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 16, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>编辑用户</Text><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, marginTop: 3 }}>更新 {String(selected.email ?? userId(selected))} 的账户信息</Text></View><Pressable accessibilityLabel="关闭" onPress={() => setSelected(undefined)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View>
           <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 11, paddingBottom: 4 }}>
