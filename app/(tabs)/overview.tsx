@@ -10,8 +10,10 @@ import {
   Gauge,
   KeyRound,
   RefreshCw,
+  Server,
   Timer,
   UsersRound,
+  Waypoints,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { Fragment, useMemo, useState } from 'react';
@@ -25,6 +27,7 @@ import { useAppTheme } from '@/src/lib/theme';
 import { getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
   getAdminRealtimeUsage,
+  getAdminStatsAnalysis,
   getAdminStatsModels,
   getAdminStatsOverview,
   getAdminStatsTrend,
@@ -64,6 +67,20 @@ function unwrapRecord(value: unknown): ApiRecord {
     if (record[key] && typeof record[key] === 'object' && !Array.isArray(record[key])) return record[key] as ApiRecord;
   }
   return record;
+}
+
+function nestedRecords(value: unknown, keys: string[]): ApiRecord[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  const record = value as ApiRecord;
+  for (const key of keys) {
+    if (Array.isArray(record[key])) return (record[key] as unknown[]).filter((item): item is ApiRecord => Boolean(item) && typeof item === 'object' && !Array.isArray(item));
+  }
+  for (const item of Object.values(record)) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const nested = nestedRecords(item, keys);
+    if (nested.length) return nested;
+  }
+  return [];
 }
 
 function formatNumber(value: unknown) {
@@ -168,16 +185,42 @@ function RequestTrendChart({ items, range }: { items: UsageTrendItem[]; range: D
 }
 
 function rankingName(item: ApiRecord, type: 'model' | 'user', index: number) {
-  const value = type === 'model'
-    ? item.model ?? item.id ?? item.name
-    : item.email ?? item.user_email ?? item.user ?? item.name ?? item.user_id;
-  return String(value ?? `${type === 'model' ? '模型' : '用户'} ${index + 1}`);
+  if (type === 'model') return String(item.model ?? item.id ?? item.name ?? `模型 ${index + 1}`);
+  const candidates = [item.display_name, item.nickname, item.username, item.email, item.user_email, item.name, item.user];
+  const value = candidates.find((candidate) => {
+    if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
+    const text = String(candidate).trim();
+    return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
+  });
+  return value ? String(value) : `用户 ${index + 1}`;
 }
 
 function RankingPanel({ title, icon, items, type, wide }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: 'model' | 'user'; wide: boolean }) {
   const colors = useAppTheme();
   const visible = items.slice(0, 5);
   const maxCost = Math.max(0, ...visible.map((item) => firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount'])));
+  if (type === 'user') return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
+    <SectionHeader icon={icon} title={title} />
+    {visible.length ? <>
+      <View style={{ minHeight: 28, paddingHorizontal: 8, borderRadius: 9, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 9 }}>用户</Text>
+        <Text style={{ width: 42, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>次数</Text>
+        <Text style={{ width: 54, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>Token</Text>
+        <Text style={{ width: 66, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>费用</Text>
+      </View>
+      {visible.map((item, index) => {
+        const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
+        const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
+        const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
+        return <View key={`${rankingName(item, type, index)}-${index}`} style={{ minHeight: 36, paddingHorizontal: 8, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: '700' }}>{rankingName(item, type, index)}</Text>
+          <Text style={{ width: 42, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
+          <Text style={{ width: 54, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
+          <Text style={{ width: 66, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+        </View>;
+      })}
+    </> : <EmptyState embedded icon={icon} message="暂无用户数据" />}
+  </View>;
   return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 12 }}>
     <SectionHeader icon={icon} title={title} />
     {visible.map((item, index) => {
@@ -194,6 +237,51 @@ function RankingPanel({ title, icon, items, type, wide }: { title: string; icon:
       </View>;
     })}
     {!visible.length ? <EmptyState embedded icon={icon} message="暂无排行数据" /> : null}
+  </View>;
+}
+
+function breakdownName(item: ApiRecord, type: 'provider' | 'account', index: number) {
+  const candidates = type === 'provider'
+    ? [item.provider_name, item.provider, item.name, item.id]
+    : [item.account_name, item.account, item.email, item.label, item.name, item.account_id];
+  const value = candidates.find((candidate) => (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim());
+  return value ? String(value) : `${type === 'provider' ? '供应商' : '账号'} ${index + 1}`;
+}
+
+function BreakdownTable({ title, icon, items, type }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: 'provider' | 'account' }) {
+  const colors = useAppTheme();
+  const visible = items.slice(0, 8);
+  const account = type === 'account';
+  return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
+    <SectionHeader icon={icon} title={title} />
+    {visible.length ? <>
+      <View style={{ minHeight: 28, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: account ? 3 : 6 }}>
+        <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 8 }}>{account ? '账号' : '供应商'}</Text>
+        {account ? <Text style={{ width: 42, color: colors.subtext, fontSize: 8 }} numberOfLines={1}>供应商</Text> : null}
+        <Text style={{ width: account ? 28 : 42, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>次数</Text>
+        <Text style={{ width: account ? 38 : 54, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>Token</Text>
+        {account ? <Text style={{ width: 28, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>失败</Text> : null}
+        {account ? <Text style={{ width: 40, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>成功率</Text> : null}
+        <Text style={{ width: account ? 54 : 66, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>费用</Text>
+      </View>
+      {visible.map((item, index) => {
+        const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
+        const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
+        const failed = firstNumber(item, ['failed_count', 'failed_requests', 'errors', 'error_count']);
+        const suppliedRate = item.success_rate ?? item.successRate;
+        const successRate = suppliedRate === undefined ? (requests ? (requests - failed) / requests * 100 : 0) : (toNumber(suppliedRate) <= 1 ? toNumber(suppliedRate) * 100 : toNumber(suppliedRate));
+        const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
+        return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 36, paddingHorizontal: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: account ? 3 : 6 }}>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: account ? 9 : 11, fontWeight: '700' }}>{breakdownName(item, type, index)}</Text>
+          {account ? <Text numberOfLines={1} style={{ width: 42, color: colors.subtext, fontSize: 8 }}>{String(item.provider_name ?? item.provider ?? '--')}</Text> : null}
+          <Text style={{ width: account ? 28 : 42, color: colors.text, fontSize: 9, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
+          <Text style={{ width: account ? 38 : 54, color: colors.text, fontSize: 9, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
+          {account ? <Text style={{ width: 28, color: failed ? colors.danger : colors.subtext, fontSize: 9, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(failed)}</Text> : null}
+          {account ? <Text style={{ width: 40, color: failed ? colors.danger : colors.success, fontSize: 8, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{successRate.toFixed(1)}%</Text> : null}
+          <Text style={{ width: account ? 54 : 66, color: colors.text, fontSize: 9, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+        </View>;
+      })}
+    </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : '账号'}数据`} />}
   </View>;
 }
 
@@ -248,12 +336,18 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     enabled: admin,
     retry: 0,
   });
+  const analysis = useQuery({
+    queryKey: ['admin', 'dashboard', 'analysis', range],
+    queryFn: ({ signal }) => getAdminStatsAnalysis({ range }, signal),
+    enabled: admin,
+    retry: 0,
+  });
 
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
     const requests = [overview.refetch(), trend.refetch(), models.refetch()];
-    if (admin) requests.push(realtime.refetch(), users.refetch());
+    if (admin) requests.push(realtime.refetch(), users.refetch(), analysis.refetch());
     void Promise.allSettled(requests).finally(() => setRefreshing(false));
   };
 
@@ -269,6 +363,8 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const latency = firstNumber(summary, ['average_latency_ms', 'avg_latency_ms', 'latency_ms', 'average_latency']);
   const modelItems = (models.data ?? []).map((item) => item as ModelItem & ApiRecord);
   const userItems = useMemo(() => firstArray<ApiRecord>(users.data, ['users', 'items', 'data', 'list', 'rows']), [users.data]);
+  const providerItems = useMemo(() => nestedRecords(analysis.data, ['by_provider', 'providers', 'provider_usage']), [analysis.data]);
+  const accountItems = useMemo(() => nestedRecords(analysis.data, ['by_account', 'accounts', 'account_usage']), [analysis.data]);
   const activeUsers = reportedActiveUsers || userItems.length;
 
   return <Page title="" showHeader={false} contentMaxWidth={960} refreshing={refreshing} onRefresh={refresh}>
@@ -322,9 +418,13 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     </View>
 
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-      <RankingPanel title={admin ? 'Top 模型（按费用）' : '可用模型'} icon={Boxes} items={modelItems} type="model" wide={admin && wide} />
-      {admin ? <RankingPanel title="Top 用户（按费用）" icon={UsersRound} items={userItems} type="user" wide={wide} /> : null}
+      <RankingPanel title={admin ? 'Top 模型' : '可用模型'} icon={Boxes} items={modelItems} type="model" wide={admin && wide} />
+      {admin ? <RankingPanel title="按用户" icon={UsersRound} items={userItems} type="user" wide={wide} /> : null}
     </View>
+    {admin ? <>
+      <BreakdownTable title="按供应商" icon={Server} items={providerItems} type="provider" />
+      <BreakdownTable title="按账号" icon={Waypoints} items={accountItems} type="account" />
+    </> : null}
   </Page>;
 }
 

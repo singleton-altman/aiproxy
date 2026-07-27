@@ -63,6 +63,6 @@ export default function AdminAccountsScreen() {
       confirm: (item) => `确定删除账号「${accountLabel(item)}」吗？`,
       run: (item) => apiJson(`/admin/accounts/${encodeURIComponent(accountId(item))}`, { method: 'DELETE' }),
     }}
-    footer={<Pressable onPress={() => router.push('/admin-account-import' as never)} style={{ position: 'absolute', left: 16, right: 16, bottom: 96, minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}><Plus color="#fff" size={17} /><Text style={{ color: '#fff', fontWeight: '800' }}>添加或导入账号</Text></Pressable>}
+    footer={<Pressable onPress={() => router.push('/admin-account-import' as never)} style={{ position: 'absolute', left: 16, right: 16, bottom: 20, minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}><Plus color="#fff" size={17} /><Text style={{ color: '#fff', fontWeight: '800' }}>添加或导入账号</Text></Pressable>}
   />;
 }

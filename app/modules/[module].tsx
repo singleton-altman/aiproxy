@@ -45,7 +45,7 @@ export default function ModuleEndpointsScreen() {
       maxToRenderPerBatch={12}
       windowSize={9}
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ gap: 10, paddingBottom: 96, flexGrow: endpoints.length ? 0 : 1 }}
+      contentContainerStyle={{ gap: 10, paddingBottom: 20, flexGrow: endpoints.length ? 0 : 1 }}
       ListEmptyComponent={<EmptyState message="没有匹配的接口" icon={Search} />}
       renderItem={({ item }) => <EndpointRow endpoint={item} onPress={() => router.push(`/endpoints/${encodeURIComponent(item.id)}` as never)} />}
     />

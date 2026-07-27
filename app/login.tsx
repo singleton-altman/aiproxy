@@ -168,7 +168,7 @@ export default function LoginScreen() {
     ? '处理中'
     : mode === 'setup' ? '创建管理员并登录' : mode === 'login' ? '登录' : mode === 'register' ? '注册并登录' : mode === 'reset' ? '重置密码' : '使用 Key 登录';
 
-  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 22 }}>
+  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }}><ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 22 }}>
     <View style={{ width: Math.min(460, Math.max(0, viewport.width - 44)), alignSelf: 'center', gap: 22 }}>
       <View style={{ gap: 8, alignItems: 'center' }}>
         <Image source={require('../assets/ai-proxy-mark.png')} resizeMode="contain" style={{ width: 76, height: 76 }} />

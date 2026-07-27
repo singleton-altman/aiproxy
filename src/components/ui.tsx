@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { ChevronRight, Inbox, RefreshCw, Search, TriangleAlert } from 'lucide-react-native';
 import type { ComponentProps, ReactNode } from 'react';
 import { useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/src/lib/theme';
@@ -13,7 +13,7 @@ const CONTROL_RADIUS = 12;
 export function FullScreenSafeArea({ style, ...props }: ComponentProps<typeof View>) {
   const insets = useSafeAreaInsets();
   const modalInsets = { paddingTop: insets.top, paddingRight: insets.right, paddingBottom: insets.bottom, paddingLeft: insets.left };
-  return <View {...props} style={[style, modalInsets]} />;
+  return <KeyboardAvoidingView {...props} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[style, modalInsets]} />;
 }
 
 function surfaceShadow(platform: typeof Platform.OS) {
@@ -38,12 +38,12 @@ export function PageHeader({ title, subtitle, icon: Icon, refreshing, onRefresh 
 
 export function Page({ title, subtitle, icon, children, refreshing, onRefresh, safeTop = true, contentMaxWidth = 820, scrollable = true, showHeader = true }: PageHeaderProps & { children: ReactNode; safeTop?: boolean; contentMaxWidth?: number; scrollable?: boolean; showHeader?: boolean }) {
   const colors = useAppTheme();
-  const content = <View style={{ width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: scrollable ? 110 : 12, gap: 16, flex: scrollable ? undefined : 1 }}>
+  const content = <View style={{ width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: scrollable ? 24 : 12, gap: 16, flex: scrollable ? undefined : 1 }}>
       {showHeader ? <PageHeader title={title} subtitle={subtitle} icon={icon} refreshing={refreshing} onRefresh={onRefresh} /> : null}
       {children}
     </View>;
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={safeTop ? ['top'] : []}>
-    {scrollable ? <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" removeClippedSubviews={Platform.OS === 'android'} contentContainerStyle={{ width: '100%', flexGrow: 1 }}>{content}</ScrollView> : content}
+    {scrollable ? <ScrollView automaticallyAdjustKeyboardInsets contentInsetAdjustmentBehavior="automatic" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" removeClippedSubviews={Platform.OS === 'android'} contentContainerStyle={{ width: '100%', flexGrow: 1 }}>{content}</ScrollView> : content}
   </SafeAreaView>;
 }
 

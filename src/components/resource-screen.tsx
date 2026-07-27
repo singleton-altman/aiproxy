@@ -177,7 +177,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
       maxToRenderPerBatch={14}
       windowSize={9}
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ gap: 10, paddingBottom: props.create ? 150 : 96, flexGrow: items.length ? 0 : 1 }}
+      contentContainerStyle={{ gap: 10, paddingBottom: props.create || props.footer ? 86 : 20, flexGrow: items.length ? 0 : 1 }}
       ListEmptyComponent={!query.isFetching ? <EmptyState message="暂无数据" icon={props.icon} /> : null}
       renderItem={({ item }) => {
         const badge = props.badgeOf?.(item);
@@ -199,7 +199,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
 
     {props.create ? <Pressable
       onPress={() => { setFormValue({ ...props.create!.template }); setFormVisible('create'); formMutation.reset(); }}
-      style={{ position: 'absolute', left: 16, right: 16, bottom: 96, minHeight: 48, borderRadius: 14, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, shadowColor: colors.shadow, shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}
+      style={{ position: 'absolute', left: 16, right: 16, bottom: 20, minHeight: 48, borderRadius: 14, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, shadowColor: colors.shadow, shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}
     >
       <Plus color="#fff" size={17} /><Text style={{ color: '#fff', fontWeight: '800' }}>{props.create.label}</Text>
     </Pressable> : null}
@@ -255,7 +255,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
             <Pressable accessibilityLabel="关闭" onPress={() => setFormVisible('')} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
           {formVisible === 'create' && props.create?.note ? <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 16 }}>{props.create.note}</Text> : null}
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
+          <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
             {activeForm?.renderForm
               ? activeForm.renderForm({ value: formValue, onChange: (value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); } })
               : <StructuredForm value={formValue} onChange={(value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); }} />}

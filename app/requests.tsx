@@ -78,7 +78,7 @@ export default function RequestsScreen() {
       maxToRenderPerBatch={15}
       windowSize={9}
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ gap: 10, paddingBottom: 96, flexGrow: items.length ? 0 : 1 }}
+      contentContainerStyle={{ gap: 10, paddingBottom: 20, flexGrow: items.length ? 0 : 1 }}
       ListEmptyComponent={!query.isFetching ? <EmptyState message="暂无请求记录" icon={ScrollText} /> : null}
       onEndReachedThreshold={0.4}
       onEndReached={() => {

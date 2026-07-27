@@ -310,7 +310,7 @@ export default function AdminModelsScreen() {
       removeClippedSubviews={Platform.OS === 'android'}
       keyboardShouldPersistTaps="handled"
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ paddingBottom: 40, flexGrow: listData.length ? 0 : 1 }}
+      contentContainerStyle={{ paddingBottom: 20, flexGrow: listData.length ? 0 : 1 }}
       ListEmptyComponent={!query.isFetching ? <EmptyState icon={Boxes} message="没有匹配的模型" /> : null}
       renderItem={({ item: entry }) => {
         if (entry.kind === 'provider') {
@@ -340,7 +340,7 @@ export default function AdminModelsScreen() {
     <Modal visible={Boolean(formMode)} transparent animationType="slide" onRequestClose={() => setFormMode('')}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}><View style={{ maxHeight: '90%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 16, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{formMode === 'create' ? '添加模型' : '编辑模型'}</Text><Pressable accessibilityLabel="关闭" onPress={() => setFormMode('')} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={18} /></Pressable></View>
-        <ScrollView keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 8 }}>
+        <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 8 }}>
           <FormField label="模型 ID" value={draft.id} editable={formMode === 'create'} onChangeText={(value) => setDraft((current) => ({ ...current, id: value }))} />
           <FormField label="供应商" value={draft.provider} onChangeText={(value) => setDraft((current) => ({ ...current, provider: value }))} />
           <FormField label="显示名称" value={draft.display_name} onChangeText={(value) => setDraft((current) => ({ ...current, display_name: value }))} />

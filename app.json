@@ -24,6 +24,7 @@
     "android": {
       "icon": "./assets/icon.png",
       "package": "com.xiaojun5270.aiproxy",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#f8fafc",
         "foregroundImage": "./assets/android-icon-foreground.png",

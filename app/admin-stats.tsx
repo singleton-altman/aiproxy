@@ -134,10 +134,19 @@ function successRate(record: ApiRecord) {
 }
 
 function dimensionLabel(item: ApiRecord, dimension: Dimension, index: number) {
+  if (dimension === 'user') {
+    const candidates = [item.display_name, item.nickname, item.username, item.email, item.user_email, item.name, item.user];
+    const value = candidates.find((candidate) => {
+      if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
+      const text = String(candidate).trim();
+      return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
+    });
+    return value ? String(value) : `用户 ${index + 1}`;
+  }
   const keys: Record<Dimension, string[]> = {
     model: ['model', 'model_id', 'id', 'name'],
     provider: ['provider', 'provider_name', 'channel'],
-    user: ['email', 'user_email', 'user', 'username', 'user_id', 'name'],
+    user: [],
     account: ['account', 'account_name', 'account_id', 'email'],
     endpoint: ['endpoint', 'path', 'route', 'api'],
   };

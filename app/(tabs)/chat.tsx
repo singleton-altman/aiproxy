@@ -236,11 +236,10 @@ export default function ChatScreen() {
   const inputBoxStyle = { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13 } as const;
   const keyConnected = Boolean(effectiveKey && gatewayModels.data?.length && !gatewayModels.error);
   const composerBottomClearance = keyboardVisible ? 8 : bottomClearance;
-  const keyboardVerticalOffset = keyboardVisible && width < 900 ? 44 : 0;
   const settingsSheetHeight = Math.min(520, Math.round(height * 0.56));
 
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={['top']}>
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={keyboardVerticalOffset} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0} style={{ flex: 1 }}>
       <View style={{ width: '100%', maxWidth: 900, alignSelf: 'center', flex: 1, paddingHorizontal: 16, paddingTop: 14, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ flex: 1 }}><PageHeader title="聊天测试" subtitle="调用 /v1 网关接口" icon={MessageCircle} /></View>
@@ -332,7 +331,7 @@ export default function ChatScreen() {
         <View style={{ height: settingsSheetHeight, width: '100%', maxWidth: 720, alignSelf: 'center', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 16, gap: 10 }}>
           <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>聊天设置</Text><Pressable accessibilityLabel="关闭" onPress={() => setSettingsOpen(false)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
+          <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>系统提示词</Text><TextInput value={systemPrompt} onChangeText={setSystemPrompt} placeholder="可选" placeholderTextColor={colors.placeholder} multiline textAlignVertical="top" style={[inputBoxStyle, { minHeight: 72, maxHeight: 96 }]} /></View>
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>温度</Text><View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>{[0, 0.3, 0.7, 1].map((value) => <Pressable key={value} onPress={() => setTemperature(value)} style={{ flex: 1, minHeight: 36, borderRadius: 9, backgroundColor: temperature === value ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: temperature === value ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{value}</Text></Pressable>)}</View></View>
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>最大输出 Token</Text><TextInput value={maxTokens} onChangeText={setMaxTokens} keyboardType="number-pad" placeholder="2048" placeholderTextColor={colors.placeholder} style={inputBoxStyle} /></View>

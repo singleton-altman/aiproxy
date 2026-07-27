@@ -161,8 +161,34 @@ export function getAdminStatsAnalysis(params?: { from?: string; to?: string; ran
   return apiJson<ApiRecord>('/admin/stats/analysis', { signal, query: normalizeStatsParams(params) });
 }
 
-export function getAdminStatsUsers(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/admin/stats/users', { signal, query: normalizeStatsParams(params) });
+function recordText(record: ApiRecord, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if ((typeof value === 'string' || typeof value === 'number') && String(value).trim()) return String(value).trim();
+  }
+  return '';
+}
+
+export async function getAdminStatsUsers(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
+  const [payload, directoryPayload] = await Promise.all([
+    apiJson<unknown>('/admin/stats/users', { signal, query: normalizeStatsParams(params) }),
+    apiJson<unknown>('/admin/users', { signal, query: { limit: 500 } }).catch(() => undefined),
+  ]);
+  const rows = firstArray<ApiRecord>(payload, ['users', 'items', 'data', 'list', 'rows']);
+  const directory = firstArray<AdminUserItem>(directoryPayload, ['users', 'items', 'data', 'list']).map(normalizeAdminUser);
+  const usersById = new Map(directory.flatMap((user) => {
+    const id = recordText(user, ['id', 'user_id', 'uuid']);
+    return id ? [[id, user] as const] : [];
+  }));
+  const users = rows.map((item) => {
+    const id = recordText(item, ['user_id', 'user', 'id', 'uuid']);
+    const profile = usersById.get(id);
+    if (!profile) return item;
+    const displayName = recordText(profile, ['name', 'nickname', 'username', 'email']);
+    return displayName ? { ...item, display_name: displayName } : item;
+  });
+  const root = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload as ApiRecord : {};
+  return { ...root, users } as ApiRecord;
 }
 
 export async function getAdminQuota(signal?: AbortSignal) {
