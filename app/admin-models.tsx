@@ -315,7 +315,7 @@ export default function AdminModelsScreen() {
       <CompactButton label="添加模型" icon={Plus} primary onPress={openCreate} />
     </View>
     <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
-      <View style={{ flex: 1 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索模型或供应商…" /></View>
+      <View style={{ flex: wide ? 1 : undefined, minHeight: 44 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索模型或供应商…" /></View>
       <Pressable onPress={() => setFilterVisible(true)} style={{ minWidth: wide ? 220 : undefined, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}><SlidersHorizontal color={colors.subtext} size={15} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{providerFilter}</Text><ChevronDown color={colors.subtext} size={15} /></Pressable>
     </View>
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}

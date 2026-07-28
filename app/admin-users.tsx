@@ -146,7 +146,7 @@ export default function AdminUsersScreen() {
 
   return <Page title="用户" subtitle="管理用户角色、状态与套餐分配" icon={UsersRound} safeTop={false} contentMaxWidth={1180} scrollable={false} refreshing={users.isFetching} onRefresh={() => users.refetch()}>
     <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
-      <View style={{ flex: 1 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索邮箱或昵称" /></View>
+      <View style={{ flex: wide ? 1 : undefined, minHeight: 44 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索邮箱或昵称" /></View>
       <View style={{ flexDirection: 'row', gap: 3, padding: 3, borderRadius: 12, backgroundColor: colors.mutedCard }}>
         {([['all', '全部'], ['enabled', '启用'], ['disabled', '禁用']] as const).map(([key, label]) => <Pressable key={key} onPress={() => setStatusFilter(key)} style={{ flex: wide ? undefined : 1, minWidth: wide ? 70 : 0, minHeight: 40, paddingHorizontal: 9, borderRadius: 6, backgroundColor: statusFilter === key ? colors.card : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}><Text style={{ color: statusFilter === key ? colors.text : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>{counts[key]}</Text></Pressable>)}
       </View>

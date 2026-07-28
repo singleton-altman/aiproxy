@@ -25,7 +25,6 @@ import {
   Switch,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -106,21 +105,18 @@ function updateDetails(value: unknown) {
     : isRecord(update.release)
       ? update.release
       : {};
-  const selfUpdate = isRecord(update.self_update) ? update.self_update : {};
   const notes = firstValue(release, ['body', 'notes', 'description', 'changelog'])
     ?? firstValue(update, ['release_notes', 'changelog', 'notes']);
 
-  return { update, release, selfUpdate, notes: typeof notes === 'string' ? notes : '' };
+  return { update, release, notes: typeof notes === 'string' ? notes : '' };
 }
 
 function FieldGrid({ fields }: { fields: Array<[string, unknown]> }) {
   const colors = useAppTheme();
-  const { width } = useWindowDimensions();
-  const twoColumns = width >= 430;
   return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-    {fields.map(([label, value]) => <View key={label} style={{ flexGrow: 1, flexBasis: twoColumns ? '46%' : '100%', minWidth: 0, minHeight: 58, borderRadius: 14, backgroundColor: colors.mutedCard, paddingHorizontal: 11, paddingVertical: 9, gap: 4 }}>
+    {fields.map(([label, value]) => <View key={label} style={{ flexGrow: 1, flexBasis: '46%', minWidth: 0, minHeight: 54, borderRadius: 12, backgroundColor: colors.mutedCard, paddingHorizontal: 10, paddingVertical: 8, gap: 3 }}>
       <Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text>
-      <Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: '700' }}>{displayValue(value)}</Text>
+      <Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 12, lineHeight: 17, fontWeight: '700' }}>{displayValue(value)}</Text>
     </View>)}
   </View>;
 }
@@ -154,7 +150,7 @@ function OverviewTab({ active }: { active: boolean }) {
   });
 
   const info = unwrapRecord(infoQuery.data);
-  const { update, release, selfUpdate, notes } = updateDetails(updateQuery.data);
+  const { update, release, notes } = updateDetails(updateQuery.data);
   const currentVersion = firstValue(update, ['current_version', 'version']) ?? firstValue(info, ['version', 'current_version']);
   const latestVersion = firstValue(update, ['latest_version', 'new_version']) ?? firstValue(release, ['tag_name', 'version', 'name']);
   const hasUpdate = firstValue(update, ['has_update', 'update_available', 'available']);
@@ -189,10 +185,6 @@ function OverviewTab({ active }: { active: boolean }) {
       {updateQuery.isFetching && !updateQuery.data ? <ActivityIndicator color={colors.primary} /> : <FieldGrid fields={[
         ['当前版本', currentVersion],
         ['最新版本', latestVersion],
-        ['发现更新', hasUpdate],
-        ['缓存结果', firstValue(update, ['cached', 'from_cache'])],
-        ['支持自更新', firstValue(selfUpdate, ['supported', 'available']) ?? firstValue(update, ['self_update_supported'])],
-        ['自更新状态', firstValue(selfUpdate, ['reason', 'message', 'status'])],
       ]} />}
 
       {notes ? <Pressable onPress={() => setNotesVisible(true)} style={({ pressed }) => ({ minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}>

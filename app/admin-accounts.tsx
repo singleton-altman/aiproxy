@@ -33,7 +33,7 @@ import {
   Wifi,
   X,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -71,6 +71,7 @@ import type { ApiRecord } from '@/src/types/api';
 type StatusFilter = 'all' | UpstreamAccountStatus;
 type FilterMode = 'status' | 'provider' | '';
 type ModelTestState = { ok: boolean; message: string; testedAt: string };
+type ModelTestProgress = { completed: number; total: number };
 type AccountDraft = {
   label: string;
   priority: string;
@@ -168,6 +169,34 @@ function modelTestOutcome(payload: unknown) {
   if (success === false) throw new Error(stringValue(error) || '模型不可用');
   const latency = Number(nested.latency_ms ?? nested.latency ?? outer.latency_ms ?? outer.latency);
   return Number.isFinite(latency) && latency >= 0 ? `可用 · ${Math.round(latency)} ms` : '模型可用';
+}
+
+function modelTestTime() {
+  const date = new Date();
+  try {
+    return date.toLocaleTimeString('zh-CN', { hour12: false });
+  } catch {
+    return [date.getHours(), date.getMinutes(), date.getSeconds()].map((value) => String(value).padStart(2, '0')).join(':');
+  }
+}
+
+function modelTestError(error: unknown) {
+  return error instanceof Error && typeof error.message === 'string' && error.message.trim() ? error.message : '测试失败';
+}
+
+async function requestModelTest(account: string, model: string, signal: AbortSignal): Promise<ModelTestState> {
+  try {
+    const payload = await apiJson(`/admin/accounts/${encodeURIComponent(account)}/models/test`, {
+      method: 'POST',
+      body: JSON.stringify({ model }),
+      timeoutMs: 60000,
+      signal,
+    });
+    return { ok: true, message: modelTestOutcome(payload), testedAt: modelTestTime() };
+  } catch (error) {
+    if (signal.aborted) throw error;
+    return { ok: false, message: modelTestError(error), testedAt: modelTestTime() };
+  }
 }
 
 function formatTimestamp(value: unknown) {
@@ -468,8 +497,13 @@ function AccountModelsSheet({ account, onClose }: { account?: ApiRecord; onClose
   const [manualModel, setManualModel] = useState('');
   const [testing, setTesting] = useState<Set<string>>(new Set());
   const [testingAll, setTestingAll] = useState(false);
+  const [testProgress, setTestProgress] = useState<ModelTestProgress>();
+  const [testAllError, setTestAllError] = useState('');
   const [copiedId, setCopiedId] = useState('');
   const [testStates, setTestStates] = useState<Record<string, ModelTestState>>({});
+  const activeTestRef = useRef(false);
+  const testControllerRef = useRef<AbortController | undefined>(undefined);
+  const testRunRef = useRef(0);
   const id = account ? accountId(account) : '';
   const query = useQuery({
     queryKey: ['admin', 'accounts', 'models', id],
@@ -480,10 +514,23 @@ function AccountModelsSheet({ account, onClose }: { account?: ApiRecord; onClose
   });
 
   useEffect(() => {
+    testRunRef.current += 1;
+    testControllerRef.current?.abort();
+    testControllerRef.current = undefined;
+    activeTestRef.current = false;
     setSearch('');
     setManualModel('');
     setTesting(new Set());
+    setTestingAll(false);
+    setTestProgress(undefined);
+    setTestAllError('');
     setTestStates({});
+    return () => {
+      testRunRef.current += 1;
+      testControllerRef.current?.abort();
+      testControllerRef.current = undefined;
+      activeTestRef.current = false;
+    };
   }, [id]);
 
   const provider = account ? stringValue(account.provider) : '';
@@ -498,34 +545,71 @@ function AccountModelsSheet({ account, onClose }: { account?: ApiRecord; onClose
 
   async function testModel(idToTest: string) {
     const model = idToTest.trim();
-    if (!account || !model || testing.has(model)) return;
-    setTesting((current) => new Set(current).add(model));
+    if (!id || !model || activeTestRef.current) return;
+    const run = ++testRunRef.current;
+    const controller = new AbortController();
+    activeTestRef.current = true;
+    testControllerRef.current = controller;
+    setTestAllError('');
+    setTestProgress(undefined);
+    setTesting(new Set([model]));
     try {
-      const payload = await apiJson(`/admin/accounts/${encodeURIComponent(accountId(account))}/models/test`, { method: 'POST', body: JSON.stringify({ model }), timeoutMs: 60000 });
-      setTestStates((current) => ({ ...current, [model]: { ok: true, message: modelTestOutcome(payload), testedAt: new Date().toLocaleTimeString('zh-CN') } }));
+      const result = await requestModelTest(id, model, controller.signal);
+      if (testRunRef.current === run) setTestStates((current) => ({ ...current, [model]: result }));
     } catch (error) {
-      setTestStates((current) => ({ ...current, [model]: { ok: false, message: error instanceof Error ? error.message : '测试失败', testedAt: new Date().toLocaleTimeString('zh-CN') } }));
+      if (!controller.signal.aborted && testRunRef.current === run) {
+        setTestStates((current) => ({ ...current, [model]: { ok: false, message: modelTestError(error), testedAt: modelTestTime() } }));
+      }
     } finally {
-      setTesting((current) => { const next = new Set(current); next.delete(model); return next; });
+      if (testRunRef.current === run) {
+        activeTestRef.current = false;
+        testControllerRef.current = undefined;
+        setTesting(new Set());
+      }
     }
   }
 
   async function testAll() {
-    if (!models.length || testingAll) return;
+    const queue = [...new Set(models.map(availableModelId).filter((model) => Boolean(model)))];
+    if (!id || !queue.length || activeTestRef.current) return;
+    const run = ++testRunRef.current;
+    const controller = new AbortController();
+    activeTestRef.current = true;
+    testControllerRef.current = controller;
     setTestingAll(true);
-    let cursor = 0;
-    const worker = async () => {
-      while (cursor < models.length) {
-        const item = models[cursor];
-        cursor += 1;
-        await testModel(availableModelId(item));
-      }
-    };
+    setTestAllError('');
+    setTestProgress({ completed: 0, total: queue.length });
     try {
-      await Promise.all(Array.from({ length: Math.min(2, models.length) }, () => worker()));
+      for (let index = 0; index < queue.length; index += 1) {
+        if (controller.signal.aborted || testRunRef.current !== run) return;
+        const model = queue[index];
+        setTesting(new Set([model]));
+        const result = await requestModelTest(id, model, controller.signal);
+        if (controller.signal.aborted || testRunRef.current !== run) return;
+        setTestStates((current) => ({ ...current, [model]: result }));
+        setTestProgress({ completed: index + 1, total: queue.length });
+      }
+    } catch (error) {
+      if (!controller.signal.aborted && testRunRef.current === run) setTestAllError(modelTestError(error));
     } finally {
-      setTestingAll(false);
+      if (testRunRef.current === run) {
+        activeTestRef.current = false;
+        testControllerRef.current = undefined;
+        setTesting(new Set());
+        setTestingAll(false);
+      }
     }
+  }
+
+  function closeSheet() {
+    testRunRef.current += 1;
+    testControllerRef.current?.abort();
+    testControllerRef.current = undefined;
+    activeTestRef.current = false;
+    setTesting(new Set());
+    setTestingAll(false);
+    setTestProgress(undefined);
+    onClose();
   }
 
   async function copyModel(model: string) {
@@ -536,15 +620,19 @@ function AccountModelsSheet({ account, onClose }: { account?: ApiRecord; onClose
 
   const identity = account ? accountIdentity(account) : { primary: '', secondary: '' };
   const manualState = testStates[manualModel.trim()];
-  return <SheetFrame visible={Boolean(account)} onClose={onClose} maxHeight="90%">
-    <SheetHeader title="可用模型" subtitle={account ? `${identity.primary} · ${accountProvider(account).label}` : undefined} onClose={onClose} />
+  const testsBusy = testingAll || testing.size > 0;
+  const manualTestEnabled = Boolean(manualModel.trim()) && !testsBusy;
+  const testAllLabel = testingAll && testProgress ? `${testProgress.completed}/${testProgress.total}` : '测试全部';
+  return <SheetFrame visible={Boolean(account)} onClose={closeSheet} maxHeight="90%">
+    <SheetHeader title="可用模型" subtitle={account ? `${identity.primary} · ${accountProvider(account).label}` : undefined} onClose={closeSheet} />
     <View style={{ height: Math.min(640, Math.max(330, height * 0.7)), gap: 10 }}>
       {query.isLoading ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 9 }}><ActivityIndicator color={colors.primary} /><Text style={{ color: colors.subtext, fontSize: 11 }}>正在读取账号模型...</Text></View> : query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : !supported ? <View style={{ gap: 12 }}>
         <View style={{ borderRadius: 14, backgroundColor: colors.mutedCard, padding: 12, gap: 4 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '800' }}>该提供商不支持模型目录</Text><Text style={{ color: colors.subtext, fontSize: 10, lineHeight: 15 }}>输入模型 ID 可直接检查该账号是否可用。</Text></View>
-        <View style={{ flexDirection: 'row', gap: 8 }}><TextInput value={manualModel} onChangeText={setManualModel} placeholder="输入模型 ID" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 12, fontFamily: 'monospace' }} /><Pressable disabled={!manualModel.trim() || testing.has(manualModel.trim())} onPress={() => void testModel(manualModel)} style={{ width: 46, height: 44, borderRadius: 12, backgroundColor: manualModel.trim() ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>{testing.has(manualModel.trim()) ? <ActivityIndicator color="#fff" size="small" /> : <Play color="#fff" size={16} />}</Pressable></View>
+        <View style={{ flexDirection: 'row', gap: 8 }}><TextInput value={manualModel} onChangeText={setManualModel} placeholder="输入模型 ID" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 12, fontFamily: 'monospace' }} /><Pressable disabled={!manualTestEnabled} onPress={() => void testModel(manualModel)} style={{ width: 46, height: 44, borderRadius: 12, backgroundColor: manualTestEnabled || testing.has(manualModel.trim()) ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>{testing.has(manualModel.trim()) ? <ActivityIndicator color="#fff" size="small" /> : <Play color="#fff" size={16} />}</Pressable></View>
         {manualState ? <Text style={{ color: manualState.ok ? colors.success : colors.danger, fontSize: 11, lineHeight: 16 }}>{manualState.message} · {manualState.testedAt}</Text> : null}
       </View> : <>
-        <View style={{ minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '800' }}>{models.length} 个模型</Text><Pressable disabled={!models.length || testingAll} onPress={() => void testAll()} style={{ minHeight: 38, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: models.length ? 1 : 0.45 }}>{testingAll ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={14} />}<Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>测试全部</Text></Pressable></View>
+        <View style={{ minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '800' }}>{models.length} 个模型</Text><Pressable disabled={!models.length || testsBusy} onPress={() => void testAll()} style={{ minHeight: 38, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: models.length ? 1 : 0.45 }}>{testingAll ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={14} />}<Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>{testAllLabel}</Text></Pressable></View>
+        {testAllError ? <Text numberOfLines={2} style={{ color: colors.danger, fontSize: 10, lineHeight: 14 }}>批量测试已中断：{testAllError}</Text> : null}
         <SearchField value={search} onChangeText={setSearch} placeholder="搜索模型" />
         {account?.models_probe_error ? <Text numberOfLines={2} style={{ color: colors.warning, fontSize: 10, lineHeight: 14 }}>目录探测：{String(account.models_probe_error)}</Text> : null}
         <FlatList
@@ -567,7 +655,7 @@ function AccountModelsSheet({ account, onClose }: { account?: ApiRecord; onClose
             const message = testState?.message || probeError;
             const ok = testState ? testState.ok : !probeError;
             return <View style={{ minHeight: 70, borderBottomWidth: 1, borderBottomColor: colors.rowBorder, paddingVertical: 10, gap: 6 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><Boxes color={colors.primary} size={16} /></View><View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 12, lineHeight: 16, fontWeight: '800', fontFamily: 'monospace' }}>{model || '未命名模型'}</Text>{displayName || context ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9 }}>{[displayName !== model ? displayName : '', context].filter(Boolean).join(' · ')}</Text> : null}</View><Pressable accessibilityLabel="复制模型 ID" onPress={() => void copyModel(model)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{copiedId === model ? <Check color={colors.success} size={15} /> : <Copy color={colors.subtext} size={15} />}</Pressable><Pressable accessibilityLabel="测试模型" disabled={testing.has(model)} onPress={() => void testModel(model)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>{testing.has(model) ? <ActivityIndicator color={colors.primary} size="small" /> : <Play color={colors.primary} size={15} />}</Pressable></View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><Boxes color={colors.primary} size={16} /></View><View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 12, lineHeight: 16, fontWeight: '800', fontFamily: 'monospace' }}>{model || '未命名模型'}</Text>{displayName || context ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9 }}>{[displayName !== model ? displayName : '', context].filter(Boolean).join(' · ')}</Text> : null}</View><Pressable accessibilityLabel="复制模型 ID" onPress={() => void copyModel(model)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{copiedId === model ? <Check color={colors.success} size={15} /> : <Copy color={colors.subtext} size={15} />}</Pressable><Pressable accessibilityLabel="测试模型" disabled={testsBusy} onPress={() => void testModel(model)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: testsBusy && !testing.has(model) ? 0.45 : 1 }}>{testing.has(model) ? <ActivityIndicator color={colors.primary} size="small" /> : <Play color={colors.primary} size={15} />}</Pressable></View>
               {message || probeTime ? <Text numberOfLines={2} style={{ marginLeft: 42, color: ok ? colors.success : colors.danger, fontSize: 9, lineHeight: 14 }}>{message || '上次探测成功'}{testState?.testedAt ? ` · ${testState.testedAt}` : probeTime ? ` · ${probeTime}` : ''}</Text> : null}
             </View>;
           }}
@@ -856,7 +944,7 @@ export default function AdminAccountsScreen() {
         <View style={{ marginLeft: wide ? 'auto' : 0, minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 }}><RefreshCw color={autoRefresh ? colors.primary : colors.subtext} size={14} /><Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>自动刷新</Text><Switch value={autoRefresh} onValueChange={setAutoRefresh} trackColor={{ false: colors.disabled, true: colors.primary }} style={{ transform: [{ scaleX: 0.78 }, { scaleY: 0.78 }] }} /></View>
       </View>
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
-        <View style={{ flex: 1 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索账号、邮箱、供应商或出口" /></View>
+        <View style={{ flex: wide ? 1 : undefined, minHeight: 44 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索账号、邮箱、供应商或出口" /></View>
         <View style={{ minWidth: wide ? 360 : undefined, flexDirection: 'row', gap: 8 }}><FilterButton icon={Filter} label={selectedStatusLabel} active={statusFilter !== 'all'} onPress={() => setFilterMode('status')} /><FilterButton icon={SlidersHorizontal} label={selectedProviderLabel} active={providerFilter !== 'all'} onPress={() => setFilterMode('provider')} />{filtersActive ? <Pressable accessibilityLabel="清除筛选" onPress={() => { setStatusFilter('all'); setProviderFilter('all'); }} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={15} /></Pressable> : null}</View>
       </View>
       {proxies.error ? <Text style={{ color: colors.warning, fontSize: 9 }}>出口配置暂时无法核对：{proxies.error.message}</Text> : null}

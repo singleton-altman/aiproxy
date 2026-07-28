@@ -50,17 +50,36 @@ export function resolveApiUrl(path: string, baseUrlOverride?: string) {
   return `${baseUrl}${API_PREFIX}${normalized}`;
 }
 
+function cleanErrorText(value: unknown) {
+  if (typeof value !== 'string') return '';
+  const text = value.trim();
+  if (!text || /<!doctype\s+html|<html\b|<head\b|<body\b|<title\b|<h1\b/i.test(text)) return '';
+  if (/^(?:502\s+)?bad gateway$|^(?:503\s+)?service unavailable$|^(?:504\s+)?gateway timeout$/i.test(text)) return '';
+  return text;
+}
+
+function httpErrorMessage(status: number) {
+  if (status === 502 || status === 503 || status === 504) return `无法连接服务（HTTP ${status}），请确认服务已启动并检查网络连接`;
+  if (status >= 500) return `服务器暂时不可用（HTTP ${status}），请稍后重试`;
+  return `请求失败（HTTP ${status}）`;
+}
+
 export function extractErrorMessage(payload: unknown, fallback: string) {
+  const text = cleanErrorText(payload);
+  if (text) return text;
   if (payload && typeof payload === 'object') {
     const record = payload as ApiRecord;
-    if (typeof record.error === 'string' && record.error.trim()) return record.error;
+    const directError = cleanErrorText(record.error);
+    if (directError) return directError;
     if (record.error && typeof record.error === 'object') {
       const nested = record.error as ApiRecord;
-      if (typeof nested.message === 'string' && nested.message.trim()) return nested.message;
+      const nestedMessage = cleanErrorText(nested.message);
+      if (nestedMessage) return nestedMessage;
     }
-    if (typeof record.message === 'string' && record.message.trim()) return record.message;
+    const message = cleanErrorText(record.message);
+    if (message) return message;
   }
-  return fallback;
+  return cleanErrorText(fallback);
 }
 
 function isAuthFailure(status: number, payload: unknown) {
@@ -106,7 +125,7 @@ async function performRelogin() {
     } catch {
       payload = undefined;
     }
-    if (!response.ok) throw new ApiAuthError(extractErrorMessage(payload, `重新登录失败（HTTP ${response.status}）`));
+    if (!response.ok) throw new ApiAuthError(extractErrorMessage(payload, response.status >= 500 ? httpErrorMessage(response.status) : `重新登录失败（HTTP ${response.status}）`));
     markSessionAuthenticated(true);
   } catch (error) {
     if (error instanceof ApiAuthError) throw error;
@@ -206,7 +225,7 @@ export async function apiFetch(path: string, options: ApiRequestOptions = {}): P
       const blob = await response.blob();
       if (!response.ok) {
         const detail = blob.size <= 65536 ? (await blob.text()).trim() : '';
-        throw new Error(detail || `请求失败（HTTP ${response.status}）`);
+        throw new Error(extractErrorMessage(detail, httpErrorMessage(response.status)));
       }
       return { status: response.status, contentType, filename, kind: 'binary', byteLength: blob.size, blob };
     }
@@ -231,15 +250,16 @@ export async function apiFetch(path: string, options: ApiRequestOptions = {}): P
       throw new ApiAuthError(extractErrorMessage(payload, '登录已失效，请重新登录'));
     }
     if (!response.ok) {
-      throw new Error(extractErrorMessage(payload, typeof payload === 'string' && payload.trim()
-        ? payload.trim().slice(0, 300)
-        : `请求失败（HTTP ${response.status}）`));
+      throw new Error(extractErrorMessage(payload, httpErrorMessage(response.status)));
     }
     return result;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       if (externalSignal?.aborted) throw new Error('请求已取消');
       if (timedOut) throw new Error('请求超时，请检查服务器连接');
+    }
+    if (error instanceof Error && /network request failed|failed to fetch|load failed|networkerror|internet connection appears to be offline/i.test(error.message)) {
+      throw new Error('无法连接服务器，请检查服务地址和网络连接');
     }
     throw error;
   } finally {
