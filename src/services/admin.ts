@@ -175,11 +175,8 @@ export async function getAdminStatsUsers(params?: { from?: string; to?: string; 
 }
 
 export async function getAdminQuota(signal?: AbortSignal) {
-  const payload = await apiJson<ApiRecord>('/admin/quota', { signal });
-  const inner = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)
-    ? payload.data as ApiRecord
-    : payload;
-  return (inner ?? {}) as BalanceInfo;
+  const payload = await apiJson<unknown>('/admin/quota', { signal, cache: 'no-store' });
+  return normalizeAdminQuotaPayload(payload) as BalanceInfo;
 }
 
 export async function getAdminRequestLogs(params?: { limit?: number }, signal?: AbortSignal) {
@@ -257,8 +254,25 @@ export function getAdminModelWarnings(signal?: AbortSignal) {
 
 // ---- Quota ----
 
-export function refreshAdminQuota(value: ApiRecord = {}) {
-  return apiJson<ApiRecord>('/admin/quota/refresh', { method: 'POST', body: JSON.stringify(value), timeoutMs: 60000 });
+function normalizeAdminQuotaPayload(value: unknown) {
+  const root = recordValue(value);
+  let current = root;
+  let normalized = root;
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (['groups', 'providers', 'accounts', 'items'].some((key) => Array.isArray(current[key]))) break;
+    const nested = ['data', 'result', 'payload']
+      .map((key) => recordValue(current[key]))
+      .find((record) => Object.keys(record).length);
+    if (!nested) break;
+    normalized = { ...normalized, ...nested };
+    current = nested;
+  }
+  return normalized;
+}
+
+export async function refreshAdminQuota(value: ApiRecord = {}) {
+  const payload = await apiJson<unknown>('/admin/quota/refresh', { method: 'POST', body: JSON.stringify(value), timeoutMs: 60000 });
+  return normalizeAdminQuotaPayload(payload);
 }
 
 // ---- Configuration ----

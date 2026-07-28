@@ -45,6 +45,25 @@ function text(value: unknown) {
   return typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
 }
 
+function maskFragment(value: string) {
+  const characters = Array.from(value);
+  if (characters.length <= 1) return '****';
+  if (characters.length === 2) return `${characters[0]}****`;
+  return `${characters[0]}****${characters[characters.length - 1]}`;
+}
+
+export function maskAccountIdentity(value: unknown) {
+  const identity = text(value);
+  if (!identity) return '';
+  const separator = identity.lastIndexOf('@');
+  if (separator > 0) return `${maskFragment(identity.slice(0, separator))}@${identity.slice(separator + 1)}`;
+  const digits = identity.replace(/\D/g, '');
+  if (/^\+?[\d\s()-]+$/.test(identity) && digits.length >= 8) {
+    return `${identity.startsWith('+') ? '+' : ''}****${digits.slice(-4)}`;
+  }
+  return maskFragment(identity);
+}
+
 export function accountProvider(itemOrProvider: ApiRecord | string) {
   const item = typeof itemOrProvider === 'string' ? undefined : itemOrProvider;
   const provider = (typeof itemOrProvider === 'string' ? itemOrProvider : text(itemOrProvider.provider)).toLowerCase();
