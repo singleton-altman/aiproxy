@@ -35,30 +35,14 @@ export function getKeyOverview(signal?: AbortSignal) {
 // ---- API Keys ----
 
 export async function getApiKeys(signal?: AbortSignal) {
-  const [payload, requestPage] = await Promise.all([
-    apiJson<unknown>('/user/keys', { signal }),
-    getRequests({ limit: 100 }, signal).catch(() => undefined),
-  ]);
-  const latestUseByKey = new Map<string, string>();
-  for (const event of requestPage?.items ?? []) {
-    const record = event as ApiRecord;
-    const id = record.api_key_id ?? record.key_id ?? record.apiKeyId;
-    const usedAt = record.created_at ?? record.requested_at ?? record.started_at ?? record.timestamp;
-    if (id === undefined || id === null || !usedAt) continue;
-    const key = String(id);
-    const candidate = String(usedAt);
-    const current = latestUseByKey.get(key);
-    if (!current || new Date(candidate).getTime() > new Date(current).getTime()) latestUseByKey.set(key, candidate);
-  }
+  const payload = await apiJson<unknown>('/user/keys', { signal });
   return firstArray<ApiKeyItem>(payload, ['keys', 'items', 'data', 'list']).map((item) => {
     const record = item as ApiRecord;
-    const id = item.id === undefined ? '' : String(item.id);
     const lastUsed = item.last_used_at
       ?? record.last_used
       ?? record.lastUsedAt
       ?? record.last_request_at
-      ?? record.last_active_at
-      ?? latestUseByKey.get(id);
+      ?? record.last_active_at;
     const usageCount = Number(record.usage_count ?? record.request_count ?? record.total_requests);
     return {
       ...item,
@@ -67,6 +51,22 @@ export async function getApiKeys(signal?: AbortSignal) {
       usage_count: Number.isFinite(usageCount) ? usageCount : undefined,
     };
   });
+}
+
+export async function getApiKeyUsage(signal?: AbortSignal) {
+  const requestPage = await getRequests({ limit: 100 }, signal);
+  const latestUseByKey: Record<string, string> = {};
+  for (const event of requestPage.items) {
+    const record = event as ApiRecord;
+    const id = record.api_key_id ?? record.key_id ?? record.apiKeyId;
+    const usedAt = record.created_at ?? record.requested_at ?? record.started_at ?? record.timestamp;
+    if (id === undefined || id === null || !usedAt) continue;
+    const key = String(id);
+    const candidate = String(usedAt);
+    const current = latestUseByKey[key];
+    if (!current || new Date(candidate).getTime() > new Date(current).getTime()) latestUseByKey[key] = candidate;
+  }
+  return latestUseByKey;
 }
 
 export function createApiKey(input: { name: string; expires_at?: string | null; scopes?: string[] }) {
@@ -191,7 +191,7 @@ function normalizeRequestItem(value: RequestLogItem): RequestLogItem {
 }
 
 export async function getUsageOverview(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  const payload = await apiJson<ApiRecord>('/user/usage/overview', { signal, query: { ...params, range: normalizeRange(params?.range) } });
+  const payload = await apiJson<ApiRecord>('/user/usage/overview', { signal, cache: 'no-store', query: { ...params, range: normalizeRange(params?.range) } });
   const inner = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)
     ? payload.data as ApiRecord
     : payload;
@@ -199,12 +199,12 @@ export async function getUsageOverview(params?: { from?: string; to?: string; ra
 }
 
 export async function getUsageTrend(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  const payload = await apiJson<unknown>('/user/usage/trend', { signal, query: { ...params, range: normalizeRange(params?.range) } });
+  const payload = await apiJson<unknown>('/user/usage/trend', { signal, cache: 'no-store', query: { ...params, range: normalizeRange(params?.range) } });
   return firstArray<UsageTrendItem>(payload, ['trend', 'items', 'data', 'buckets', 'list']).map(normalizeTrendItem);
 }
 
 export function getUsageAnalysis(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/user/usage/analysis', { signal, query: { ...params, range: normalizeRange(params?.range) } });
+  return apiJson<ApiRecord>('/user/usage/analysis', { signal, cache: 'no-store', query: { ...params, range: normalizeRange(params?.range) } });
 }
 
 export function getUsageQuotaLimit(signal?: AbortSignal) {

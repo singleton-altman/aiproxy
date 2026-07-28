@@ -716,7 +716,6 @@ POST   /api/v1/admin/accounts/recover
 POST   /api/v1/admin/accounts/:id/recover
 GET    /api/v1/admin/accounts/:id/models
 POST   /api/v1/admin/accounts/:id/models/test
-POST   /api/v1/admin/accounts/:id/quota/reset
 ```
 
 Account 字段（前端/业务推断）：
@@ -910,14 +909,13 @@ POST   /api/v1/admin/management-tokens/:id/revoke
 
 ## 7. 完整路由清单（前端确认）
 
-以下 110 条来自前端静态资源调用点，App 开发可作为接口覆盖清单。实际 HTTP Method 需要按页面动作联调确认。
+以下 109 条来自前端静态资源调用点，App 开发可作为接口覆盖清单。实际 HTTP Method 需要按页面动作联调确认。
 
 ```text
 /admin/accounts
 /admin/accounts/:id
 /admin/accounts/:id/models
 /admin/accounts/:id/models/test
-/admin/accounts/:id/quota/reset
 /admin/accounts/:id/recover
 /admin/accounts/bulk
 /admin/accounts/export

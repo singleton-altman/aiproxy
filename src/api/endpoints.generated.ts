@@ -575,21 +575,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-accounts-046",
-    "path": "/admin/accounts/${id}/quota/reset",
-    "methods": [
-      "POST"
-    ],
-    "module": "admin-accounts",
-    "auth": "session",
-    "source": "前端确认",
-    "notes": "重置账号额度",
-    "pathVariables": [
-      "id"
-    ]
-  },
-  {
-    "id": "admin-oauth-047",
+    "id": "admin-oauth-046",
     "path": "/admin/accounts/oauth/${provider}/start",
     "methods": [
       "POST"
@@ -603,7 +589,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-oauth-048",
+    "id": "admin-oauth-047",
     "path": "/admin/accounts/oauth/${provider}/poll",
     "methods": [
       "POST"
@@ -617,7 +603,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-oauth-049",
+    "id": "admin-oauth-048",
     "path": "/admin/accounts/oauth/${provider}/submit",
     "methods": [
       "POST"
@@ -631,7 +617,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-oauth-050",
+    "id": "admin-oauth-049",
     "path": "/admin/accounts/kiro/sso/start",
     "methods": [
       "POST"
@@ -643,7 +629,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-051",
+    "id": "admin-oauth-050",
     "path": "/admin/accounts/kiro/sso/poll",
     "methods": [
       "POST"
@@ -655,7 +641,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-052",
+    "id": "admin-oauth-051",
     "path": "/admin/accounts/kiro/sso/submit",
     "methods": [
       "POST"
@@ -667,7 +653,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-053",
+    "id": "admin-oauth-052",
     "path": "/admin/accounts/kiro/sso/cancel",
     "methods": [
       "POST"
@@ -679,7 +665,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-054",
+    "id": "admin-oauth-053",
     "path": "/admin/accounts/kiro/sso/select-profile",
     "methods": [
       "POST"
@@ -691,7 +677,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-055",
+    "id": "admin-oauth-054",
     "path": "/admin/accounts/kiro/sso-token",
     "methods": [
       "POST"
@@ -703,7 +689,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-056",
+    "id": "admin-oauth-055",
     "path": "/admin/accounts/kiro/api-key",
     "methods": [
       "POST"
@@ -715,7 +701,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-057",
+    "id": "admin-oauth-056",
     "path": "/admin/accounts/kiro/iam-sso/start",
     "methods": [
       "POST"
@@ -727,7 +713,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-058",
+    "id": "admin-oauth-057",
     "path": "/admin/accounts/kiro/iam-sso/complete",
     "methods": [
       "POST"
@@ -739,7 +725,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-059",
+    "id": "admin-oauth-058",
     "path": "/admin/accounts/oauth/kiro/start",
     "methods": [
       "POST"
@@ -751,7 +737,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-oauth-060",
+    "id": "admin-oauth-059",
     "path": "/admin/accounts/oauth/kiro/poll",
     "methods": [
       "POST"
@@ -763,7 +749,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-providers-061",
+    "id": "admin-providers-060",
     "path": "/admin/providers",
     "methods": [
       "GET",
@@ -776,7 +762,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-providers-062",
+    "id": "admin-providers-061",
     "path": "/admin/providers/${id}",
     "methods": [
       "PUT",
@@ -791,7 +777,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-providers-063",
+    "id": "admin-providers-062",
     "path": "/admin/providers/builtin",
     "methods": [
       "GET"
@@ -803,7 +789,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-providers-064",
+    "id": "admin-providers-063",
     "path": "/admin/providers/builtin/${name}/models",
     "methods": [
       "GET",
@@ -818,7 +804,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-providers-065",
+    "id": "admin-providers-064",
     "path": "/admin/providers/builtin/${name}/route-prefix",
     "methods": [
       "PUT"
@@ -832,7 +818,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-providers-066",
+    "id": "admin-providers-065",
     "path": "/admin/providers/${id}/quota-test",
     "methods": [
       "POST"
@@ -846,7 +832,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-proxies-067",
+    "id": "admin-proxies-066",
     "path": "/admin/proxies",
     "methods": [
       "GET",
@@ -859,7 +845,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-proxies-068",
+    "id": "admin-proxies-067",
     "path": "/admin/proxies/${id}",
     "methods": [
       "PUT",
@@ -874,7 +860,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-proxies-069",
+    "id": "admin-proxies-068",
     "path": "/admin/proxies/${id}/impact",
     "methods": [
       "GET"
@@ -888,7 +874,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-proxies-070",
+    "id": "admin-proxies-069",
     "path": "/admin/proxies/${id}/test",
     "methods": [
       "POST"
@@ -902,7 +888,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-proxies-071",
+    "id": "admin-proxies-070",
     "path": "/admin/proxies/system",
     "methods": [
       "PUT"
@@ -914,7 +900,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-models-072",
+    "id": "admin-models-071",
     "path": "/admin/models",
     "methods": [
       "GET",
@@ -928,7 +914,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-models-073",
+    "id": "admin-models-072",
     "path": "/admin/models/sync",
     "methods": [
       "POST"
@@ -940,7 +926,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-models-074",
+    "id": "admin-models-073",
     "path": "/admin/models/probe",
     "methods": [
       "POST"
@@ -952,7 +938,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-models-075",
+    "id": "admin-models-074",
     "path": "/admin/models/cleanup",
     "methods": [
       "POST"
@@ -964,7 +950,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-models-076",
+    "id": "admin-models-075",
     "path": "/admin/models/enabled",
     "methods": [
       "PUT"
@@ -976,7 +962,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-models-077",
+    "id": "admin-models-076",
     "path": "/admin/models/provider-enabled",
     "methods": [
       "PUT"
@@ -988,7 +974,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-models-078",
+    "id": "admin-models-077",
     "path": "/admin/snapshot/warnings",
     "methods": [
       "GET"
@@ -1000,7 +986,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-stats-079",
+    "id": "admin-stats-078",
     "path": "/admin/stats/overview",
     "methods": [
       "GET"
@@ -1012,7 +998,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-stats-080",
+    "id": "admin-stats-079",
     "path": "/admin/stats/trend",
     "methods": [
       "GET"
@@ -1024,7 +1010,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-stats-081",
+    "id": "admin-stats-080",
     "path": "/admin/stats/analysis",
     "methods": [
       "GET"
@@ -1036,7 +1022,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-stats-082",
+    "id": "admin-stats-081",
     "path": "/admin/usage/overview/realtime",
     "methods": [
       "GET"
@@ -1048,7 +1034,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-stats-083",
+    "id": "admin-stats-082",
     "path": "/admin/usage/events",
     "methods": [
       "GET"
@@ -1060,7 +1046,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-stats-084",
+    "id": "admin-stats-083",
     "path": "/admin/usage/events/export",
     "methods": [
       "GET"
@@ -1072,7 +1058,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-logs-085",
+    "id": "admin-logs-084",
     "path": "/admin/logs/app",
     "methods": [
       "GET"
@@ -1084,7 +1070,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-logs-086",
+    "id": "admin-logs-085",
     "path": "/admin/traces",
     "methods": [
       "GET"
@@ -1096,7 +1082,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-logs-087",
+    "id": "admin-logs-086",
     "path": "/admin/traces/${id}",
     "methods": [
       "GET"
@@ -1110,7 +1096,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-quota-088",
+    "id": "admin-quota-087",
     "path": "/admin/quota",
     "methods": [
       "GET"
@@ -1122,7 +1108,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-quota-089",
+    "id": "admin-quota-088",
     "path": "/admin/quota/refresh",
     "methods": [
       "POST"
@@ -1134,7 +1120,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-config-090",
+    "id": "admin-config-089",
     "path": "/admin/config",
     "methods": [
       "GET",
@@ -1147,7 +1133,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-config-091",
+    "id": "admin-config-090",
     "path": "/admin/config/validate",
     "methods": [
       "POST"
@@ -1159,7 +1145,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-config-092",
+    "id": "admin-config-091",
     "path": "/admin/email/settings",
     "methods": [
       "GET",
@@ -1172,7 +1158,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-config-093",
+    "id": "admin-config-092",
     "path": "/admin/email/test",
     "methods": [
       "POST"
@@ -1184,7 +1170,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-config-094",
+    "id": "admin-config-093",
     "path": "/admin/email/preview",
     "methods": [
       "POST"
@@ -1196,7 +1182,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-config-095",
+    "id": "admin-config-094",
     "path": "/admin/email/templates/defaults",
     "methods": [
       "GET"
@@ -1208,7 +1194,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-config-096",
+    "id": "admin-config-095",
     "path": "/admin/github/settings",
     "methods": [
       "GET",
@@ -1221,7 +1207,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-system-097",
+    "id": "admin-system-096",
     "path": "/admin/system/info",
     "methods": [
       "GET"
@@ -1233,7 +1219,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-system-098",
+    "id": "admin-system-097",
     "path": "/admin/system/check-updates",
     "methods": [
       "GET"
@@ -1245,7 +1231,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-system-099",
+    "id": "admin-system-098",
     "path": "/admin/system/update-settings",
     "methods": [
       "GET",
@@ -1258,7 +1244,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-system-100",
+    "id": "admin-system-099",
     "path": "/admin/system/update",
     "methods": [
       "POST"
@@ -1270,7 +1256,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-system-101",
+    "id": "admin-system-100",
     "path": "/admin/system/restart",
     "methods": [
       "POST"
@@ -1282,7 +1268,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-system-102",
+    "id": "admin-system-101",
     "path": "/admin/system/rollback",
     "methods": [
       "POST"
@@ -1294,7 +1280,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-tokens-103",
+    "id": "admin-tokens-102",
     "path": "/admin/management-tokens",
     "methods": [
       "GET",
@@ -1307,7 +1293,7 @@ export const API_ENDPOINTS = [
     "pathVariables": []
   },
   {
-    "id": "admin-tokens-104",
+    "id": "admin-tokens-103",
     "path": "/admin/management-tokens/${id}",
     "methods": [
       "DELETE"
@@ -1321,7 +1307,7 @@ export const API_ENDPOINTS = [
     ]
   },
   {
-    "id": "admin-tokens-105",
+    "id": "admin-tokens-104",
     "path": "/admin/management-tokens/${id}/revoke",
     "methods": [
       "POST"
@@ -1418,8 +1404,8 @@ export const API_MODULES = [
   {
     "key": "admin-accounts",
     "label": "管理 · 上游账号",
-    "endpointCount": 10,
-    "methodCount": 12
+    "endpointCount": 9,
+    "methodCount": 11
   },
   {
     "key": "admin-oauth",

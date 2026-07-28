@@ -43,6 +43,7 @@ test('admin mutation methods match the current server contract', () => {
     ['/admin/accounts/${id}', ['DELETE', 'PUT']],
     ['/admin/accounts/bulk', ['PUT']],
     ['/admin/accounts/export', ['POST']],
+    ['/admin/accounts/${id}/models/test', ['POST']],
     ['/admin/providers/${id}', ['DELETE', 'PUT']],
     ['/admin/proxies/${id}', ['DELETE', 'PUT']],
     ['/admin/models', ['DELETE', 'GET', 'PUT']],
@@ -57,6 +58,7 @@ test('admin mutation methods match the current server contract', () => {
 test('removed endpoints are not exposed by the API debugger', () => {
   const removed = [
     '/admin/accounts/health',
+    '/admin/accounts/${id}/quota/reset',
     '/admin/models/${id}',
     '/admin/snapshot',
     '/admin/stats',

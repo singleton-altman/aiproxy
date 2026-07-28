@@ -1,50 +1,62 @@
-import { useQuery } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Activity,
   BarChart3,
-  Boxes,
+  CalendarDays,
   CheckCircle2,
   CircleDollarSign,
   Coins,
   Gauge,
   KeyRound,
+  Layers3,
   RefreshCw,
-  Server,
   Timer,
-  UsersRound,
-  Waypoints,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
-import { apiJson, firstArray } from '@/src/lib/api';
 import { useAppTheme } from '@/src/lib/theme';
-import { getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
+import { getKeyOverview, getModels, getUsageAnalysis, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
   getAdminRealtimeUsage,
-  getAdminStatsAnalysis,
-  getAdminStatsModels,
   getAdminStatsOverview,
   getAdminStatsTrend,
   getAdminStatsUsers,
 } from '@/src/services/admin';
 import { isAdmin, sessionState } from '@/src/store/session';
-import type { ApiRecord, ModelItem, UsageTrendItem } from '@/src/types/api';
+import type { ApiRecord, UsageTrendItem } from '@/src/types/api';
 
 const { useSnapshot } = require('valtio/react');
 
 type DashboardRange = 'day' | 'week' | 'month';
+type DistributionMetric = 'tokens' | 'cost';
+
+type DistributionRow = {
+  key: string;
+  name: string;
+  requests: number;
+  tokens: number;
+  cost: number;
+};
 
 const dashboardRanges: Array<{ value: DashboardRange; label: string }> = [
   { value: 'day', label: '今日' },
   { value: 'week', label: '本周' },
   { value: 'month', label: '本月' },
 ];
+
+const dashboardQueryDefaults = {
+  staleTime: 0,
+  refetchOnMount: 'always' as const,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
+  refetchIntervalInBackground: false,
+};
 
 function toNumber(value: unknown) {
   const number = typeof value === 'number'
@@ -73,7 +85,10 @@ function nestedRecords(value: unknown, keys: string[]): ApiRecord[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
   const record = value as ApiRecord;
   for (const key of keys) {
-    if (Array.isArray(record[key])) return (record[key] as unknown[]).filter((item): item is ApiRecord => Boolean(item) && typeof item === 'object' && !Array.isArray(item));
+    if (Array.isArray(record[key])) {
+      const items = (record[key] as unknown[]).filter((item): item is ApiRecord => Boolean(item) && typeof item === 'object' && !Array.isArray(item));
+      if (items.length) return items;
+    }
   }
   for (const item of Object.values(record)) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
@@ -104,6 +119,70 @@ function formatRate(overview: ApiRecord) {
   return `${Math.max(0, Math.min(100, percentage)).toFixed(1)}%`;
 }
 
+function localDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function dashboardDateRange(range: DashboardRange) {
+  const end = new Date();
+  const start = new Date(end);
+  if (range === 'week') {
+    const dayFromMonday = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - dayFromMonday);
+  } else if (range === 'month') {
+    start.setDate(1);
+  }
+  const from = localDate(start);
+  const to = localDate(end);
+  return from === to ? from : `${from} 至 ${to}`;
+}
+
+function isInternalId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    || /^[0-9a-f]{24,}$/i.test(value)
+    || /^\d{8,}$/.test(value);
+}
+
+function firstReadableText(item: ApiRecord, keys: string[], rejectInternalId = false) {
+  for (const key of keys) {
+    const value = item[key];
+    if (typeof value !== 'string' && typeof value !== 'number') continue;
+    const text = String(value).trim();
+    if (text && (!rejectInternalId || !isInternalId(text))) return text;
+  }
+  return '';
+}
+
+function buildDistributionRows(source: unknown, admin: boolean) {
+  let dimension: 'user' | 'provider' | 'model' = admin ? 'user' : 'model';
+  let items = admin
+    ? nestedRecords(source, ['users', 'by_user', 'user_usage'])
+    : nestedRecords(source, ['by_model', 'models', 'model_usage']);
+
+  if (admin && !items.length) {
+    dimension = 'provider';
+    items = nestedRecords(source, ['by_provider', 'providers', 'provider_usage']);
+  }
+
+  return items.map((item, index): DistributionRow => {
+    const name = dimension === 'user'
+      ? firstReadableText(item, ['display_name', 'nickname', 'username', 'email', 'user_email', 'name', 'user'], true)
+      : dimension === 'provider'
+        ? firstReadableText(item, ['provider_name', 'provider', 'name', 'slug'], true)
+        : firstReadableText(item, ['model_name', 'model', 'id', 'name']);
+    return {
+      key: `${dimension}-${String(item.user_id ?? item.provider_id ?? item.model ?? item.id ?? index)}`,
+      name: name || `${dimension === 'user' ? '用户' : dimension === 'provider' ? '供应商' : '模型'} ${index + 1}`,
+      requests: firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']),
+      tokens: firstNumber(item, ['total_tokens', 'tokens', 'token_count']),
+      cost: firstNumber(item, ['actual_cost', 'actualCost', 'cost', 'cost_usd', 'total_cost', 'amount']),
+    };
+  }).filter((item) => item.requests || item.tokens || item.cost);
+}
+
 type MetricCardProps = {
   label: string;
   value: string;
@@ -111,18 +190,17 @@ type MetricCardProps = {
   icon: LucideIcon;
   accent: string;
   iconBackground: string;
-  basis: `${number}%`;
 };
 
-function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, basis }: MetricCardProps) {
+function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground }: MetricCardProps) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 92, borderRadius: 16, borderWidth: 1, borderColor: iconBackground, backgroundColor: colors.card, padding: 10, justifyContent: 'space-between', gap: 5 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-      <IconTile icon={Icon} size={27} iconSize={14} color={accent} background={iconBackground} />
-      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text>
+  return <View style={{ flexGrow: 1, flexBasis: '47%', minWidth: 0, minHeight: 108, borderRadius: 8, borderWidth: 1, borderColor: accent, backgroundColor: colors.card, padding: 11, justifyContent: 'space-between', gap: 6 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <IconTile icon={Icon} size={30} iconSize={15} color={accent} background={iconBackground} />
+      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12, lineHeight: 17, fontWeight: '700' }}>{label}</Text>
     </View>
-    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={{ color: colors.text, fontSize: 21, lineHeight: 25, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 9, lineHeight: 12, fontWeight: '600' }}>{detail}</Text> : null}
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.66} style={{ color: colors.text, fontSize: 21, lineHeight: 26, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+    {detail ? <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} style={{ color: accent, fontSize: 11, lineHeight: 15, fontWeight: '700' }}>{detail}</Text> : null}
   </View>;
 }
 
@@ -142,29 +220,31 @@ function dateLabel(item: UsageTrendItem, index: number, range: DashboardRange) {
 
 function RequestTrendChart({ items, range }: { items: UsageTrendItem[]; range: DashboardRange }) {
   const colors = useAppTheme();
+  const { width } = useWindowDimensions();
+  const chartWidth = Math.min(900, Math.max(280, width - 64));
   const chartItems = items.slice(-(range === 'day' ? 24 : range === 'week' ? 7 : 30));
   const values = chartItems.map((item) => toNumber(item.request_count ?? item.count ?? item.requests));
   const maxValue = Math.max(1, ...values);
   const top = Math.max(4, Math.ceil(maxValue * 1.2));
-  const plotLeft = 34;
-  const plotRight = 586;
-  const plotTop = 18;
-  const plotBottom = 176;
+  const plotLeft = 38;
+  const plotRight = chartWidth - 12;
+  const plotTop = 16;
+  const plotBottom = 164;
   const plotHeight = plotBottom - plotTop;
   const slot = (plotRight - plotLeft) / Math.max(1, chartItems.length);
-  const barWidth = Math.min(30, slot * 0.46);
-  const labelStep = Math.max(1, Math.ceil(chartItems.length / 7));
+  const barWidth = Math.min(28, Math.max(3, slot * 0.5));
+  const labelStep = Math.max(1, Math.ceil(chartItems.length / 6));
 
   if (!chartItems.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
 
-  return <View style={{ height: 220, overflow: 'hidden' }}>
-    <Svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none">
+  return <View style={{ height: 198, overflow: 'hidden' }}>
+    <Svg width="100%" height="198" viewBox={`0 0 ${chartWidth} 198`} preserveAspectRatio="none">
       {[0, 1, 2, 3, 4].map((index) => {
         const y = plotBottom - index * plotHeight / 4;
         const label = Math.round(top * index / 4);
         return <Fragment key={index}>
           <Line x1={plotLeft} x2={plotRight} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" />
-          <SvgText x="21" y={y + 4} fill={colors.subtext} fontSize="9" textAnchor="end">{label}</SvgText>
+          <SvgText x="29" y={y + 4} fill={colors.subtext} fontSize="10" textAnchor="end">{label}</SvgText>
         </Fragment>;
       })}
       {chartItems.map((item, index) => {
@@ -175,130 +255,81 @@ function RequestTrendChart({ items, range }: { items: UsageTrendItem[]; range: D
         const showLabel = index % labelStep === 0 || index === chartItems.length - 1;
         return <Fragment key={`${label}-${index}`}>
           <Rect x={x} y={plotBottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />
-          {showLabel ? <SvgText x={x + barWidth / 2} y="201" fill={colors.subtext} fontSize="9" textAnchor="middle">{label}</SvgText> : null}
+          {showLabel ? <SvgText x={x + barWidth / 2} y="187" fill={colors.subtext} fontSize="10" textAnchor="middle">{label}</SvgText> : null}
         </Fragment>;
       })}
     </Svg>
   </View>;
 }
 
-function rankingName(item: ApiRecord, type: 'model' | 'user', index: number) {
-  if (type === 'model') return String(item.model ?? item.id ?? item.name ?? `模型 ${index + 1}`);
-  const candidates = [item.display_name, item.nickname, item.username, item.email, item.user_email, item.name, item.user];
-  const value = candidates.find((candidate) => {
-    if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
-    const text = String(candidate).trim();
-    return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
+function visibleDistributionRows(rows: DistributionRow[], metric: DistributionMetric) {
+  const ranked = [...rows].sort((left, right) => {
+    const metricDiff = metric === 'tokens' ? right.tokens - left.tokens : right.cost - left.cost;
+    return metricDiff || right.requests - left.requests;
   });
-  return value ? String(value) : `用户 ${index + 1}`;
+  if (ranked.length <= 6) return ranked;
+  const visible = ranked.slice(0, 5);
+  const other = ranked.slice(5).reduce<DistributionRow>((total, item) => ({
+    ...total,
+    requests: total.requests + item.requests,
+    tokens: total.tokens + item.tokens,
+    cost: total.cost + item.cost,
+  }), { key: 'other', name: '其他', requests: 0, tokens: 0, cost: 0 });
+  return [...visible, other];
 }
 
-function RankingPanel({ title, icon, items, type, wide }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: 'model' | 'user'; wide: boolean }) {
+function DistributionPanel({ rows, metric, onMetricChange, wide }: { rows: DistributionRow[]; metric: DistributionMetric; onMetricChange: (value: DistributionMetric) => void; wide: boolean }) {
   const colors = useAppTheme();
-  const visible = items.slice(0, 5);
-  const maxCost = Math.max(0, ...visible.map((item) => firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount'])));
-  if (type === 'user') return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
-    <SectionHeader icon={icon} title={title} />
-    {visible.length ? <>
-      <View style={{ minHeight: 28, paddingHorizontal: 8, borderRadius: 9, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 9 }}>用户</Text>
-        <Text style={{ width: 42, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>次数</Text>
-        <Text style={{ width: 54, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>Token</Text>
-        <Text style={{ width: 66, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>费用</Text>
-      </View>
-      {visible.map((item, index) => {
-        const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
-        const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
-        const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-        return <View key={`${rankingName(item, type, index)}-${index}`} style={{ minHeight: 36, paddingHorizontal: 8, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: '700' }}>{rankingName(item, type, index)}</Text>
-          <Text style={{ width: 42, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
-          <Text style={{ width: 54, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
-          <Text style={{ width: 66, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
-        </View>;
-      })}
-    </> : <EmptyState embedded icon={icon} message="暂无用户数据" />}
-  </View>;
-  return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 12 }}>
-    <SectionHeader icon={icon} title={title} />
-    {visible.map((item, index) => {
-      const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-      const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
-      const width = `${Math.max(3, maxCost ? cost / maxCost * 100 : 3)}%` as `${number}%`;
-      return <View key={`${rankingName(item, type, index)}-${index}`} style={{ gap: 6 }}>
-        <View style={{ minHeight: 22, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{rankingName(item, type, index)}</Text>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>{formatNumber(requests)} 次</Text>
-          <Text style={{ minWidth: 62, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
-        </View>
-        <View style={{ height: 3, borderRadius: 2, backgroundColor: colors.chartTrack, overflow: 'hidden' }}><View style={{ width, height: 3, borderRadius: 2, backgroundColor: colors.cyan }} /></View>
-      </View>;
-    })}
-    {!visible.length ? <EmptyState embedded icon={icon} message="暂无排行数据" /> : null}
-  </View>;
-}
+  const visible = useMemo(() => visibleDistributionRows(rows, metric), [metric, rows]);
+  const values = visible.map((item) => metric === 'tokens' ? item.tokens : item.cost);
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const circumference = 2 * Math.PI * 44;
+  const segmentColors = [colors.primary, colors.success, colors.warning, colors.cyan, colors.accentText, colors.danger];
+  let progress = 0;
 
-function breakdownName(item: ApiRecord, type: 'provider' | 'account', index: number) {
-  const candidates = type === 'provider'
-    ? [item.provider_name, item.provider, item.name, item.id]
-    : [item.account_name, item.account, item.email, item.label, item.name];
-  const value = candidates.find((candidate) => {
-    if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
-    const text = String(candidate).trim();
-    return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
-  });
-  return value ? String(value) : `${type === 'provider' ? '供应商' : '账号'} ${index + 1}`;
-}
-
-function BreakdownTable({ title, icon, items, type }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: 'provider' | 'account' }) {
-  const colors = useAppTheme();
-  const visible = items.slice(0, 8);
-  const account = type === 'account';
-  if (account) return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
-    <SectionHeader icon={icon} title={title} />
-    {visible.length ? visible.map((item, index) => {
-      const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
-      const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
-      const failed = firstNumber(item, ['failed_count', 'failed_requests', 'errors', 'error_count']);
-      const suppliedRate = item.success_rate ?? item.successRate;
-      const successRate = suppliedRate === undefined ? (requests ? (requests - failed) / requests * 100 : 0) : (toNumber(suppliedRate) <= 1 ? toNumber(suppliedRate) * 100 : toNumber(suppliedRate));
-      const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-      return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 66, paddingVertical: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 7 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 12, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
-          <View style={{ maxWidth: '34%', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, fontWeight: '700' }}>{String(item.provider_name ?? item.provider ?? '--')}</Text></View>
-          <Text style={{ minWidth: 62, color: colors.text, fontSize: 11, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>请求 <Text style={{ color: colors.text, fontWeight: '700' }}>{formatNumber(requests)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>Token <Text style={{ color: colors.text, fontWeight: '700' }}>{formatNumber(tokens)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>失败 <Text style={{ color: failed ? colors.danger : colors.text, fontWeight: '700' }}>{formatNumber(failed)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>成功率 <Text style={{ color: failed ? colors.danger : colors.success, fontWeight: '700' }}>{successRate.toFixed(1)}%</Text></Text>
-        </View>
-      </View>;
-    }) : <EmptyState embedded icon={icon} message="暂无账号数据" />}
-  </View>;
-  return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
-    <SectionHeader icon={icon} title={title} />
-    {visible.length ? <>
-      <View style={{ minHeight: 28, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 9 }}>供应商</Text>
-        <Text style={{ width: 42, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>次数</Text>
-        <Text style={{ width: 54, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>Token</Text>
-        <Text style={{ width: 66, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>费用</Text>
+  return <View style={{ borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 12 }}>
+    <View style={{ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <View style={{ flex: 1, minWidth: 0 }}><SectionHeader icon={Layers3} title="分组使用分布" /></View>
+      <View accessibilityRole="tablist" style={{ padding: 3, borderRadius: 8, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 2 }}>
+        {([['tokens', 'Token'], ['cost', '实际费用']] as const).map(([value, label]) => {
+          const selected = metric === value;
+          return <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => onMetricChange(value)} style={({ pressed }) => ({ minHeight: 30, paddingHorizontal: 9, borderRadius: 6, backgroundColor: selected ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
+            <Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '800' }}>{label}</Text>
+          </Pressable>;
+        })}
       </View>
-      {visible.map((item, index) => {
-        const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
-        const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
-        const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-        return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 36, paddingHorizontal: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: '700' }}>{breakdownName(item, type, index)}</Text>
-          <Text style={{ width: 42, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
-          <Text style={{ width: 54, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
-          <Text style={{ width: 66, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
-        </View>;
-      })}
-    </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : '账号'}数据`} />}
+    </View>
+
+    {visible.length ? <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: wide ? 'center' : 'stretch', gap: 14 }}>
+      <View style={{ width: wide ? 178 : '100%', height: 154, alignItems: 'center', justifyContent: 'center' }}>
+        <Svg width="150" height="150" viewBox="0 0 150 150">
+          <Circle cx="75" cy="75" r="44" fill="none" stroke={colors.chartTrack} strokeWidth="14" />
+          {visible.map((item, index) => {
+            const ratio = total ? values[index] / total : 0;
+            const offset = progress;
+            progress += ratio;
+            return <Circle key={item.key} cx="75" cy="75" r="44" fill="none" stroke={segmentColors[index]} strokeWidth="14" strokeDasharray={`${ratio * circumference} ${circumference}`} strokeDashoffset={-offset * circumference} rotation="-90" origin="75,75" />;
+          })}
+          <SvgText x="75" y="69" fill={colors.subtext} fontSize="10" textAnchor="middle">{metric === 'tokens' ? 'Token' : '实际费用'}</SvgText>
+          <SvgText x="75" y="88" fill={colors.text} fontSize="14" fontWeight="800" textAnchor="middle">{metric === 'tokens' ? formatNumber(total) : formatCost(total)}</SvgText>
+        </Svg>
+      </View>
+
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={{ minHeight: 34, paddingHorizontal: 8, borderRadius: 6, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 11, fontWeight: '700' }}>分组</Text>
+          <Text style={{ width: 44, color: colors.subtext, fontSize: 11, fontWeight: '700', textAlign: 'right' }}>请求</Text>
+          <Text style={{ width: 58, color: colors.subtext, fontSize: 11, fontWeight: '700', textAlign: 'right' }}>Token</Text>
+          <Text style={{ width: 70, color: colors.subtext, fontSize: 11, fontWeight: '700', textAlign: 'right' }}>费用</Text>
+        </View>
+        {visible.map((item, index) => <View key={`${item.key}-row`} style={{ minHeight: 42, paddingHorizontal: 8, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: segmentColors[index] }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{item.name}</Text></View>
+          <Text style={{ width: 44, color: colors.text, fontSize: 11, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(item.requests)}</Text>
+          <Text style={{ width: 58, color: colors.text, fontSize: 11, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(item.tokens)}</Text>
+          <Text style={{ width: 70, color: colors.text, fontSize: 11, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(item.cost)}</Text>
+        </View>)}
+      </View>
+    </View> : <EmptyState embedded icon={Layers3} message="暂无分组用量数据" />}
   </View>;
 }
 
@@ -322,117 +353,104 @@ function KeyOverview() {
 function UsageDashboard({ admin }: { admin: boolean }) {
   const colors = useAppTheme();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { width } = useWindowDimensions();
   const [refreshing, setRefreshing] = useState(false);
+  const [screenFocused, setScreenFocused] = useState(false);
   const [range, setRange] = useState<DashboardRange>('day');
-  const wide = width >= 720;
-  const metricBasis: `${number}%` = wide ? '31%' : width >= 350 ? '47%' : '100%';
+  const [distributionMetric, setDistributionMetric] = useState<DistributionMetric>('tokens');
+  const wide = width >= 700;
   const rangeLabel = dashboardRanges.find((item) => item.value === range)?.label ?? '今日';
 
   const overview = useQuery({
     queryKey: [admin ? 'admin' : 'user', 'dashboard', 'overview', range],
     queryFn: ({ signal }) => admin ? getAdminStatsOverview({ range }, signal) : getUsageOverview({ range }, signal),
+    ...dashboardQueryDefaults,
+    refetchInterval: screenFocused ? 10_000 : false,
   });
   const trend = useQuery({
     queryKey: [admin ? 'admin' : 'user', 'dashboard', 'trend', range],
     queryFn: ({ signal }) => admin ? getAdminStatsTrend({ range }, signal) : getUsageTrend({ range }, signal),
+    ...dashboardQueryDefaults,
+    refetchInterval: screenFocused ? 30_000 : false,
   });
   const realtime = useQuery({
     queryKey: ['admin', 'dashboard', 'realtime'],
     queryFn: ({ signal }) => getAdminRealtimeUsage(signal),
     enabled: admin,
     retry: 0,
+    ...dashboardQueryDefaults,
+    refetchInterval: screenFocused ? 5_000 : false,
+  });
+  const breakdown = useQuery({
+    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'distribution', range],
+    queryFn: ({ signal }) => admin ? getAdminStatsUsers({ range }, signal) : getUsageAnalysis({ range }, signal),
+    retry: 0,
+    ...dashboardQueryDefaults,
+    refetchInterval: screenFocused ? 30_000 : false,
   });
   const models = useQuery({
-    queryKey: [admin ? 'admin' : 'user', 'dashboard', 'models'],
-    queryFn: ({ signal }) => admin ? getAdminStatsModels({ range }, signal) : getModels(signal),
+    queryKey: ['user', 'dashboard', 'model-directory'],
+    queryFn: ({ signal }) => getModels(signal),
+    enabled: !admin,
+    ...dashboardQueryDefaults,
+    refetchInterval: screenFocused ? 60_000 : false,
   });
-  const users = useQuery({
-    queryKey: ['admin', 'dashboard', 'users', range],
-    queryFn: ({ signal }) => getAdminStatsUsers({ range }, signal),
-    enabled: admin,
-    retry: 0,
-  });
-  const analysis = useQuery({
-    queryKey: ['admin', 'dashboard', 'analysis', range],
-    queryFn: ({ signal }) => getAdminStatsAnalysis({ range }, signal),
-    enabled: admin,
-    retry: 0,
-  });
-  const accountDirectory = useQuery({
-    queryKey: ['admin', 'dashboard', 'account-directory'],
-    queryFn: async ({ signal }) => firstArray<ApiRecord>(await apiJson('/admin/accounts', { signal }), ['accounts', 'items', 'data', 'list']),
-    enabled: admin,
-    retry: 0,
-  });
+
+  useFocusEffect(useCallback(() => {
+    setScreenFocused(true);
+    void queryClient.invalidateQueries({ queryKey: [admin ? 'admin' : 'user', 'dashboard'] });
+    return () => setScreenFocused(false);
+  }, [admin, queryClient]));
 
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    const requests = [overview.refetch(), trend.refetch(), models.refetch()];
-    if (admin) requests.push(realtime.refetch(), users.refetch(), analysis.refetch(), accountDirectory.refetch());
-    void Promise.allSettled(requests).finally(() => setRefreshing(false));
+    const refreshes = [overview.refetch(), trend.refetch(), breakdown.refetch()];
+    if (admin) refreshes.push(realtime.refetch());
+    else refreshes.push(models.refetch());
+    void Promise.allSettled(refreshes).finally(() => setRefreshing(false));
   };
 
   const summary = unwrapRecord(overview.data);
   const live = unwrapRecord(realtime.data);
   const requests = firstNumber(summary, ['request_count', 'total_requests', 'requests']);
   const failed = firstNumber(summary, ['failed_count', 'failed_requests', 'error_count', 'errors']);
-  const reportedActiveUsers = firstNumber(summary, ['active_users', 'active_user_count', 'user_count']);
   const totalTokens = firstNumber(summary, ['total_tokens', 'tokens']);
   const inputTokens = firstNumber(summary, ['prompt_tokens', 'input_tokens']);
   const outputTokens = firstNumber(summary, ['completion_tokens', 'output_tokens']);
-  const cost = firstNumber(summary, ['cost', 'cost_usd', 'total_cost']);
-  const latency = firstNumber(summary, ['average_latency_ms', 'avg_latency_ms', 'latency_ms', 'average_latency']);
-  const modelItems = (models.data ?? []).map((item) => item as ModelItem & ApiRecord);
-  const userItems = useMemo(() => firstArray<ApiRecord>(users.data, ['users', 'items', 'data', 'list', 'rows']), [users.data]);
-  const providerItems = useMemo(() => nestedRecords(analysis.data, ['by_provider', 'providers', 'provider_usage']), [analysis.data]);
-  const accountItems = useMemo(() => {
-    const directory = new Map<string, ApiRecord>();
-    for (const account of accountDirectory.data ?? []) {
-      for (const id of [account.id, account.account_id, account.auth_index]) {
-        if (id !== undefined && id !== null && String(id).trim()) directory.set(String(id), account);
-      }
-    }
-    return nestedRecords(analysis.data, ['by_account', 'accounts', 'account_usage']).map((item) => {
-      const id = [item.account_id, item.auth_index, item.id].find((value) => value !== undefined && value !== null && String(value).trim());
-      const account = id === undefined ? undefined : directory.get(String(id));
-      if (!account) return item;
-      const currentName = [item.account_name, item.account, item.email, item.label, item.name].find((value) => {
-        if (typeof value !== 'string' && typeof value !== 'number') return false;
-        const text = String(value).trim();
-        return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
-      });
-      return {
-        ...item,
-        account_name: currentName ?? account.label ?? account.name ?? account.email,
-        provider_name: item.provider_name ?? item.provider ?? account.provider,
-      };
-    });
-  }, [accountDirectory.data, analysis.data]);
-  const activeUsers = reportedActiveUsers || userItems.length;
+  const cost = firstNumber(summary, ['actual_cost', 'actualCost', 'cost', 'cost_usd', 'total_cost']);
+  const liveRequests = firstNumber(live, ['request_count', 'total_requests', 'requests']);
+  const liveTokens = firstNumber(live, ['total_tokens', 'tokens']);
+  const rpm = firstNumber(live, ['rpm', 'requests_per_minute', 'request_per_minute', 'request_rate'])
+    || firstNumber(summary, ['rpm', 'requests_per_minute', 'request_per_minute', 'request_rate'])
+    || (admin ? Math.round(liveRequests / 15) : 0);
+  const tpm = firstNumber(live, ['tpm', 'tokens_per_minute', 'token_per_minute', 'token_rate'])
+    || firstNumber(summary, ['tpm', 'tokens_per_minute', 'token_per_minute', 'token_rate'])
+    || (admin ? Math.round(liveTokens / 15) : 0);
+  const latencyKeys = ['average_latency_ms', 'avg_latency_ms', 'avg_response_time_ms', 'average_response_time_ms', 'avg_duration_ms', 'latency_ms', 'average_latency'];
+  const latency = firstNumber(live, latencyKeys) || firstNumber(summary, latencyKeys);
+  const distributionRows = useMemo(() => buildDistributionRows(breakdown.data, admin), [admin, breakdown.data]);
+  const adminUserRows = useMemo(() => admin ? nestedRecords(breakdown.data, ['users', 'by_user', 'user_usage']) : [], [admin, breakdown.data]);
+  const reportedActiveUsers = firstNumber(summary, ['active_users', 'active_user_count', 'user_count']);
+  const activeUsers = reportedActiveUsers || adminUserRows.filter((item) => firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']) > 0).length;
+  const availableModels = (models.data ?? []).filter((item) => !item.hidden).length;
 
   return <Page title="" showHeader={false} contentMaxWidth={960} refreshing={refreshing} onRefresh={refresh}>
-    <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: colors.text, fontSize: 24, lineHeight: 31, fontWeight: '800' }}>{admin ? '全站用量' : '用量概览'}</Text>
-        <Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>{admin ? `${rangeLabel}全站流量、成本与服务质量。` : `${rangeLabel}调用与消费情况。`}</Text>
+    <View style={{ minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+        <Text style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800' }}>{admin ? '全站用量' : '用量概览'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><CalendarDays color={colors.subtext} size={13} /><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11, lineHeight: 16 }}>{dashboardDateRange(range)}</Text></View>
       </View>
-      {admin ? <Pressable onPress={() => router.push('/admin-stats' as never)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.64 : 1 })}><BarChart3 color={colors.text} size={15} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>完整统计</Text></Pressable> : null}
-      <Pressable accessibilityLabel="刷新" disabled={refreshing} onPress={refresh} style={{ width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>{refreshing ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={16} />}</Pressable>
+      {admin ? <Pressable onPress={() => router.push('/admin-stats' as never)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.64 : 1 })}><BarChart3 color={colors.text} size={15} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>完整统计</Text></Pressable> : null}
+      <Pressable accessibilityLabel="刷新" disabled={refreshing} onPress={refresh} style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.64 : 1 })}>{refreshing ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={16} />}</Pressable>
     </View>
 
-    <View accessibilityRole="tablist" style={{ minHeight: 44, padding: 3, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
+    <View accessibilityRole="tablist" style={{ minHeight: 42, padding: 3, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
       {dashboardRanges.map((option) => {
         const selected = range === option.value;
-        return <Pressable
-          key={option.value}
-          accessibilityRole="tab"
-          accessibilityState={{ selected }}
-          onPress={() => setRange(option.value)}
-          style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 36, borderRadius: 11, backgroundColor: selected ? colors.card : 'transparent', borderWidth: selected ? 1 : 0, borderColor: selected ? colors.border : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}
-        >
-          <Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '800' }}>{option.label}</Text>
+        return <Pressable key={option.value} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setRange(option.value)} style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 34, borderRadius: 6, backgroundColor: selected ? colors.card : 'transparent', borderWidth: selected ? 1 : 0, borderColor: selected ? colors.border : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
+          <Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
         </Pressable>;
       })}
     </View>
@@ -440,36 +458,20 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     {overview.error ? <ErrorState message={overview.error.message} retry={() => overview.refetch()} /> : null}
 
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      <MetricCard label="请求数" value={formatNumber(requests)} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
-      <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
-      <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? `${rangeLabel}内发起过调用` : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
-      <MetricCard label="Token 数" value={formatNumber(totalTokens)} detail={`输入 ${formatNumber(inputTokens)} · 输出 ${formatNumber(outputTokens)}`} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
-      <MetricCard label="费用 (USD)" value={formatCost(cost)} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
-      <MetricCard label="平均延迟" value={`${formatNumber(latency)} ms`} icon={Timer} accent={colors.accentText} iconBackground={colors.accentBg} basis={metricBasis} />
+      <MetricCard label={`${rangeLabel} Token`} value={formatNumber(totalTokens)} detail={`输入 ${formatNumber(inputTokens)}  输出 ${formatNumber(outputTokens)}`} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} />
+      <MetricCard label={`${rangeLabel}费用`} value={formatCost(cost)} detail="实际费用 (USD)" icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} />
+      <MetricCard label={`${rangeLabel}请求`} value={formatNumber(requests)} detail={admin ? `近 15 分钟 ${formatNumber(liveRequests)}` : `${rangeLabel}调用总数`} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} />
+      <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} />
+      <MetricCard label="实时性能" value={`RPM ${formatNumber(rpm)}`} detail={`TPM ${formatNumber(tpm)}`} icon={Gauge} accent={colors.primary} iconBackground={colors.primarySoft} />
+      <MetricCard label="平均响应" value={`${formatNumber(latency)} ms`} detail={admin ? `活跃用户 ${formatNumber(activeUsers)}` : `可用模型 ${formatNumber(availableModels)}`} icon={Timer} accent={colors.accentText} iconBackground={colors.accentBg} />
     </View>
 
-    {admin ? <View style={{ gap: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '600' }}>实时流量（近 15 分钟）</Text></View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <MetricCard label="请求数" value={formatNumber(firstNumber(live, ['request_count', 'total_requests', 'requests']))} icon={Activity} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
-        <MetricCard label="Token 数" value={formatNumber(firstNumber(live, ['total_tokens', 'tokens']))} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
-        <MetricCard label="费用 (USD)" value={formatCost(firstNumber(live, ['cost', 'cost_usd', 'total_cost']))} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
-      </View>
-    </View> : null}
+    {breakdown.error ? <ErrorState message={breakdown.error.message} retry={() => breakdown.refetch()} /> : <DistributionPanel rows={distributionRows} metric={distributionMetric} onMetricChange={setDistributionMetric} wide={wide} />}
 
     <View style={{ gap: 8 }}>
-      <SectionHeader icon={Gauge} title={`${rangeLabel}请求趋势`} />
-      <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 8 }}><RequestTrendChart items={trend.data ?? []} range={range} /></View>
+      <SectionHeader icon={Activity} title={`${rangeLabel}请求趋势`} />
+      {trend.error ? <ErrorState message={trend.error.message} retry={() => trend.refetch()} /> : <View style={{ borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 8 }}><RequestTrendChart items={trend.data ?? []} range={range} /></View>}
     </View>
-
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-      <RankingPanel title={admin ? 'Top 模型' : '可用模型'} icon={Boxes} items={modelItems} type="model" wide={admin && wide} />
-      {admin ? <RankingPanel title="按用户" icon={UsersRound} items={userItems} type="user" wide={wide} /> : null}
-    </View>
-    {admin ? <>
-      <BreakdownTable title="按供应商" icon={Server} items={providerItems} type="provider" />
-      <BreakdownTable title="按账号" icon={Waypoints} items={accountItems} type="account" />
-    </> : null}
   </Page>;
 }
 

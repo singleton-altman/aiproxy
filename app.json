@@ -2,7 +2,7 @@
   "expo": {
     "name": "AI Proxy",
     "slug": "ai-proxy",
-    "version": "1.0.0",
+    "version": "0.0.3",
     "platforms": [
       "ios",
       "android"
@@ -14,6 +14,7 @@
       "supportsTablet": true,
       "icon": "./assets/icon.png",
       "bundleIdentifier": "com.xiaojun5270.aiproxy",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -24,6 +25,7 @@
     "android": {
       "icon": "./assets/icon.png",
       "package": "com.xiaojun5270.aiproxy",
+      "versionCode": 3,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#f8fafc",

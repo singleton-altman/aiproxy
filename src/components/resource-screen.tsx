@@ -276,7 +276,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
 
     {/* 操作结果弹层 */}
     <Modal visible={resultValue !== undefined} transparent animationType="fade" onRequestClose={() => setResultValue(undefined)}>
-      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 }}>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.sheetBackdrop, padding: 20 }}>
         <View style={{ maxHeight: '78%', borderRadius: 20, backgroundColor: colors.page, padding: 18, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{resultTitle || '结果'}</Text>

@@ -26,6 +26,13 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Read app version
+        id: app_version
+        run: |
+          APP_VERSION="$(node -p "require('./app.json').expo.version")"
+          echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_ENV"
+          echo "version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         run: npm ci
 
@@ -133,20 +140,20 @@ jobs:
           cp -R "$APP_PATH" artifacts/Payload/
           (
             cd artifacts
-            ditto -c -k --sequesterRsrc --keepParent Payload "AI Proxy-unsigned.ipa"
+            ditto -c -k --sequesterRsrc --keepParent Payload "AI-Proxy-${APP_VERSION}-unsigned.ipa"
           )
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
-          name: AI Proxy unsigned IPA
-          path: "artifacts/AI Proxy-unsigned.ipa"
+          name: AI Proxy iOS ${{ steps.app_version.outputs.version }} unsigned
+          path: "artifacts/AI-Proxy-${{ steps.app_version.outputs.version }}-unsigned.ipa"
           if-no-files-found: error
 
       - name: Upload build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AI Proxy iOS build diagnostics
+          name: AI Proxy iOS diagnostics ${{ steps.app_version.outputs.version }}
           path: artifacts/diagnostics
           if-no-files-found: ignore

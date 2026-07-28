@@ -50,8 +50,6 @@
   { "path": "/admin/accounts/${id}/recover", "methods": "POST", "module": "admin-accounts", "auth": "session", "source": "前端确认", "notes": "恢复单个账号" },
   { "path": "/admin/accounts/${id}/models", "methods": "GET", "module": "admin-accounts", "auth": "session", "source": "前端确认", "notes": "账号可用模型" },
   { "path": "/admin/accounts/${id}/models/test", "methods": "POST", "module": "admin-accounts", "auth": "session", "source": "前端确认", "notes": "测试账号模型" },
-  { "path": "/admin/accounts/${id}/quota/reset", "methods": "POST", "module": "admin-accounts", "auth": "session", "source": "前端确认", "notes": "重置账号额度" },
-
   { "path": "/admin/accounts/oauth/${provider}/start", "methods": "POST", "module": "admin-oauth", "auth": "session", "source": "前端确认", "notes": "OAuth 导入：开始" },
   { "path": "/admin/accounts/oauth/${provider}/poll", "methods": "POST", "module": "admin-oauth", "auth": "session", "source": "当前 Web", "notes": "OAuth 导入：轮询状态，Body: session_id" },
   { "path": "/admin/accounts/oauth/${provider}/submit", "methods": "POST", "module": "admin-oauth", "auth": "session", "source": "前端确认", "notes": "OAuth 导入：提交" },

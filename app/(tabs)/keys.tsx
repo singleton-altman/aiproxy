@@ -11,9 +11,9 @@ import {
   createApiKey,
   deleteApiKey,
   extractKeySecret,
+  getApiKeyUsage,
   getApiKeys,
   getModels,
-  getModelVisibility,
   setModelVisibility,
   updateApiKey,
 } from '@/src/services/account';
@@ -74,8 +74,8 @@ export default function KeysScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const keys = useQuery({ queryKey: ['keys'], queryFn: ({ signal }) => getApiKeys(signal), enabled: !apiKeyMode });
+  const keyUsage = useQuery({ queryKey: ['keys', 'usage'], queryFn: ({ signal }) => getApiKeyUsage(signal), enabled: !apiKeyMode, retry: 0 });
   const models = useQuery({ queryKey: ['models'], queryFn: ({ signal }) => getModels(signal) });
-  const visibility = useQuery({ queryKey: ['models', 'visibility'], queryFn: ({ signal }) => getModelVisibility(signal), retry: 0 });
 
   const createMutation = useMutation({
     mutationFn: () => createApiKey({ name: newName, expires_at: newExpiry.trim() || undefined }),
@@ -112,7 +112,8 @@ export default function KeysScreen() {
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    void Promise.allSettled([keys.refetch(), models.refetch(), visibility.refetch()]).finally(() => setRefreshing(false));
+    void keyUsage.refetch();
+    void Promise.allSettled([keys.refetch(), models.refetch()]).finally(() => setRefreshing(false));
   };
 
   function confirmDelete(item: ApiKeyItem) {
@@ -146,14 +147,18 @@ export default function KeysScreen() {
       {keys.error ? <ErrorState message={keys.error.message} retry={() => keys.refetch()} /> : null}
       <Panel>
         <SectionHeader icon={KeyRound} title="API Keys" meta={keys.data ? `${keys.data.length} 个` : undefined} />
-        {(keys.data ?? []).map((item, index) => <KeyRow
-          key={keyId(item) || String(index)}
-          item={item}
-          busy={toggleMutation.isPending || deleteMutation.isPending}
-          onToggle={(target, disabled) => toggleMutation.mutate({ item: target, disabled })}
-          onCopy={(target) => void copyExistingKey(target)}
-          onDelete={confirmDelete}
-        />)}
+        {(keys.data ?? []).map((item, index) => {
+          const usage = keyUsage.data?.[keyId(item)];
+          const displayItem = item.last_used_at || !usage ? item : { ...item, last_used_at: usage };
+          return <KeyRow
+            key={keyId(item) || String(index)}
+            item={displayItem}
+            busy={toggleMutation.isPending || deleteMutation.isPending}
+            onToggle={(target, disabled) => toggleMutation.mutate({ item: target, disabled })}
+            onCopy={(target) => void copyExistingKey(target)}
+            onDelete={confirmDelete}
+          />;
+        })}
         {!keys.data?.length && !keys.isFetching ? <EmptyState message="还没有 API Key，点击下方创建" embedded /> : null}
         <Pressable onPress={() => setCreating(true)} style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
           <Plus color="#fff" size={16} /><Text style={{ color: '#fff', fontWeight: '800' }}>创建 API Key</Text>

@@ -29,6 +29,13 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Read app version
+        id: app_version
+        run: |
+          APP_VERSION="$(node -p "require('./app.json').expo.version")"
+          echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_ENV"
+          echo "version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -77,14 +84,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          cp android/app/build/outputs/apk/release/app-release.apk "artifacts/AI Proxy.apk"
-          file "artifacts/AI Proxy.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "artifacts/AI-Proxy-${APP_VERSION}.apk"
+          file "artifacts/AI-Proxy-${APP_VERSION}.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI Proxy Android APK
-          path: "artifacts/AI Proxy.apk"
+          name: AI Proxy Android ${{ steps.app_version.outputs.version }}
+          path: "artifacts/AI-Proxy-${{ steps.app_version.outputs.version }}.apk"
           if-no-files-found: error
 
       - name: Publish build summary
@@ -93,7 +100,8 @@ jobs:
           {
             echo "## Android APK Build"
             echo ""
+            echo "- App version: ${APP_VERSION}"
             echo "- Build type: release APK signed with the generated debug key"
-            echo "- GitHub artifact: AI Proxy Android APK"
-            echo "- File: AI Proxy.apk"
+            echo "- GitHub artifact: AI Proxy Android ${APP_VERSION}"
+            echo "- File: AI-Proxy-${APP_VERSION}.apk"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -18,7 +19,7 @@ import {
   Server,
   ShieldCheck,
 } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { StructuredDataView } from '@/src/components/structured-form';
@@ -39,6 +40,10 @@ type Provider = {
 };
 type QueryRecord = Record<string, string | number | boolean | null | undefined>;
 type FlowCall = { action: 'start' | 'poll' | 'submit' | 'direct'; path: string; method: 'GET' | 'POST'; body?: ApiRecord; query?: QueryRecord };
+
+function routeParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] ?? '' : value ?? '';
+}
 
 const providers: Provider[] = [
   { key: 'anthropic', label: 'Claude', mark: 'C', color: '#d97757', methods: ['oauth', 'token'], group: 'oauth' },
@@ -149,10 +154,12 @@ function multipartBody(asset: DocumentPickerAsset) {
 export default function AdminAccountImportScreen() {
   const colors = useAppTheme();
   const { width } = useWindowDimensions();
+  const params = useLocalSearchParams<{ proxy_id?: string | string[] }>();
+  const requestedProxyId = routeParam(params.proxy_id).trim();
   const cardBasis: `${number}%` = width >= 760 ? '22%' : width >= 390 ? '47%' : '100%';
   const [selected, setSelected] = useState<Provider>();
   const [method, setMethod] = useState<Method>('oauth');
-  const [proxyId, setProxyId] = useState('');
+  const [proxyId, setProxyId] = useState(requestedProxyId);
   const [label, setLabel] = useState('');
   const [secret, setSecret] = useState('');
   const [sessionId, setSessionId] = useState('');
@@ -160,6 +167,10 @@ export default function AdminAccountImportScreen() {
   const [result, setResult] = useState<unknown>();
   const [showRaw, setShowRaw] = useState(false);
   const [file, setFile] = useState<DocumentPickerAsset>();
+
+  useEffect(() => {
+    if (requestedProxyId) setProxyId(requestedProxyId);
+  }, [requestedProxyId]);
 
   const proxies = useQuery({
     queryKey: ['admin', 'proxies', 'import-options'],

@@ -94,7 +94,7 @@ function normalizeStatsParams(params?: { from?: string; to?: string; range?: str
 }
 
 export async function getAdminStatsOverview(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  const payload = await apiJson<ApiRecord>('/admin/stats/overview', { signal, query: normalizeStatsParams(params) });
+  const payload = await apiJson<ApiRecord>('/admin/stats/overview', { signal, cache: 'no-store', query: normalizeStatsParams(params) });
   const inner = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)
     ? payload.data as ApiRecord
     : payload;
@@ -110,7 +110,7 @@ export async function getAdminStatsOverview(params?: { from?: string; to?: strin
 }
 
 export async function getAdminStatsTrend(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  const payload = await apiJson<unknown>('/admin/stats/trend', { signal, query: normalizeStatsParams(params) });
+  const payload = await apiJson<unknown>('/admin/stats/trend', { signal, cache: 'no-store', query: normalizeStatsParams(params) });
   return firstArray<UsageTrendItem>(payload, ['trend', 'items', 'data', 'buckets', 'list']).map((value) => ({
     ...value,
     request_count: Number(value.request_count ?? value.requests ?? value.count) || 0,
@@ -120,7 +120,7 @@ export async function getAdminStatsTrend(params?: { from?: string; to?: string; 
 }
 
 export function getAdminRealtimeUsage(signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/admin/usage/overview/realtime', { signal });
+  return apiJson<ApiRecord>('/admin/usage/overview/realtime', { signal, cache: 'no-store' });
 }
 
 export async function getAdminStatsModels(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
@@ -129,7 +129,7 @@ export async function getAdminStatsModels(params?: { from?: string; to?: string;
 }
 
 export function getAdminStatsAnalysis(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/admin/stats/analysis', { signal, query: normalizeStatsParams(params) });
+  return apiJson<ApiRecord>('/admin/stats/analysis', { signal, cache: 'no-store', query: normalizeStatsParams(params) });
 }
 
 function recordText(record: ApiRecord, keys: string[]) {
@@ -140,13 +140,25 @@ function recordText(record: ApiRecord, keys: string[]) {
   return '';
 }
 
+function nestedArray<T>(value: unknown, keys: string[]): T[] {
+  const direct = firstArray<T>(value, keys);
+  if (direct.length) return direct;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  for (const nested of Object.values(value as ApiRecord)) {
+    if (!nested || typeof nested !== 'object' || Array.isArray(nested)) continue;
+    const items = nestedArray<T>(nested, keys);
+    if (items.length) return items;
+  }
+  return [];
+}
+
 export async function getAdminStatsUsers(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
   const [payload, directoryPayload] = await Promise.all([
     getAdminStatsAnalysis(params, signal),
-    apiJson<unknown>('/admin/users', { signal, query: { limit: 500 } }).catch(() => undefined),
+    apiJson<unknown>('/admin/users', { signal, cache: 'no-store', query: { limit: 500 } }).catch(() => undefined),
   ]);
-  const rows = firstArray<ApiRecord>(payload, ['by_user', 'users', 'items', 'data', 'list', 'rows']);
-  const directory = firstArray<AdminUserItem>(directoryPayload, ['users', 'items', 'data', 'list']).map(normalizeAdminUser);
+  const rows = nestedArray<ApiRecord>(payload, ['by_user', 'users', 'items', 'list', 'rows']);
+  const directory = nestedArray<AdminUserItem>(directoryPayload, ['users', 'items', 'list', 'rows']).map(normalizeAdminUser);
   const usersById = new Map(directory.flatMap((user) => {
     const id = recordText(user, ['id', 'user_id', 'uuid']);
     return id ? [[id, user] as const] : [];
