@@ -1,14 +1,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { CalendarDays, CircleDollarSign, Mail, Pencil, ShieldCheck, Trash2, UserRound, X } from 'lucide-react-native';
+import { CalendarDays, CircleDollarSign, Mail, Pencil, UserRound, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { ErrorState, FullScreenSafeArea, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
-import { deleteProfile, getProfile, updateProfile } from '@/src/services/account';
-import { endSession, setSessionProfile } from '@/src/store/session';
+import { getProfile, updateProfile } from '@/src/services/account';
+import { setSessionProfile } from '@/src/store/session';
 import type { UserProfile } from '@/src/types/api';
 
 function nickname(profile: UserProfile) {
@@ -69,26 +68,6 @@ export default function ProfileScreen() {
     },
     onError: (error) => Alert.alert('保存失败', error.message),
   });
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteProfile(),
-    onSuccess: async () => {
-      await endSession();
-      queryClient.clear();
-      router.replace('/login');
-    },
-    onError: (error) => Alert.alert('注销失败', error.message),
-  });
-
-  function confirmDelete() {
-    Alert.alert('注销账号', '将永久删除当前账号及其数据，且无法恢复。确定继续吗？', [
-      { text: '取消', style: 'cancel' },
-      { text: '继续', style: 'destructive', onPress: () => Alert.alert('最后确认', '真的要注销账号吗？此操作不可撤销。', [
-        { text: '取消', style: 'cancel' },
-        { text: '永久注销', style: 'destructive', onPress: () => deleteMutation.mutate() },
-      ]) },
-    ]);
-  }
-
   const data = profile.data;
   const status = data ? statusValue(data) : { label: '--', disabled: false };
 
@@ -108,12 +87,6 @@ export default function ProfileScreen() {
       </View>
       <Pressable onPress={() => { setNameDraft(nickname(data) === '未设置' ? '' : nickname(data)); setEditing(true); saveMutation.reset(); }} style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}><Pencil color="#fff" size={15} /><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>编辑资料</Text></Pressable>
     </Panel> : null}
-
-    <Panel>
-      <SectionHeader icon={Trash2} title="危险操作" />
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 9 }}><ShieldCheck color={colors.danger} size={16} style={{ marginTop: 1 }} /><Text style={{ flex: 1, color: colors.subtext, fontSize: 11, lineHeight: 18 }}>注销后账号、API Key 和用量记录将永久失效。</Text></View>
-      <Pressable disabled={deleteMutation.isPending} onPress={confirmDelete} style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.danger, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{deleteMutation.isPending ? <ActivityIndicator color={colors.danger} size="small" /> : <Trash2 color={colors.danger} size={15} />}<Text style={{ color: colors.danger, fontWeight: '800', fontSize: 12 }}>{deleteMutation.isPending ? '注销中...' : '注销账号'}</Text></Pressable>
-    </Panel>
 
     <Modal visible={editing} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setEditing(false)}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>

@@ -57,8 +57,8 @@ const FALLBACK_SCOPES: ScopeDefinition[] = [
   { scope: 'accounts:read', group: 'accounts', destructive: false, rules: ['GET /admin/accounts'] },
   { scope: 'accounts:create', group: 'accounts', destructive: false, rules: ['POST /admin/accounts'] },
   { scope: 'accounts:import', group: 'accounts', destructive: false, rules: ['POST /admin/accounts/import'] },
-  { scope: 'accounts:export', group: 'accounts', destructive: true, rules: ['GET /admin/accounts/export'] },
-  { scope: 'accounts:update', group: 'accounts', destructive: true, rules: ['PATCH /admin/accounts/:id'] },
+  { scope: 'accounts:export', group: 'accounts', destructive: true, rules: ['POST /admin/accounts/export'] },
+  { scope: 'accounts:update', group: 'accounts', destructive: true, rules: ['PUT /admin/accounts/:id'] },
   { scope: 'accounts:delete', group: 'accounts', destructive: true, rules: ['DELETE /admin/accounts/:id'] },
   { scope: 'accounts:recover', group: 'accounts', destructive: false, rules: ['POST /admin/accounts/:id/recover'] },
   { scope: 'accounts:oauth', group: 'accounts', destructive: false, rules: ['POST /admin/accounts/oauth/*'] },
@@ -387,7 +387,7 @@ export default function AdminTokensScreen() {
 
   return <Page title="管理令牌" subtitle={`${tokens.length} 项 · 程序访问管理接口的凭证`} icon={KeySquare} safeTop={false} refreshing={directory.isFetching || config.isFetching} onRefresh={() => { void directory.refetch(); void config.refetch(); }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <View style={{ flex: 1 }}><SectionHeader icon={ShieldCheck} title="管理令牌" meta={`${tokens.length} 项`} /></View>
+      <Text style={{ flex: 1, color: colors.subtext, fontSize: 11, fontWeight: '700' }}>{tokens.length} 个令牌</Text>
       <Pressable onPress={openCreate} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}><Plus color="#fff" size={15} /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>新建令牌</Text></Pressable>
     </View>
     <SearchField value={search} onChangeText={setSearch} placeholder="搜索名称、前缀或权限" />
@@ -434,7 +434,7 @@ export default function AdminTokensScreen() {
         <View style={{ height: sheetHeight, width: '100%', maxWidth: 720, alignSelf: 'center', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.page, padding: 16, gap: 10 }}>
           <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ flex: 1 }}><Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }}>新建管理令牌</Text><Text style={{ color: colors.subtext, fontSize: 9, marginTop: 3 }}>令牌只在创建成功时显示一次</Text></View><Pressable accessibilityLabel="关闭" onPress={() => setCreateOpen(false)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>名称</Text><TextInput value={name} onChangeText={setName} placeholder="例如：浏览器助手" placeholderTextColor={colors.placeholder} maxLength={64} style={inputStyle} /></View>
             <View style={{ gap: 7 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>权限预设</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{presets.map((preset) => {
               const active = sameScopes(selectedScopes, preset.scopes);

@@ -21,7 +21,7 @@ export default function AdminInvitesScreen() {
     toggle={{
       label: '启用邀请码',
       value: (item) => !item.disabled,
-      run: (item, next) => apiJson(`/admin/invites/${encodeURIComponent(inviteId(item))}`, { method: 'PATCH', body: JSON.stringify({ disabled: !next }) }),
+      run: (item, next) => apiJson(`/admin/invites/${encodeURIComponent(inviteId(item))}`, { method: 'PUT', body: JSON.stringify({ disabled: !next }) }),
     }}
     actions={[{
       key: 'redemptions',
@@ -42,7 +42,7 @@ export default function AdminInvitesScreen() {
     }}
     edit={{
       pick: (item) => ({ max_redemptions: item.max_redemptions ?? 0, expires_at: item.expires_at ?? '', disabled: Boolean(item.disabled) }),
-      run: (item, value) => apiJson(`/admin/invites/${encodeURIComponent(inviteId(item))}`, { method: 'PATCH', body: JSON.stringify(value) }),
+      run: (item, value) => apiJson(`/admin/invites/${encodeURIComponent(inviteId(item))}`, { method: 'PUT', body: JSON.stringify(value) }),
     }}
     remove={{
       confirm: (item) => `确定删除邀请码「${item.code ?? inviteId(item)}」吗？`,

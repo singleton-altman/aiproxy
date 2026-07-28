@@ -34,14 +34,13 @@ type ModelDraft = {
   provider: string;
   display_name: string;
   upstream_model: string;
-  family: string;
-  input_price_per_1m: string;
-  output_price_per_1m: string;
+  pricing_style: string;
+  modality: string;
+  prompt_per_1m: string;
+  completion_per_1m: string;
   cache_read_per_1m: string;
   cache_write_per_1m: string;
   enabled: boolean;
-  registry_hidden: boolean;
-  user_hidden: boolean;
 };
 
 function modelId(item: ApiRecord) {
@@ -50,6 +49,10 @@ function modelId(item: ApiRecord) {
 
 function providerName(item: ApiRecord) {
   return String(item.provider ?? item.provider_name ?? item.owned_by ?? item.family ?? '未分组');
+}
+
+function modelKey(item: ApiRecord) {
+  return `${providerName(item)}:${modelId(item)}`;
 }
 
 function displayName(item: ApiRecord) {
@@ -88,9 +91,9 @@ function accountCount(item: ApiRecord) {
 
 function emptyDraft(provider = ''): ModelDraft {
   return {
-    id: '', provider, display_name: '', upstream_model: '', family: 'openai',
-    input_price_per_1m: '0', output_price_per_1m: '0', cache_read_per_1m: '0', cache_write_per_1m: '0',
-    enabled: true, registry_hidden: false, user_hidden: false,
+    id: '', provider, display_name: '', upstream_model: '', pricing_style: 'openai', modality: '',
+    prompt_per_1m: '0', completion_per_1m: '0', cache_read_per_1m: '0', cache_write_per_1m: '0',
+    enabled: true,
   };
 }
 
@@ -100,31 +103,34 @@ function draftFrom(item: ApiRecord): ModelDraft {
     provider: providerName(item) === '未分组' ? '' : providerName(item),
     display_name: String(item.display_name ?? item.label ?? ''),
     upstream_model: String(item.upstream_model ?? item.upstream_id ?? item.source_model ?? ''),
-    family: String(item.family ?? 'openai'),
-    input_price_per_1m: String(item.input_price_per_1m ?? item.prompt_price_per_1m ?? 0),
-    output_price_per_1m: String(item.output_price_per_1m ?? item.completion_price_per_1m ?? 0),
+    pricing_style: String(item.pricing_style ?? item.family ?? 'openai'),
+    modality: String(item.modality ?? ''),
+    prompt_per_1m: String(item.prompt_per_1m ?? item.input_price_per_1m ?? item.prompt_price_per_1m ?? 0),
+    completion_per_1m: String(item.completion_per_1m ?? item.output_price_per_1m ?? item.completion_price_per_1m ?? 0),
     cache_read_per_1m: String(item.cache_read_per_1m ?? 0),
     cache_write_per_1m: String(item.cache_write_per_1m ?? 0),
     enabled: item.enabled !== false,
-    registry_hidden: item.registry_hidden === true,
-    user_hidden: item.user_hidden === true,
   };
+}
+
+function nonNegativeNumber(value: string) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
 }
 
 function draftBody(draft: ModelDraft): ApiRecord {
   return {
     id: draft.id.trim(),
-    provider: draft.provider.trim(),
+    provider: draft.provider.trim().toLowerCase(),
     display_name: draft.display_name.trim(),
     upstream_model: draft.upstream_model.trim(),
-    family: draft.family.trim(),
-    input_price_per_1m: Number(draft.input_price_per_1m) || 0,
-    output_price_per_1m: Number(draft.output_price_per_1m) || 0,
-    cache_read_per_1m: Number(draft.cache_read_per_1m) || 0,
-    cache_write_per_1m: Number(draft.cache_write_per_1m) || 0,
+    pricing_style: draft.pricing_style,
+    modality: draft.modality.trim(),
+    prompt_per_1m: nonNegativeNumber(draft.prompt_per_1m),
+    completion_per_1m: nonNegativeNumber(draft.completion_per_1m),
+    cache_read_per_1m: nonNegativeNumber(draft.cache_read_per_1m),
+    cache_write_per_1m: nonNegativeNumber(draft.cache_write_per_1m),
     enabled: draft.enabled,
-    registry_hidden: draft.registry_hidden,
-    user_hidden: draft.user_hidden,
   };
 }
 
@@ -153,8 +159,8 @@ function MobileModelCard({ item, busy, onToggle, onEdit, onDelete }: { item: Api
       <View style={{ flexGrow: 1, flexBasis: '46%' }}><Text style={{ color: colors.subtext, fontSize: 9 }}>模态 / 分布</Text><Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, marginTop: 3 }}>{modalities(item)} · {accountCount(item)}</Text></View>
     </View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, padding: 10, borderRadius: 14, backgroundColor: colors.mutedCard }}>
-      <PriceCell label="输入 / 1M" value={price(item, ['input_price_per_1m', 'prompt_price_per_1m'])} />
-      <PriceCell label="输出 / 1M" value={price(item, ['output_price_per_1m', 'completion_price_per_1m'])} />
+      <PriceCell label="输入 / 1M" value={price(item, ['prompt_per_1m', 'input_price_per_1m', 'prompt_price_per_1m'])} />
+      <PriceCell label="输出 / 1M" value={price(item, ['completion_per_1m', 'output_price_per_1m', 'completion_price_per_1m'])} />
       <PriceCell label="缓存读取 / 1M" value={price(item, ['cache_read_per_1m'])} />
       <PriceCell label="缓存写入 / 1M" value={price(item, ['cache_write_per_1m'])} />
     </View>
@@ -177,9 +183,9 @@ function DesktopModelRow({ item, busy, onToggle, onEdit, onDelete }: { item: Api
     <Text numberOfLines={2} style={[textStyle, { flex: 0.9 }]}>{upstreamModel(item)}</Text>
     <Text numberOfLines={1} style={[textStyle, { flex: 0.55 }]}>{modalities(item)}</Text>
     <Text numberOfLines={1} style={[textStyle, { flex: 0.75, color: colors.primary }]}>{accountCount(item)}</Text>
-    <Text numberOfLines={1} style={[textStyle, { flex: 0.55, color: colors.subtext }]}>{String(item.family ?? '—')}</Text>
-    <Text numberOfLines={1} style={[textStyle, { flex: 0.62 }]}>{price(item, ['input_price_per_1m', 'prompt_price_per_1m'])}</Text>
-    <Text numberOfLines={1} style={[textStyle, { flex: 0.62 }]}>{price(item, ['output_price_per_1m', 'completion_price_per_1m'])}</Text>
+    <Text numberOfLines={1} style={[textStyle, { flex: 0.55, color: colors.subtext }]}>{String(item.pricing_style ?? item.family ?? '—')}</Text>
+    <Text numberOfLines={1} style={[textStyle, { flex: 0.62 }]}>{price(item, ['prompt_per_1m', 'input_price_per_1m', 'prompt_price_per_1m'])}</Text>
+    <Text numberOfLines={1} style={[textStyle, { flex: 0.62 }]}>{price(item, ['completion_per_1m', 'output_price_per_1m', 'completion_price_per_1m'])}</Text>
     <Text numberOfLines={1} style={[textStyle, { flex: 0.62 }]}>{price(item, ['cache_read_per_1m'])}</Text>
     <Text numberOfLines={1} style={[textStyle, { flex: 0.62 }]}>{price(item, ['cache_write_per_1m'])}</Text>
     <View style={{ flex: 0.45, flexDirection: 'row', justifyContent: 'flex-end' }}><Pressable accessibilityLabel="编辑模型" onPress={onEdit} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}><SlidersHorizontal color={colors.primary} size={13} /></Pressable><Pressable accessibilityLabel="删除模型" onPress={onDelete} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}><Trash2 color={colors.danger} size={13} /></Pressable></View>
@@ -189,6 +195,19 @@ function DesktopModelRow({ item, busy, onToggle, onEdit, onDelete }: { item: Api
 function FormField({ label, value, onChangeText, numeric = false, editable = true }: { label: string; value: string; onChangeText: (value: string) => void; numeric?: boolean; editable?: boolean }) {
   const colors = useAppTheme();
   return <View style={{ flexGrow: 1, flexBasis: '46%', minWidth: 0, gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text><TextInput editable={editable} value={value} onChangeText={onChangeText} keyboardType={numeric ? 'decimal-pad' : 'default'} autoCapitalize="none" autoCorrect={false} style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: editable ? colors.card : colors.mutedCard, paddingHorizontal: 11, color: editable ? colors.text : colors.subtext, fontSize: 13 }} /></View>;
+}
+
+function PricingStyleField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const colors = useAppTheme();
+  return <View style={{ flexGrow: 1, flexBasis: '46%', minWidth: 0, gap: 6 }}>
+    <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>计费协议</Text>
+    <View style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 3, flexDirection: 'row', gap: 3 }}>
+      {([['openai', 'OpenAI'], ['anthropic', 'Anthropic']] as const).map(([id, label]) => {
+        const selected = value === id;
+        return <Pressable key={id} onPress={() => onChange(id)} style={{ flex: 1, borderRadius: 9, backgroundColor: selected ? colors.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? '#fff' : colors.subtext, fontSize: 11, fontWeight: '800' }}>{label}</Text></Pressable>;
+      })}
+    </View>
+  </View>;
 }
 
 export default function AdminModelsScreen() {
@@ -243,13 +262,13 @@ export default function AdminModelsScreen() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'models', 'catalog'] });
   const toggleMutation = useMutation({
-    mutationFn: ({ item, enabled }: { item: ApiRecord; enabled: boolean }) => setAdminModelsEnabled({ ids: [modelId(item)], enabled }),
-    onMutate: ({ item }) => setBusyModel(modelId(item)),
+    mutationFn: ({ item, enabled }: { item: ApiRecord; enabled: boolean }) => setAdminModelsEnabled({ id: modelId(item), provider: providerName(item), enabled }),
+    onMutate: ({ item }) => setBusyModel(modelKey(item)),
     onError: (error) => Alert.alert('更新失败', error.message),
     onSettled: () => { setBusyModel(''); void invalidate(); },
   });
   const removeMutation = useMutation({
-    mutationFn: deleteAdminModel,
+    mutationFn: ({ id, provider }: { id: string; provider: string }) => deleteAdminModel(id, provider),
     onSuccess: () => void invalidate(),
     onError: (error) => Alert.alert('删除失败', error.message),
   });
@@ -282,7 +301,7 @@ export default function AdminModelsScreen() {
   }
 
   function confirmDelete(item: ApiRecord) {
-    Alert.alert('删除模型', `确定删除「${modelId(item)}」吗？`, [{ text: '取消', style: 'cancel' }, { text: '删除', style: 'destructive', onPress: () => removeMutation.mutate(modelId(item)) }]);
+    Alert.alert('删除模型', `确定删除「${modelId(item)}」吗？`, [{ text: '取消', style: 'cancel' }, { text: '删除', style: 'destructive', onPress: () => removeMutation.mutate({ id: modelId(item), provider: providerName(item) }) }]);
   }
 
   function toggleGroup(provider: string) {
@@ -303,6 +322,9 @@ export default function AdminModelsScreen() {
 
     <FlatList
       data={listData}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
       keyExtractor={(entry, index) => entry.kind === 'provider' ? `provider-${entry.group.provider}` : `model-${entry.provider}-${modelId(entry.item)}-${index}`}
       initialNumToRender={18}
       maxToRenderPerBatch={16}
@@ -327,33 +349,32 @@ export default function AdminModelsScreen() {
             {open && wide ? <DesktopHeader /> : null}
           </View>;
         }
-        const id = modelId(entry.item);
-        const rowProps = { item: entry.item, busy: busyModel === id, onToggle: (enabled: boolean) => toggleMutation.mutate({ item: entry.item, enabled }), onEdit: () => openEdit(entry.item), onDelete: () => confirmDelete(entry.item) };
+        const rowProps = { item: entry.item, busy: busyModel === modelKey(entry.item), onToggle: (enabled: boolean) => toggleMutation.mutate({ item: entry.item, enabled }), onEdit: () => openEdit(entry.item), onDelete: () => confirmDelete(entry.item) };
         return wide ? <DesktopModelRow {...rowProps} /> : <MobileModelCard {...rowProps} />;
       }}
     />
 
     <Modal visible={filterVisible} transparent animationType="fade" onRequestClose={() => setFilterVisible(false)}>
-      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.45)' }}><View style={{ width: '100%', maxWidth: 420, maxHeight: '75%', alignSelf: 'center', borderRadius: 18, backgroundColor: colors.page, padding: 16, gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '800' }}>筛选供应商</Text><Pressable accessibilityLabel="关闭" onPress={() => setFilterVisible(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View><FlatList data={providers} keyExtractor={(item) => item} renderItem={({ item }) => <Pressable onPress={() => { setProviderFilter(item); setFilterVisible(false); }} style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: providerFilter === item ? '800' : '600' }}>{item}</Text>{providerFilter === item ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} /> : null}</Pressable>} /></View></FullScreenSafeArea>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.45)' }}><View style={{ width: '100%', maxWidth: 420, maxHeight: '75%', alignSelf: 'center', borderRadius: 18, backgroundColor: colors.page, padding: 16, gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '800' }}>筛选供应商</Text><Pressable accessibilityLabel="关闭" onPress={() => setFilterVisible(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View><FlatList data={providers} bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyExtractor={(item) => item} renderItem={({ item }) => <Pressable onPress={() => { setProviderFilter(item); setFilterVisible(false); }} style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: providerFilter === item ? '800' : '600' }}>{item}</Text>{providerFilter === item ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} /> : null}</Pressable>} /></View></FullScreenSafeArea>
     </Modal>
 
     <Modal visible={Boolean(formMode)} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setFormMode('')}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}><View style={{ maxHeight: '90%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 16, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{formMode === 'create' ? '添加模型' : '编辑模型'}</Text><Pressable accessibilityLabel="关闭" onPress={() => setFormMode('')} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={18} /></Pressable></View>
-        <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 8 }}>
+        <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 8 }}>
           <FormField label="模型 ID" value={draft.id} editable={formMode === 'create'} onChangeText={(value) => setDraft((current) => ({ ...current, id: value }))} />
-          <FormField label="供应商" value={draft.provider} onChangeText={(value) => setDraft((current) => ({ ...current, provider: value }))} />
+          <FormField label="供应商" value={draft.provider} editable={formMode === 'create'} onChangeText={(value) => setDraft((current) => ({ ...current, provider: value }))} />
           <FormField label="显示名称" value={draft.display_name} onChangeText={(value) => setDraft((current) => ({ ...current, display_name: value }))} />
           <FormField label="上游模型" value={draft.upstream_model} onChangeText={(value) => setDraft((current) => ({ ...current, upstream_model: value }))} />
-          <FormField label="协议" value={draft.family} onChangeText={(value) => setDraft((current) => ({ ...current, family: value }))} />
-          <View style={{ flexGrow: 1, flexBasis: '46%' }} />
-          <FormField label="输入价格 / 1M" value={draft.input_price_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, input_price_per_1m: value }))} />
-          <FormField label="输出价格 / 1M" value={draft.output_price_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, output_price_per_1m: value }))} />
+          <PricingStyleField value={draft.pricing_style} onChange={(value) => setDraft((current) => ({ ...current, pricing_style: value }))} />
+          <FormField label="模态（留空自动识别）" value={draft.modality} onChangeText={(value) => setDraft((current) => ({ ...current, modality: value }))} />
+          <FormField label="输入价格 / 1M" value={draft.prompt_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, prompt_per_1m: value }))} />
+          <FormField label="输出价格 / 1M" value={draft.completion_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, completion_per_1m: value }))} />
           <FormField label="缓存读取 / 1M" value={draft.cache_read_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, cache_read_per_1m: value }))} />
           <FormField label="缓存写入 / 1M" value={draft.cache_write_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, cache_write_per_1m: value }))} />
-          {([['启用模型', 'enabled'], ['注册表隐藏', 'registry_hidden'], ['用户隐藏', 'user_hidden']] as const).map(([label, key]) => <View key={key} style={{ flexGrow: 1, flexBasis: '30%', minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text><Switch value={draft[key]} onValueChange={(value) => setDraft((current) => ({ ...current, [key]: value }))} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>)}
+          <View style={{ flexGrow: 1, flexBasis: '100%', minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>启用模型</Text><Switch value={draft.enabled} onValueChange={(value) => setDraft((current) => ({ ...current, enabled: value }))} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>
         </ScrollView>
-        <Pressable disabled={formMutation.isPending || !draft.id.trim()} onPress={() => formMutation.mutate()} style={{ minHeight: 48, borderRadius: 12, backgroundColor: draft.id.trim() ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>{formMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>保存模型</Text>}</Pressable>
+        <Pressable disabled={formMutation.isPending || !draft.id.trim() || !draft.provider.trim()} onPress={() => formMutation.mutate()} style={{ minHeight: 48, borderRadius: 12, backgroundColor: draft.id.trim() && draft.provider.trim() ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>{formMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>保存模型</Text>}</Pressable>
       </View></FullScreenSafeArea>
     </Modal>
   </Page>;

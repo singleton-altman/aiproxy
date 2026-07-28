@@ -84,7 +84,7 @@ export default function AdminUsersScreen() {
         nickname: draft.nickname.trim(),
         email: draft.email.trim(),
         role: draft.role,
-        disabled: !draft.enabled,
+        status: draft.enabled ? 'active' : 'disabled',
       };
       if (draft.password) body.password = draft.password;
       return updateAdminUser(userId(selected), body);
@@ -102,7 +102,7 @@ export default function AdminUsersScreen() {
     onSettled: invalidate,
   });
   const balanceMutation = useMutation({
-    mutationFn: ({ item, amount }: { item: AdminUserItem; amount: number }) => adjustAdminUserBalance(userId(item), { amount }),
+    mutationFn: ({ item, amount }: { item: AdminUserItem; amount: number }) => adjustAdminUserBalance(userId(item), amount),
     onSuccess: () => {
       setBalanceDraft('');
       void invalidate();
@@ -154,6 +154,9 @@ export default function AdminUsersScreen() {
     {users.error ? <ErrorState message={users.error.message} retry={() => users.refetch()} /> : null}
     <FlatList
       data={items}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
       keyExtractor={(item, index) => userId(item) || String(index)}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={Platform.OS === 'android'}
@@ -178,7 +181,7 @@ export default function AdminUsersScreen() {
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
         {selected ? <View style={{ maxHeight: '92%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 16, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>编辑用户</Text><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, marginTop: 3 }}>更新 {String(selected.email ?? userId(selected))} 的账户信息</Text></View><Pressable accessibilityLabel="关闭" onPress={() => setSelected(undefined)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View>
-          <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 11, paddingBottom: 4 }}>
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 11, paddingBottom: 4 }}>
             <FormField label="昵称" value={draft.nickname} onChangeText={(value) => setDraft((current) => ({ ...current, nickname: value }))} />
             <FormField label="邮箱" value={draft.email} onChangeText={(value) => setDraft((current) => ({ ...current, email: value }))} />
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>角色</Text><View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>{roleOptions.map(([key, label]) => <Pressable key={key} onPress={() => setDraft((current) => ({ ...current, role: key }))} style={{ flex: 1, minHeight: 38, borderRadius: 9, backgroundColor: draft.role === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit style={{ color: draft.role === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text></Pressable>)}</View></View>

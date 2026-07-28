@@ -62,51 +62,26 @@ function normalizeAdminUser(value: unknown): AdminUserItem {
   };
 }
 
-async function enrichAdminUserBalances(items: AdminUserItem[], signal?: AbortSignal) {
-  const result = [...items];
-  const pending = items.map((item, index) => ({ item, index })).filter(({ item }) => item.balance === undefined && item.id !== undefined);
-  let cursor = 0;
-  const worker = async () => {
-    while (cursor < pending.length && !signal?.aborted) {
-      const current = pending[cursor++];
-      try {
-        const payload = await apiJson<unknown>(`/admin/users/${encodeURIComponent(String(current.item.id))}`, { signal });
-        const detail = normalizeAdminUser(payload);
-        result[current.index] = { ...current.item, ...detail, balance: detail.balance ?? current.item.balance };
-      } catch {
-        // Keep the list item usable when a deployment does not expose user details.
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(4, pending.length) }, worker));
-  return result;
-}
-
 export async function getAdminUsers(params?: { q?: string; limit?: number; cursor?: string }, signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/admin/users', { signal, query: params });
   const items = firstArray<AdminUserItem>(payload, ['users', 'items', 'data', 'list']).map(normalizeAdminUser);
-  const enrichedItems = await enrichAdminUserBalances(items, signal);
-  return { items: enrichedItems, raw: payload };
-}
-
-export function getAdminUser(id: string | number, signal?: AbortSignal) {
-  return apiJson<ApiRecord>(`/admin/users/${encodeURIComponent(String(id))}`, { signal });
+  return { items, raw: payload };
 }
 
 export function updateAdminUser(id: string | number, value: ApiRecord) {
-  return apiJson<ApiRecord>(`/admin/users/${encodeURIComponent(String(id))}`, { method: 'PATCH', body: JSON.stringify(value) });
+  return apiJson<ApiRecord>(`/admin/users/${encodeURIComponent(String(id))}`, { method: 'PUT', body: JSON.stringify(value) });
 }
 
 export function deleteAdminUser(id: string | number) {
   return apiJson<ApiRecord>(`/admin/users/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
 }
 
-export function adjustAdminUserBalance(id: string | number, value: ApiRecord) {
-  return apiJson<ApiRecord>(`/admin/users/${encodeURIComponent(String(id))}/balance`, { method: 'POST', body: JSON.stringify(value) });
+export function adjustAdminUserBalance(id: string | number, delta: number) {
+  return apiJson<ApiRecord>(`/admin/users/${encodeURIComponent(String(id))}/balance`, { method: 'POST', body: JSON.stringify({ delta }) });
 }
 
-export function createAdminUserSubscription(id: string | number, value: ApiRecord) {
-  return apiJson<ApiRecord>(`/admin/users/${encodeURIComponent(String(id))}/subscriptions`, { method: 'POST', body: JSON.stringify(value) });
+export function createAdminUserSubscription(id: string | number, planId: string) {
+  return apiJson<ApiRecord>(`/admin/users/${encodeURIComponent(String(id))}/subscriptions`, { method: 'POST', body: JSON.stringify({ plan_id: planId }) });
 }
 
 // ---- Stats ----
@@ -134,10 +109,6 @@ export async function getAdminStatsOverview(params?: { from?: string; to?: strin
   } as UsageOverview;
 }
 
-export function getAdminStats(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/admin/stats', { signal, query: normalizeStatsParams(params) });
-}
-
 export async function getAdminStatsTrend(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/admin/stats/trend', { signal, query: normalizeStatsParams(params) });
   return firstArray<UsageTrendItem>(payload, ['trend', 'items', 'data', 'buckets', 'list']).map((value) => ({
@@ -152,9 +123,9 @@ export function getAdminRealtimeUsage(signal?: AbortSignal) {
   return apiJson<ApiRecord>('/admin/usage/overview/realtime', { signal });
 }
 
-export async function getAdminStatsModels(signal?: AbortSignal) {
-  const payload = await apiJson<unknown>('/admin/stats/models', { signal });
-  return firstArray<ModelItem>(payload, ['models', 'items', 'data', 'list', 'rows']);
+export async function getAdminStatsModels(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
+  const payload = await getAdminStatsAnalysis(params, signal);
+  return firstArray<ModelItem>(payload, ['by_model', 'models', 'items', 'data', 'list', 'rows']);
 }
 
 export function getAdminStatsAnalysis(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
@@ -171,10 +142,10 @@ function recordText(record: ApiRecord, keys: string[]) {
 
 export async function getAdminStatsUsers(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
   const [payload, directoryPayload] = await Promise.all([
-    apiJson<unknown>('/admin/stats/users', { signal, query: normalizeStatsParams(params) }),
+    getAdminStatsAnalysis(params, signal),
     apiJson<unknown>('/admin/users', { signal, query: { limit: 500 } }).catch(() => undefined),
   ]);
-  const rows = firstArray<ApiRecord>(payload, ['users', 'items', 'data', 'list', 'rows']);
+  const rows = firstArray<ApiRecord>(payload, ['by_user', 'users', 'items', 'data', 'list', 'rows']);
   const directory = firstArray<AdminUserItem>(directoryPayload, ['users', 'items', 'data', 'list']).map(normalizeAdminUser);
   const usersById = new Map(directory.flatMap((user) => {
     const id = recordText(user, ['id', 'user_id', 'uuid']);
@@ -223,7 +194,7 @@ export function getAdminUsageEvents(params?: { range?: string; page?: number; pa
 }
 
 export function getAdminLogsRequests(params?: { page?: number; page_size?: number }, signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/admin/logs/requests', { signal, query: params });
+  return apiJson<ApiRecord>('/admin/usage/events', { signal, query: { range: '7d', ...params } });
 }
 
 // ---- Models ----
@@ -249,15 +220,15 @@ export async function getAdminModels(signal?: AbortSignal) {
 }
 
 export function createAdminModel(value: ApiRecord) {
-  return apiJson<ApiRecord>('/admin/models', { method: 'POST', body: JSON.stringify(value) });
+  return apiJson<ApiRecord>('/admin/models', { method: 'PUT', body: JSON.stringify(value) });
 }
 
 export function updateAdminModel(id: string, value: ApiRecord) {
-  return apiJson<ApiRecord>(`/admin/models/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(value) });
+  return apiJson<ApiRecord>('/admin/models', { method: 'PUT', body: JSON.stringify({ ...value, id }) });
 }
 
-export function deleteAdminModel(id: string) {
-  return apiJson<ApiRecord>(`/admin/models/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export function deleteAdminModel(id: string, provider: string) {
+  return apiJson<ApiRecord>('/admin/models', { method: 'DELETE', query: { id, provider } });
 }
 
 export function runAdminModelAction(action: 'sync' | 'probe' | 'cleanup', value: ApiRecord = {}) {
@@ -266,10 +237,6 @@ export function runAdminModelAction(action: 'sync' | 'probe' | 'cleanup', value:
 
 export function setAdminModelsEnabled(value: ApiRecord) {
   return apiJson<ApiRecord>('/admin/models/enabled', { method: 'PUT', body: JSON.stringify(value) });
-}
-
-export function getAdminModelSnapshot(signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/admin/snapshot', { signal });
 }
 
 export function getAdminModelWarnings(signal?: AbortSignal) {

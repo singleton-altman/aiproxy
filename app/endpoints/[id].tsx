@@ -293,7 +293,7 @@ export default function EndpointRunnerScreen() {
   }
 
   return <Page title="接口调试" subtitle={`${selectedEndpoint.module} · ${selectedEndpoint.id}`} icon={Braces} safeTop={false} scrollable={false}>
-    <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
+    <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
       <Panel>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 9 }}><Route color={colors.primary} size={18} /><Text selectable style={{ flex: 1, color: colors.text, fontFamily: 'monospace', fontSize: 13, lineHeight: 20 }}>{selectedEndpoint.path}</Text></View>
         {selectedEndpoint.notes ? <Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 17 }}>{selectedEndpoint.notes}</Text> : null}

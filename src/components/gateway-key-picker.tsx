@@ -77,6 +77,9 @@ export function GatewayKeyPicker({ value, onChange, connected = false }: { value
           {keys.error ? <ErrorState message={keys.error.message} retry={() => keys.refetch()} /> : null}
           <FlatList
             data={items}
+            bounces={false}
+            alwaysBounceVertical={false}
+            overScrollMode="never"
             keyExtractor={(item, index) => String(item.id ?? item.prefix ?? index)}
             style={{ flex: 1 }}
             contentContainerStyle={{ gap: 7, flexGrow: items.length || (value.trim() && !hasListedCurrent) ? 0 : 1 }}

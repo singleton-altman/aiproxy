@@ -43,7 +43,7 @@ export function Page({ title, subtitle, icon, children, refreshing, onRefresh, s
       {children}
     </View>;
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={safeTop ? ['top'] : []}>
-    {scrollable ? <ScrollView automaticallyAdjustKeyboardInsets contentInsetAdjustmentBehavior="automatic" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" removeClippedSubviews={Platform.OS === 'android'} contentContainerStyle={{ width: '100%', flexGrow: 1 }}>{content}</ScrollView> : content}
+    {scrollable ? <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" automaticallyAdjustKeyboardInsets contentInsetAdjustmentBehavior="automatic" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" removeClippedSubviews={Platform.OS === 'android'} contentContainerStyle={{ width: '100%', flexGrow: 1 }}>{content}</ScrollView> : content}
   </SafeAreaView>;
 }
 
@@ -127,6 +127,6 @@ export function SearchField({ value, onChangeText, placeholder }: { value: strin
 export function ServiceButton({ icon: Icon, label, detail, onPress, iconColor, iconBackground }: { icon: LucideIcon; label: string; detail: string; onPress: () => void; iconColor?: string; iconBackground?: string }) {
   const colors = useAppTheme();
   return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 160, minHeight: 82, padding: 11, borderRadius: 16, backgroundColor: pressed ? colors.mutedCard : colors.card, borderWidth: 1, borderColor: pressed ? colors.primary : iconBackground ?? colors.border, ...surfaceShadow(Platform.OS), opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={36} iconSize={18} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: '800', fontSize: 15, lineHeight: 20 }}>{label}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={{ color: iconColor ?? colors.primary, fontSize: 10, lineHeight: 14 }}>{detail}</Text></View></View>
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={36} iconSize={18} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: '800', fontSize: 14, lineHeight: 19 }}>{label}</Text><Text numberOfLines={2} ellipsizeMode="tail" style={{ color: iconColor ?? colors.primary, fontSize: 11, lineHeight: 15 }}>{detail}</Text></View></View>
   </Pressable>;
 }

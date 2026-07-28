@@ -28,6 +28,9 @@ function gatewayErrorMessage(payload: unknown, status: number) {
   if (/model not allowed.*api key|api key.*not allowed.*model/.test(normalized)) {
     return '当前 API Key 未授权使用所选模型，请选择该 Key 可用的模型或调整 Key 权限';
   }
+  if (/all upstream accounts? (?:are )?cooling down|all accounts? (?:are )?cooling down/.test(normalized)) {
+    return '该模型的所有上游账号均处于冷却中，请稍后重试或在上游账号中执行恢复';
+  }
   if (/upstream request failed|upstream error/.test(normalized)) {
     return '上游账号请求失败，请检查该模型对应账号的状态、额度和网络';
   }

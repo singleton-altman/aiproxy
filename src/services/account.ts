@@ -26,10 +26,6 @@ export function updateProfile(value: ApiRecord) {
   return apiJson<ApiRecord>('/user/me', { method: 'PATCH', body: JSON.stringify({ nickname }) });
 }
 
-export function deleteProfile() {
-  return apiJson<ApiRecord>('/user/me', { method: 'DELETE' });
-}
-
 // ---- Key overview (API Key 登录) ----
 
 export function getKeyOverview(signal?: AbortSignal) {

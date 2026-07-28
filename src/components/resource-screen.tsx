@@ -20,7 +20,7 @@ export type ResourceAction = {
 };
 
 type ResourceFormExtension = {
-  renderForm?: (props: { value: ApiRecord; onChange: (value: ApiRecord) => void }) => ReactNode;
+  renderForm?: (props: { value: ApiRecord; onChange: (value: ApiRecord) => void; mode: 'create' | 'edit' }) => ReactNode;
   validate?: (value: ApiRecord) => string | undefined;
   submitLabel?: string;
 };
@@ -36,6 +36,7 @@ export type ResourceScreenProps = {
   subtitleOf?: (item: ApiRecord) => string;
   badgeOf?: (item: ApiRecord) => { text: string; tone: 'success' | 'danger' | 'warning' | 'muted' } | undefined;
   searchText?: (item: ApiRecord) => string;
+  renderDetail?: (item: ApiRecord) => ReactNode;
   toggle?: { label: string; value: (item: ApiRecord) => boolean; run: (item: ApiRecord, next: boolean) => Promise<unknown> };
   actions?: ResourceAction[];
   create?: ResourceFormExtension & { label: string; template: ApiRecord; run: (value: ApiRecord) => Promise<unknown>; note?: string };
@@ -59,6 +60,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
   const [selectedId, setSelectedId] = useState('');
   const [formVisible, setFormVisible] = useState<'create' | 'edit' | ''>('');
   const [formValue, setFormValue] = useState<ApiRecord>({});
+  const [formItem, setFormItem] = useState<ApiRecord>();
   const [resultTitle, setResultTitle] = useState('');
   const [resultValue, setResultValue] = useState<unknown>();
   const [busyAction, setBusyAction] = useState('');
@@ -104,15 +106,16 @@ export function ResourceScreen(props: ResourceScreenProps) {
         if (validation) throw new Error(validation);
         return props.create!.run(formValue);
       }
-      if (formVisible === 'edit' && selected) {
+      if (formVisible === 'edit' && formItem) {
         const validation = props.edit!.validate?.(formValue);
         if (validation) throw new Error(validation);
-        return props.edit!.run(selected, formValue);
+        return props.edit!.run(formItem, formValue);
       }
       throw new Error('无效操作');
     },
     onSuccess: (payload) => {
       setFormVisible('');
+      setFormItem(undefined);
       invalidate();
       if (payload && typeof payload === 'object' && Object.keys(payload as ApiRecord).length) {
         setResultTitle('服务器响应');
@@ -170,6 +173,9 @@ export function ResourceScreen(props: ResourceScreenProps) {
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
     <FlatList
       data={items}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
       keyExtractor={(item, index) => idOf(item) || String(index)}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={Platform.OS === 'android'}
@@ -198,7 +204,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
     />
 
     {props.create ? <Pressable
-      onPress={() => { setFormValue({ ...props.create!.template }); setFormVisible('create'); formMutation.reset(); }}
+      onPress={() => { setFormItem(undefined); setFormValue({ ...props.create!.template }); setFormVisible('create'); formMutation.reset(); }}
       style={{ position: 'absolute', left: 16, right: 16, bottom: 20, minHeight: 48, borderRadius: 14, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, shadowColor: colors.shadow, shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}
     >
       <Plus color="#fff" size={17} /><Text style={{ color: '#fff', fontWeight: '800' }}>{props.create.label}</Text>
@@ -211,7 +217,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
           <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{props.titleOf(selected)}</Text>
-            {props.edit ? <Pressable accessibilityLabel="编辑" onPress={() => { setFormValue(props.edit!.pick(selected)); setFormVisible('edit'); formMutation.reset(); }} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Pencil color={colors.primary} size={15} /></Pressable> : null}
+            {props.edit ? <Pressable accessibilityLabel="编辑" onPress={() => { setFormItem(selected); setFormValue(props.edit!.pick(selected)); setSelectedId(''); setFormVisible('edit'); formMutation.reset(); }} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Pencil color={colors.primary} size={15} /></Pressable> : null}
             <Pressable accessibilityLabel="关闭" onPress={() => setSelectedId('')} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
 
@@ -231,8 +237,8 @@ export function ResourceScreen(props: ResourceScreenProps) {
             </Pressable>)}
           </View> : null}
 
-          <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
-            <StructuredDataView value={selected} />
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
+            {props.renderDetail ? props.renderDetail(selected) : <StructuredDataView value={selected} />}
           </ScrollView>
 
           {props.remove ? <Pressable disabled={removeMutation.isPending} onPress={() => Alert.alert('确认删除', props.remove!.confirm(selected), [
@@ -246,18 +252,18 @@ export function ResourceScreen(props: ResourceScreenProps) {
     </Modal>
 
     {/* 创建 / 编辑表单弹层 */}
-    <Modal visible={Boolean(formVisible)} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setFormVisible('')}>
+    <Modal visible={Boolean(formVisible)} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => { setFormVisible(''); setFormItem(undefined); }}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
         <View style={{ maxHeight: '86%', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 18, gap: 12 }}>
           <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{formVisible === 'create' ? props.create?.label ?? '创建' : '编辑'}</Text>
-            <Pressable accessibilityLabel="关闭" onPress={() => setFormVisible('')} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
+            <Pressable accessibilityLabel="关闭" onPress={() => { setFormVisible(''); setFormItem(undefined); }} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
           {formVisible === 'create' && props.create?.note ? <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 16 }}>{props.create.note}</Text> : null}
-          <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
             {activeForm?.renderForm
-              ? activeForm.renderForm({ value: formValue, onChange: (value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); } })
+              ? activeForm.renderForm({ value: formValue, mode: formVisible as 'create' | 'edit', onChange: (value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); } })
               : <StructuredForm value={formValue} onChange={(value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); }} />}
           </ScrollView>
           {formMutation.error ? <Text style={{ color: colors.danger, fontSize: 12 }}>{formMutation.error.message}</Text> : null}
@@ -276,7 +282,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
             <Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{resultTitle || '结果'}</Text>
             <Pressable accessibilityLabel="关闭" onPress={() => setResultValue(undefined)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
-          <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
             <StructuredDataView value={resultValue} />
           </ScrollView>
         </View>

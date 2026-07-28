@@ -99,7 +99,7 @@ function Sidebar({ admin, managementMode }: { admin: boolean; managementMode: bo
       })}
     </View> : null}
 
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: collapsed ? 10 : 12, paddingTop: canSwitchView && !collapsed ? 0 : 12, paddingBottom: 18, gap: 3 }}>
+    <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: collapsed ? 10 : 12, paddingTop: canSwitchView && !collapsed ? 0 : 12, paddingBottom: 18, gap: 3 }}>
       {menu.map(({ label, icon: Icon, href }) => {
         const selected = pathname === cleanPath(href);
         return <Pressable key={`${mode}-${label}`} accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 42, borderRadius: 12, paddingHorizontal: collapsed ? 0 : 7, backgroundColor: selected ? colors.primarySoft : pressed ? colors.mutedCard : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8, opacity: pressed ? 0.68 : 1 })}>

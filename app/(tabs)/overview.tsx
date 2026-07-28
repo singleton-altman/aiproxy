@@ -22,7 +22,7 @@ import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
-import { firstArray } from '@/src/lib/api';
+import { apiJson, firstArray } from '@/src/lib/api';
 import { useAppTheme } from '@/src/lib/theme';
 import { getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
@@ -241,8 +241,12 @@ function RankingPanel({ title, icon, items, type, wide }: { title: string; icon:
 function breakdownName(item: ApiRecord, type: 'provider' | 'account', index: number) {
   const candidates = type === 'provider'
     ? [item.provider_name, item.provider, item.name, item.id]
-    : [item.account_name, item.account, item.email, item.label, item.name, item.account_id];
-  const value = candidates.find((candidate) => (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim());
+    : [item.account_name, item.account, item.email, item.label, item.name];
+  const value = candidates.find((candidate) => {
+    if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
+    const text = String(candidate).trim();
+    return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
+  });
   return value ? String(value) : `${type === 'provider' ? '供应商' : '账号'} ${index + 1}`;
 }
 
@@ -250,33 +254,48 @@ function BreakdownTable({ title, icon, items, type }: { title: string; icon: Luc
   const colors = useAppTheme();
   const visible = items.slice(0, 8);
   const account = type === 'account';
+  if (account) return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
+    <SectionHeader icon={icon} title={title} />
+    {visible.length ? visible.map((item, index) => {
+      const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
+      const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
+      const failed = firstNumber(item, ['failed_count', 'failed_requests', 'errors', 'error_count']);
+      const suppliedRate = item.success_rate ?? item.successRate;
+      const successRate = suppliedRate === undefined ? (requests ? (requests - failed) / requests * 100 : 0) : (toNumber(suppliedRate) <= 1 ? toNumber(suppliedRate) * 100 : toNumber(suppliedRate));
+      const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
+      return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 66, paddingVertical: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 7 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 12, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
+          <View style={{ maxWidth: '34%', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, fontWeight: '700' }}>{String(item.provider_name ?? item.provider ?? '--')}</Text></View>
+          <Text style={{ minWidth: 62, color: colors.text, fontSize: 11, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <Text style={{ color: colors.subtext, fontSize: 10 }}>请求 <Text style={{ color: colors.text, fontWeight: '700' }}>{formatNumber(requests)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 10 }}>Token <Text style={{ color: colors.text, fontWeight: '700' }}>{formatNumber(tokens)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 10 }}>失败 <Text style={{ color: failed ? colors.danger : colors.text, fontWeight: '700' }}>{formatNumber(failed)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 10 }}>成功率 <Text style={{ color: failed ? colors.danger : colors.success, fontWeight: '700' }}>{successRate.toFixed(1)}%</Text></Text>
+        </View>
+      </View>;
+    }) : <EmptyState embedded icon={icon} message="暂无账号数据" />}
+  </View>;
   return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
     <SectionHeader icon={icon} title={title} />
     {visible.length ? <>
-      <View style={{ minHeight: 28, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: account ? 3 : 6 }}>
-        <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 8 }}>{account ? '账号' : '供应商'}</Text>
-        {account ? <Text style={{ width: 42, color: colors.subtext, fontSize: 8 }} numberOfLines={1}>供应商</Text> : null}
-        <Text style={{ width: account ? 28 : 42, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>次数</Text>
-        <Text style={{ width: account ? 38 : 54, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>Token</Text>
-        {account ? <Text style={{ width: 28, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>失败</Text> : null}
-        {account ? <Text style={{ width: 40, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>成功率</Text> : null}
-        <Text style={{ width: account ? 54 : 66, color: colors.subtext, fontSize: 8, textAlign: 'right' }}>费用</Text>
+      <View style={{ minHeight: 28, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 9 }}>供应商</Text>
+        <Text style={{ width: 42, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>次数</Text>
+        <Text style={{ width: 54, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>Token</Text>
+        <Text style={{ width: 66, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>费用</Text>
       </View>
       {visible.map((item, index) => {
         const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
         const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
-        const failed = firstNumber(item, ['failed_count', 'failed_requests', 'errors', 'error_count']);
-        const suppliedRate = item.success_rate ?? item.successRate;
-        const successRate = suppliedRate === undefined ? (requests ? (requests - failed) / requests * 100 : 0) : (toNumber(suppliedRate) <= 1 ? toNumber(suppliedRate) * 100 : toNumber(suppliedRate));
         const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-        return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 36, paddingHorizontal: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: account ? 3 : 6 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: account ? 9 : 11, fontWeight: '700' }}>{breakdownName(item, type, index)}</Text>
-          {account ? <Text numberOfLines={1} style={{ width: 42, color: colors.subtext, fontSize: 8 }}>{String(item.provider_name ?? item.provider ?? '--')}</Text> : null}
-          <Text style={{ width: account ? 28 : 42, color: colors.text, fontSize: 9, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
-          <Text style={{ width: account ? 38 : 54, color: colors.text, fontSize: 9, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
-          {account ? <Text style={{ width: 28, color: failed ? colors.danger : colors.subtext, fontSize: 9, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(failed)}</Text> : null}
-          {account ? <Text style={{ width: 40, color: failed ? colors.danger : colors.success, fontSize: 8, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{successRate.toFixed(1)}%</Text> : null}
-          <Text style={{ width: account ? 54 : 66, color: colors.text, fontSize: 9, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+        return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 36, paddingHorizontal: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: '700' }}>{breakdownName(item, type, index)}</Text>
+          <Text style={{ width: 42, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
+          <Text style={{ width: 54, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
+          <Text style={{ width: 66, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>;
       })}
     </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : '账号'}数据`} />}
@@ -326,7 +345,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   });
   const models = useQuery({
     queryKey: [admin ? 'admin' : 'user', 'dashboard', 'models'],
-    queryFn: ({ signal }) => admin ? getAdminStatsModels(signal) : getModels(signal),
+    queryFn: ({ signal }) => admin ? getAdminStatsModels({ range }, signal) : getModels(signal),
   });
   const users = useQuery({
     queryKey: ['admin', 'dashboard', 'users', range],
@@ -340,12 +359,18 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     enabled: admin,
     retry: 0,
   });
+  const accountDirectory = useQuery({
+    queryKey: ['admin', 'dashboard', 'account-directory'],
+    queryFn: async ({ signal }) => firstArray<ApiRecord>(await apiJson('/admin/accounts', { signal }), ['accounts', 'items', 'data', 'list']),
+    enabled: admin,
+    retry: 0,
+  });
 
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
     const requests = [overview.refetch(), trend.refetch(), models.refetch()];
-    if (admin) requests.push(realtime.refetch(), users.refetch(), analysis.refetch());
+    if (admin) requests.push(realtime.refetch(), users.refetch(), analysis.refetch(), accountDirectory.refetch());
     void Promise.allSettled(requests).finally(() => setRefreshing(false));
   };
 
@@ -362,7 +387,29 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const modelItems = (models.data ?? []).map((item) => item as ModelItem & ApiRecord);
   const userItems = useMemo(() => firstArray<ApiRecord>(users.data, ['users', 'items', 'data', 'list', 'rows']), [users.data]);
   const providerItems = useMemo(() => nestedRecords(analysis.data, ['by_provider', 'providers', 'provider_usage']), [analysis.data]);
-  const accountItems = useMemo(() => nestedRecords(analysis.data, ['by_account', 'accounts', 'account_usage']), [analysis.data]);
+  const accountItems = useMemo(() => {
+    const directory = new Map<string, ApiRecord>();
+    for (const account of accountDirectory.data ?? []) {
+      for (const id of [account.id, account.account_id, account.auth_index]) {
+        if (id !== undefined && id !== null && String(id).trim()) directory.set(String(id), account);
+      }
+    }
+    return nestedRecords(analysis.data, ['by_account', 'accounts', 'account_usage']).map((item) => {
+      const id = [item.account_id, item.auth_index, item.id].find((value) => value !== undefined && value !== null && String(value).trim());
+      const account = id === undefined ? undefined : directory.get(String(id));
+      if (!account) return item;
+      const currentName = [item.account_name, item.account, item.email, item.label, item.name].find((value) => {
+        if (typeof value !== 'string' && typeof value !== 'number') return false;
+        const text = String(value).trim();
+        return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
+      });
+      return {
+        ...item,
+        account_name: currentName ?? account.label ?? account.name ?? account.email,
+        provider_name: item.provider_name ?? item.provider ?? account.provider,
+      };
+    });
+  }, [accountDirectory.data, analysis.data]);
   const activeUsers = reportedActiveUsers || userItems.length;
 
   return <Page title="" showHeader={false} contentMaxWidth={960} refreshing={refreshing} onRefresh={refresh}>

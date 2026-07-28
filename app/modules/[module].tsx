@@ -38,6 +38,9 @@ export default function ModuleEndpointsScreen() {
     <SectionHeader icon={Search} title="接口列表" meta={`${endpoints.length} 项`} />
     <FlatList
       data={endpoints}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
       keyExtractor={(item) => item.id}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={Platform.OS === 'android'}

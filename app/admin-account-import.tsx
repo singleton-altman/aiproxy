@@ -218,7 +218,7 @@ export default function AdminAccountImportScreen() {
   function startFlow() {
     if (!selected) return;
     if (selected.key === 'kiro') {
-      if (method === 'oauth') return flow.mutate({ action: 'start', path: '/admin/accounts/oauth/kiro/start', method: 'GET', query: proxyId ? { proxy_id: proxyId } : undefined });
+      if (method === 'oauth') return flow.mutate({ action: 'start', path: '/admin/accounts/oauth/kiro/start', method: 'POST', body: proxyPayload });
       if (method === 'sso') return flow.mutate({ action: 'start', path: '/admin/accounts/kiro/sso/start', method: 'POST', body: proxyPayload });
       if (method === 'iam') return flow.mutate({ action: 'start', path: '/admin/accounts/kiro/iam-sso/start', method: 'POST', body: proxyPayload });
     }
@@ -227,10 +227,10 @@ export default function AdminAccountImportScreen() {
 
   function pollFlow() {
     if (!selected) return;
-    const query = sessionId ? { session_id: sessionId } : undefined;
-    if (selected.key === 'kiro' && method === 'oauth') return flow.mutate({ action: 'poll', path: '/admin/accounts/oauth/kiro/poll', method: 'GET', query });
-    if (selected.key === 'kiro' && method === 'sso') return flow.mutate({ action: 'poll', path: '/admin/accounts/kiro/sso/poll', method: 'GET', query });
-    flow.mutate({ action: 'poll', path: `/admin/accounts/oauth/${encodeURIComponent(selected.key)}/poll`, method: 'GET', query });
+    const body = { session_id: sessionId || undefined };
+    if (selected.key === 'kiro' && method === 'oauth') return flow.mutate({ action: 'poll', path: '/admin/accounts/oauth/kiro/poll', method: 'POST', body });
+    if (selected.key === 'kiro' && method === 'sso') return flow.mutate({ action: 'poll', path: '/admin/accounts/kiro/sso/poll', method: 'POST', body });
+    flow.mutate({ action: 'poll', path: `/admin/accounts/oauth/${encodeURIComponent(selected.key)}/poll`, method: 'POST', body });
   }
 
   function submitFlow() {

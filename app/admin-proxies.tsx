@@ -21,7 +21,7 @@ export default function AdminProxiesScreen() {
     toggle={{
       label: '启用代理',
       value: (item) => item.enabled !== false,
-      run: (item, next) => apiJson(`/admin/proxies/${encodeURIComponent(proxyId(item))}`, { method: 'PATCH', body: JSON.stringify({ enabled: next }) }),
+      run: (item, next) => apiJson(`/admin/proxies/${encodeURIComponent(proxyId(item))}`, { method: 'PUT', body: JSON.stringify({ enabled: next }) }),
     }}
     actions={[
       { key: 'test', label: '测试连通性', run: (item) => apiJson(`/admin/proxies/${encodeURIComponent(proxyId(item))}/test`, { method: 'POST', body: '{}', timeoutMs: 60000 }) },
@@ -41,7 +41,7 @@ export default function AdminProxiesScreen() {
         username: item.username ?? '',
         enabled: item.enabled !== false,
       }),
-      run: (item, value) => apiJson(`/admin/proxies/${encodeURIComponent(proxyId(item))}`, { method: 'PATCH', body: JSON.stringify(value) }),
+      run: (item, value) => apiJson(`/admin/proxies/${encodeURIComponent(proxyId(item))}`, { method: 'PUT', body: JSON.stringify(value) }),
     }}
     remove={{
       confirm: (item) => `确定删除代理「${item.name ?? proxyId(item)}」吗？关联账号将失去此出口。`,

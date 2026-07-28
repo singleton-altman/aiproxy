@@ -158,7 +158,7 @@ POST /api/v1/setup/admin
 ```
 
 鉴权：仅初始化阶段  
-来源：前端推断
+来源：当前 Web
 
 请求字段（前端表单推断）：
 
@@ -203,7 +203,7 @@ POST /api/v1/auth/register
 |---|---:|---|
 | `email` | string | 邮箱 |
 | `password` | string | 密码 |
-| `name` | string? | 名称 |
+| `nickname` | string? | 昵称 |
 | `invite_code` | string? | 邀请码，`require_invite_code=true` 时必填 |
 | `code` | string? | 邮箱验证码，启用邮箱验证时必填 |
 
@@ -213,14 +213,14 @@ POST /api/v1/auth/register
 POST /api/v1/auth/send-code
 ```
 
-来源：前端推断
+来源：当前 Web
 
 请求字段：
 
 | 字段 | 类型 | 说明 |
 |---|---:|---|
 | `email` | string | 邮箱 |
-| `purpose` | string? | 用途，如注册/重置密码；具体枚举需联调 |
+| `scene` | string | 验证场景：`register` / `reset` |
 
 ### 3.7 重置密码
 
@@ -651,8 +651,7 @@ POST /v1/images/generations
 
 ```http
 GET    /api/v1/admin/users
-GET    /api/v1/admin/users/:id
-PATCH  /api/v1/admin/users/:id
+PUT    /api/v1/admin/users/:id
 DELETE /api/v1/admin/users/:id
 POST   /api/v1/admin/users/:id/balance
 POST   /api/v1/admin/users/:id/subscriptions
@@ -676,7 +675,7 @@ POST   /api/v1/admin/users/:id/subscriptions
 ```http
 GET    /api/v1/admin/invites
 POST   /api/v1/admin/invites
-PATCH  /api/v1/admin/invites/:id
+PUT    /api/v1/admin/invites/:id
 DELETE /api/v1/admin/invites/:id
 GET    /api/v1/admin/invites/:id/redemptions
 ```
@@ -697,7 +696,7 @@ GET    /api/v1/admin/invites/:id/redemptions
 ```http
 GET    /api/v1/admin/plans
 POST   /api/v1/admin/plans
-PATCH  /api/v1/admin/plans/:id
+PUT    /api/v1/admin/plans/:id
 DELETE /api/v1/admin/plans/:id
 ```
 
@@ -708,12 +707,11 @@ DELETE /api/v1/admin/plans/:id
 ```http
 GET    /api/v1/admin/accounts
 POST   /api/v1/admin/accounts
-PATCH  /api/v1/admin/accounts/:id
+PUT    /api/v1/admin/accounts/:id
 DELETE /api/v1/admin/accounts/:id
-POST   /api/v1/admin/accounts/bulk
-GET    /api/v1/admin/accounts/health
+PUT    /api/v1/admin/accounts/bulk
 POST   /api/v1/admin/accounts/import
-GET    /api/v1/admin/accounts/export
+POST   /api/v1/admin/accounts/export
 POST   /api/v1/admin/accounts/recover
 POST   /api/v1/admin/accounts/:id/recover
 GET    /api/v1/admin/accounts/:id/models
@@ -742,11 +740,11 @@ Account 字段（前端/业务推断）：
 
 ```http
 POST /api/v1/admin/accounts/oauth/:provider/start
-GET  /api/v1/admin/accounts/oauth/:provider/poll
+POST /api/v1/admin/accounts/oauth/:provider/poll
 POST /api/v1/admin/accounts/oauth/:provider/submit
 
 POST /api/v1/admin/accounts/kiro/sso/start
-GET  /api/v1/admin/accounts/kiro/sso/poll
+POST /api/v1/admin/accounts/kiro/sso/poll
 POST /api/v1/admin/accounts/kiro/sso/submit
 POST /api/v1/admin/accounts/kiro/sso/cancel
 POST /api/v1/admin/accounts/kiro/sso/select-profile
@@ -754,8 +752,8 @@ POST /api/v1/admin/accounts/kiro/sso-token
 POST /api/v1/admin/accounts/kiro/api-key
 POST /api/v1/admin/accounts/kiro/iam-sso/start
 POST /api/v1/admin/accounts/kiro/iam-sso/complete
-GET  /api/v1/admin/accounts/oauth/kiro/start
-GET  /api/v1/admin/accounts/oauth/kiro/poll
+POST /api/v1/admin/accounts/oauth/kiro/start
+POST /api/v1/admin/accounts/oauth/kiro/poll
 ```
 
 ### 6.6 Providers
@@ -763,11 +761,11 @@ GET  /api/v1/admin/accounts/oauth/kiro/poll
 ```http
 GET    /api/v1/admin/providers
 POST   /api/v1/admin/providers
-GET    /api/v1/admin/providers/:id
-PATCH  /api/v1/admin/providers/:id
+PUT    /api/v1/admin/providers/:id
 DELETE /api/v1/admin/providers/:id
 GET    /api/v1/admin/providers/builtin
 GET    /api/v1/admin/providers/builtin/:name/models
+PUT    /api/v1/admin/providers/builtin/:name/models
 PUT    /api/v1/admin/providers/builtin/:name/route-prefix
 POST   /api/v1/admin/providers/:id/quota-test
 ```
@@ -790,7 +788,7 @@ Provider 字段：
 ```http
 GET    /api/v1/admin/proxies
 POST   /api/v1/admin/proxies
-PATCH  /api/v1/admin/proxies/:id
+PUT    /api/v1/admin/proxies/:id
 DELETE /api/v1/admin/proxies/:id
 GET    /api/v1/admin/proxies/:id/impact
 POST   /api/v1/admin/proxies/:id/test
@@ -814,15 +812,14 @@ Proxy 字段：
 
 ```http
 GET    /api/v1/admin/models
-POST   /api/v1/admin/models
-PATCH  /api/v1/admin/models/:id
-DELETE /api/v1/admin/models/:id
+PUT    /api/v1/admin/models
+DELETE /api/v1/admin/models?id=:id&provider=:provider
 POST   /api/v1/admin/models/sync
 POST   /api/v1/admin/models/probe
 POST   /api/v1/admin/models/cleanup
 PUT    /api/v1/admin/models/enabled
+PUT    /api/v1/admin/models/provider-enabled
 GET    /api/v1/admin/snapshot/warnings
-GET    /api/v1/admin/snapshot
 ```
 
 Model 字段见 4.4，管理员额外可配置：
@@ -839,23 +836,19 @@ Model 字段见 4.4，管理员额外可配置：
 ### 6.9 管理端用量 / 统计 / 日志
 
 ```http
-GET /api/v1/admin/stats
 GET /api/v1/admin/stats/overview
 GET /api/v1/admin/stats/trend
 GET /api/v1/admin/stats/analysis
-GET /api/v1/admin/stats/models
-GET /api/v1/admin/stats/users
 GET /api/v1/admin/usage/overview/realtime
 GET /api/v1/admin/usage/events
 GET /api/v1/admin/usage/events/export
 GET /api/v1/admin/logs/app
 GET /api/v1/admin/logs/app?stream=true
-GET /api/v1/admin/logs/requests
 GET /api/v1/admin/traces
 GET /api/v1/admin/traces/:id
 ```
 
-统计字段同 4.6/4.7，管理员范围包含全站、模型、用户、供应商维度。
+统计字段同 4.6/4.7；模型、用户和供应商维度均从 `/admin/stats/analysis` 返回。
 
 ### 6.10 配置 / 邮件 / GitHub / 系统
 
@@ -1079,4 +1072,3 @@ POST   /api/v1/admin/management-tokens/:id/revoke
 3. 分页结构是 `{items,next_cursor}` 还是 `{data,total}`。
 4. 管理端批量导入/导出格式。
 5. OAuth/Kiro 流程的中间状态枚举。
-

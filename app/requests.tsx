@@ -71,6 +71,9 @@ export default function RequestsScreen() {
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
     <FlatList
       data={items}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
       keyExtractor={(item, index) => String(item.id ?? index)}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={Platform.OS === 'android'}

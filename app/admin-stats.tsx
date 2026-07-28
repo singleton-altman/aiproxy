@@ -147,7 +147,7 @@ function dimensionLabel(item: ApiRecord, dimension: Dimension, index: number) {
     model: ['model', 'model_id', 'id', 'name'],
     provider: ['provider', 'provider_name', 'channel'],
     user: [],
-    account: ['account', 'account_name', 'account_id', 'email'],
+    account: ['label', 'account_name', 'account_label', 'email', 'account_email', 'name', 'account', 'account_id'],
     endpoint: ['endpoint', 'path', 'route', 'api'],
   };
   return firstText(item, keys[dimension], `${dimension}-${index + 1}`);
@@ -169,7 +169,7 @@ function RangePicker({ value, onChange }: { value: Range; onChange: (value: Rang
 function StatsTabs({ value, onChange }: { value: Tab; onChange: (value: Tab) => void }) {
   const colors = useAppTheme();
   return <View style={{ minHeight: 44, padding: 3, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, overflow: 'hidden' }}>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 3 }}>
+    <ScrollView horizontal bounces={false} overScrollMode="never" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 3 }}>
       {tabs.map(([key, label, Icon]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: value === key }} onPress={() => onChange(key)} style={({ pressed }) => ({ minWidth: label.length > 3 ? 82 : 68, minHeight: 36, paddingHorizontal: 9, borderRadius: 10, backgroundColor: value === key ? colors.card : 'transparent', borderWidth: value === key ? 1 : 0, borderColor: value === key ? colors.border : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, opacity: pressed ? 0.65 : 1 })}>
         <Icon color={value === key ? colors.primary : colors.subtext} size={14} strokeWidth={value === key ? 2.4 : 2} />
         <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text>
@@ -297,7 +297,7 @@ function Heatmap({ events, analysis }: { events: unknown; analysis?: unknown }) 
   const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
   return <View style={{ gap: 9 }}>
     <SectionHeader icon={CalendarDays} title="请求热力图" meta="按小时" />
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}><View style={{ minWidth: 590, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 11, gap: 4 }}>
+    <ScrollView horizontal bounces={false} overScrollMode="never" showsHorizontalScrollIndicator={false}><View style={{ minWidth: 590, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 11, gap: 4 }}>
       {matrix.map((row, dayIndex) => <View key={days[dayIndex]} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><Text style={{ width: 28, color: colors.subtext, fontSize: 9 }}>{days[dayIndex]}</Text>{row.map((count, hour) => {
         const level = count && max ? Math.max(1, Math.ceil(count / max * 4)) : 0;
         return <View key={hour} accessibilityLabel={`${days[dayIndex]} ${hour} 时 ${count} 次`} style={{ width: 20, height: 20, borderRadius: 2, backgroundColor: palette[level] }} />;
@@ -429,7 +429,7 @@ function RequestList({ value, search, loading, title }: { value: unknown; search
   }, [search, value]);
   return <View style={{ flex: 1, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
     <View style={{ minHeight: 44, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center' }}><ScrollText color={colors.subtext} size={16} /><Text style={{ flex: 1, marginLeft: 8, color: colors.text, fontSize: 13, fontWeight: '700' }}>{title}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{rows.length} 条</Text></View>
-    <FlatList data={rows} keyExtractor={(item, index) => firstText(item, ['id', 'request_id', 'trace_id'], String(index))} keyboardShouldPersistTaps="handled" removeClippedSubviews={Platform.OS === 'android'} initialNumToRender={20} maxToRenderPerBatch={20} windowSize={9} contentContainerStyle={{ flexGrow: rows.length ? 0 : 1 }} ListEmptyComponent={!loading ? <EmptyState embedded icon={ScrollText} message={search ? '没有匹配的记录' : '暂无记录'} /> : null} ListFooterComponent={loading ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: 16 }} /> : null} renderItem={({ item, index }) => <EventRow item={item} index={index} />} />
+    <FlatList data={rows} bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyExtractor={(item, index) => firstText(item, ['id', 'request_id', 'trace_id'], String(index))} keyboardShouldPersistTaps="handled" removeClippedSubviews={Platform.OS === 'android'} initialNumToRender={20} maxToRenderPerBatch={20} windowSize={9} contentContainerStyle={{ flexGrow: rows.length ? 0 : 1 }} ListEmptyComponent={!loading ? <EmptyState embedded icon={ScrollText} message={search ? '没有匹配的记录' : '暂无记录'} /> : null} ListFooterComponent={loading ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: 16 }} /> : null} renderItem={({ item, index }) => <EventRow item={item} index={index} />} />
   </View>;
 }
 
@@ -449,7 +449,7 @@ export default function AdminStatsScreen() {
         const [trend, analysis, models, users, events] = await Promise.all([
           optional(getAdminStatsTrend(rangeParams(range), signal)),
           optional(getAdminStatsAnalysis(rangeParams(range), signal)),
-          optional(getAdminStatsModels(signal)),
+          optional(getAdminStatsModels(rangeParams(range), signal)),
           optional(getAdminStatsUsers(rangeParams(range), signal)),
           optional(getAdminUsageEvents({ range, page: 1, page_size: 100 }, signal)),
         ]);
@@ -458,7 +458,7 @@ export default function AdminStatsScreen() {
       if (tab === 'summary') return getAdminStatsOverview(rangeParams(range), signal);
       if (tab === 'trend') return getAdminStatsTrend(rangeParams(range), signal);
       if (tab === 'analysis') return getAdminStatsAnalysis(rangeParams(range), signal);
-      if (tab === 'models') return getAdminStatsModels(signal);
+      if (tab === 'models') return getAdminStatsModels(rangeParams(range), signal);
       if (tab === 'users') return getAdminStatsUsers(rangeParams(range), signal);
       if (tab === 'realtime') return getAdminRealtimeUsage(signal);
       if (tab === 'events') return getAdminUsageEvents({ range, page: 1, page_size: 300 }, signal);

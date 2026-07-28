@@ -220,7 +220,7 @@ function OverviewTab({ active }: { active: boolean }) {
             <Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>更新说明</Text>
             <Pressable accessibilityLabel="关闭" onPress={() => setNotesVisible(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={18} /></Pressable>
           </View>
-          <ScrollView contentContainerStyle={{ paddingBottom: 8 }}><Text selectable style={{ color: colors.text, fontSize: 12, lineHeight: 20 }}>{notes}</Text></ScrollView>
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" contentContainerStyle={{ paddingBottom: 8 }}><Text selectable style={{ color: colors.text, fontSize: 12, lineHeight: 20 }}>{notes}</Text></ScrollView>
         </View>
       </FullScreenSafeArea>
     </Modal>
@@ -308,7 +308,7 @@ function SettingsTab({ active }: { active: boolean }) {
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.48)' }}>
         <View style={{ width: '100%', maxWidth: 720, maxHeight: '82%', alignSelf: 'center', borderRadius: 18, backgroundColor: colors.page, padding: 16, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>高级配置</Text><Pressable accessibilityLabel="关闭" onPress={() => setAdvancedVisible(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={18} /></Pressable></View>
-          <ScrollView><Text selectable style={{ color: colors.text, fontFamily: 'monospace', fontSize: 11, lineHeight: 18 }}>{JSON.stringify(advancedData, null, 2)}</Text></ScrollView>
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never"><Text selectable style={{ color: colors.text, fontFamily: 'monospace', fontSize: 11, lineHeight: 18 }}>{JSON.stringify(advancedData, null, 2)}</Text></ScrollView>
         </View>
       </FullScreenSafeArea>
     </Modal>
@@ -346,6 +346,9 @@ function LogsTab({ active }: { active: boolean }) {
       </View>
       <FlatList
         data={lines}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         keyExtractor={(_, index) => String(index)}
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews={Platform.OS === 'android'}

@@ -22,17 +22,17 @@ export function login(input: { email: string; password: string }, baseUrl?: stri
   });
 }
 
-export function register(input: { email: string; password: string; name?: string; invite_code?: string; code?: string }, baseUrl?: string) {
+export function register(input: { email: string; password: string; nickname?: string; invite_code?: string; code?: string }, baseUrl?: string) {
   const body: ApiRecord = { email: input.email.trim(), password: input.password };
-  if (input.name?.trim()) body.name = input.name.trim();
+  if (input.nickname?.trim()) body.nickname = input.nickname.trim();
   if (input.invite_code?.trim()) body.invite_code = input.invite_code.trim();
   if (input.code?.trim()) body.code = input.code.trim();
   return apiJson<ApiRecord>('/auth/register', { method: 'POST', baseUrl, retryAuth: false, body: JSON.stringify(body) });
 }
 
-export function sendCode(input: { email: string; purpose?: string }, baseUrl?: string) {
+export function sendCode(input: { email: string; scene?: 'register' | 'reset' }, baseUrl?: string) {
   const body: ApiRecord = { email: input.email.trim() };
-  if (input.purpose) body.purpose = input.purpose;
+  if (input.scene) body.scene = input.scene;
   return apiJson<ApiRecord>('/auth/send-code', { method: 'POST', baseUrl, retryAuth: false, body: JSON.stringify(body) });
 }
 
@@ -68,8 +68,8 @@ export async function managementTokenLogin(token: string, baseUrl?: string) {
     try { payload = await response.json(); } catch { payload = undefined; }
     if (response.ok) return payload as ApiRecord;
     const message = extractErrorMessage(payload, `令牌验证失败（HTTP ${response.status}）`);
-    // A valid least-privilege token may not have permission to list management tokens.
-    if (response.status === 403 && /scope|permission|forbidden|权限/i.test(message)) return {};
+    // Least-privilege tokens may intentionally receive 403 or 404 for the token directory.
+    if (response.status === 403 || response.status === 404) return {};
     if (response.status === 401) throw new Error('管理令牌无效、已过期或已撤销');
     throw new Error(message);
   } catch (error) {
