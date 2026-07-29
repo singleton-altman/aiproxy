@@ -62,11 +62,11 @@ function EndpointRow({ endpoint, onPress }: { endpoint: ApiEndpointDefinition; o
   const colors = useAppTheme();
   return <Pressable onPress={onPress} style={({ pressed }) => ({ minHeight: 82, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 13, gap: 8, opacity: pressed ? 0.65 : 1 })}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, flex: 1 }}>{endpoint.methods.map((method) => <View key={method} style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: `${methodColor(method, colors)}22` }}><Text style={{ color: methodColor(method, colors), fontSize: 10, fontWeight: '800' }}>{method}</Text></View>)}</View>
-      {endpoint.auth === 'apikey' ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.warningBg }}><Text style={{ color: colors.warning, fontSize: 9, fontWeight: '800' }}>API Key</Text></View> : null}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, flex: 1 }}>{endpoint.methods.map((method) => <View key={method} style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: `${methodColor(method, colors)}22` }}><Text style={{ color: methodColor(method, colors), fontSize: 11, fontWeight: '800' }}>{method}</Text></View>)}</View>
+      {endpoint.auth === 'apikey' ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.warningBg }}><Text style={{ color: colors.warning, fontSize: 11, fontWeight: '800' }}>API Key</Text></View> : null}
       <ChevronRight color={colors.disabled} size={16} />
     </View>
-    <Text numberOfLines={2} selectable style={{ color: colors.text, fontFamily: 'monospace', fontSize: 12, lineHeight: 17 }}>{endpoint.path}</Text>
-    <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 10, lineHeight: 14 }}>{endpoint.notes || endpoint.source}{endpoint.pathVariables.length ? ' · 需要路径参数' : ''}</Text>
+    <Text numberOfLines={2} selectable style={{ color: colors.text, fontFamily: 'monospace', fontSize: 11, lineHeight: 17 }}>{endpoint.path}</Text>
+    <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 11, lineHeight: 14 }}>{endpoint.notes || endpoint.source}{endpoint.pathVariables.length ? ' · 需要路径参数' : ''}</Text>
   </Pressable>;
 }

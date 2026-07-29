@@ -31,8 +31,8 @@ type PageHeaderProps = { title: string; subtitle?: string; icon?: LucideIcon; re
 export function PageHeader({ title, subtitle, icon: Icon, refreshing, onRefresh }: PageHeaderProps) {
   const colors = useAppTheme();
   return <View style={{ minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>{Icon ? <IconTile icon={Icon} size={42} iconSize={20} /> : null}<View style={{ flex: 1, gap: 1 }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800' }}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 12, lineHeight: 17 }}>{subtitle}</Text> : null}</View></View>
-    {onRefresh ? <Pressable accessibilityLabel="刷新" onPress={onRefresh} disabled={refreshing} style={({ pressed }) => ({ width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primarySoft, opacity: refreshing ? 0.55 : pressed ? 0.62 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}>{refreshing ? <ActivityIndicator color={colors.primary} /> : <RefreshCw color={colors.primary} size={17} strokeWidth={2.25} />}</Pressable> : null}
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>{Icon ? <IconTile icon={Icon} size={42} iconSize={20} /> : null}<View style={{ flex: 1, gap: 1 }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800' }}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 11, lineHeight: 17 }}>{subtitle}</Text> : null}</View></View>
+    {onRefresh ? <Pressable accessibilityLabel="刷新" onPress={onRefresh} disabled={refreshing} style={({ pressed }) => ({ width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: pressed ? colors.mutedCard : colors.card, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, ...surfaceShadow(Platform.OS), opacity: refreshing ? 0.55 : pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}>{refreshing ? <ActivityIndicator color={colors.primary} /> : <RefreshCw color={colors.primary} size={17} strokeWidth={2.35} />}</Pressable> : null}
   </View>;
 }
 
@@ -107,7 +107,22 @@ export function Panel({ children }: { children: ReactNode }) {
 
 export function IconTile({ icon: Icon, color, background, size = 36, iconSize = 18 }: { icon: LucideIcon; color?: string; background?: string; size?: number; iconSize?: number }) {
   const colors = useAppTheme();
-  return <View style={{ width: size, height: size, borderRadius: Math.max(10, Math.round(size * 0.3)), borderWidth: 1, borderColor: background ?? colors.primarySoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: background ?? colors.primarySoft }}><Icon color={color ?? colors.primary} size={iconSize} strokeWidth={2.25} /></View>;
+  const iconColor = color ?? colors.primary;
+  return <View style={{
+    width: size,
+    height: size,
+    borderRadius: Math.max(10, Math.round(size * 0.3)),
+    borderWidth: 1,
+    borderColor: colors.mode === 'dark' ? colors.border : `${iconColor}24`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: background ?? colors.primarySoft,
+    shadowColor: iconColor,
+    shadowOpacity: Platform.OS === 'ios' || Platform.OS === 'web' ? 0.12 : 0,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: Platform.OS === 'android' ? 1 : 0,
+  }}><Icon color={iconColor} size={iconSize} strokeWidth={2.35} /></View>;
 }
 
 export function AppSwitch({ value, onValueChange, disabled = false, accessibilityLabel }: { value: boolean; onValueChange: (value: boolean) => void; disabled?: boolean; accessibilityLabel?: string }) {
@@ -161,7 +176,7 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
 
 export function SectionHeader({ icon: Icon, title, meta }: { icon: LucideIcon; title: string; meta?: string }) {
   const colors = useAppTheme();
-  return <View style={{ minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 8 }}><IconTile icon={Icon} size={30} iconSize={15} /><Text style={{ flex: 1, color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '700' }}>{title}</Text>{meta ? <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '700' }}>{meta}</Text></View> : null}</View>;
+  return <View style={{ minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 8 }}><IconTile icon={Icon} size={30} iconSize={15} /><Text style={{ flex: 1, color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '700' }}>{title}</Text>{meta ? <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>{meta}</Text></View> : null}</View>;
 }
 
 export function SheetHandle() {
@@ -178,6 +193,6 @@ export function SearchField({ value, onChangeText, placeholder }: { value: strin
 export function ServiceButton({ icon: Icon, label, detail, onPress, iconColor, iconBackground }: { icon: LucideIcon; label: string; detail: string; onPress: () => void; iconColor?: string; iconBackground?: string }) {
   const colors = useAppTheme();
   return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 160, minHeight: 82, padding: 11, borderRadius: 16, backgroundColor: pressed ? colors.mutedCard : colors.card, borderWidth: 1, borderColor: pressed ? colors.primary : iconBackground ?? colors.border, ...surfaceShadow(Platform.OS), opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={36} iconSize={18} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: '800', fontSize: 14, lineHeight: 19 }}>{label}</Text><Text numberOfLines={2} ellipsizeMode="tail" style={{ color: iconColor ?? colors.primary, fontSize: 12, lineHeight: 17, fontWeight: '600' }}>{detail}</Text></View></View>
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={36} iconSize={18} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: '800', fontSize: 14, lineHeight: 19 }}>{label}</Text><Text numberOfLines={2} ellipsizeMode="tail" style={{ color: iconColor ?? colors.primary, fontSize: 11, lineHeight: 17, fontWeight: '600' }}>{detail}</Text></View></View>
   </Pressable>;
 }

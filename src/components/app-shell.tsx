@@ -88,14 +88,14 @@ function Sidebar({ admin, managementMode }: { admin: boolean; managementMode: bo
   return <SafeAreaView edges={['top', 'bottom', 'left']} style={{ width: collapsed ? 72 : 218, backgroundColor: colors.card, borderRightWidth: 1, borderRightColor: colors.border }}>
     <View style={{ minHeight: 58, paddingHorizontal: collapsed ? 12 : 14, borderBottomWidth: 1, borderBottomColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9 }}>
       <Image source={require('../../assets/ai-proxy-mark.png')} resizeMode="contain" style={{ width: 28, height: 28 }} />
-      {!collapsed ? <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '800' }}>AI Proxy</Text><View style={{ alignSelf: 'flex-start', marginTop: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 12, backgroundColor: colors.warningBg }}><Text style={{ color: colors.warning, fontSize: 9, fontWeight: '700' }}>v{version}</Text></View></View> : null}
+      {!collapsed ? <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '800' }}>AI Proxy</Text><View style={{ alignSelf: 'flex-start', marginTop: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 12, backgroundColor: colors.warningBg }}><Text style={{ color: colors.warning, fontSize: 11, fontWeight: '700' }}>v{version}</Text></View></View> : null}
       <Pressable accessibilityLabel={collapsed ? '展开导航' : '收起导航'} onPress={() => setCollapsed((value) => !value)} style={{ width: 30, height: 30, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{collapsed ? <ChevronRight color={colors.subtext} size={15} /> : <ChevronLeft color={colors.subtext} size={15} />}</Pressable>
     </View>
 
     {canSwitchView && !collapsed ? <View style={{ margin: 12, padding: 3, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
       {([['admin', '管理视图', ServerCog], ['user', '用户视图', UserRound]] as const).map(([key, label, Icon]) => {
         const selected = mode === key;
-        return <Pressable key={key} onPress={() => changeMode(key)} style={{ flex: 1, minHeight: 32, borderRadius: 7, backgroundColor: selected ? colors.card : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Icon color={selected ? colors.primary : colors.subtext} size={13} /><Text style={{ color: selected ? colors.text : colors.subtext, fontSize: 10, fontWeight: selected ? '700' : '600' }}>{label}</Text></Pressable>;
+        return <Pressable key={key} onPress={() => changeMode(key)} style={{ flex: 1, minHeight: 32, borderRadius: 7, backgroundColor: selected ? colors.card : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Icon color={selected ? colors.primary : colors.subtext} size={13} /><Text style={{ color: selected ? colors.text : colors.subtext, fontSize: 11, fontWeight: selected ? '700' : '600' }}>{label}</Text></Pressable>;
       })}
     </View> : null}
 
@@ -103,8 +103,8 @@ function Sidebar({ admin, managementMode }: { admin: boolean; managementMode: bo
       {menu.map(({ label, icon: Icon, href }) => {
         const selected = pathname === cleanPath(href);
         return <Pressable key={`${mode}-${label}`} accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 42, borderRadius: 12, paddingHorizontal: collapsed ? 0 : 7, backgroundColor: selected ? colors.primarySoft : pressed ? colors.mutedCard : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8, opacity: pressed ? 0.68 : 1 })}>
-          <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: selected ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Icon color={selected ? colors.primary : colors.subtext} size={16} strokeWidth={selected ? 2.4 : 2} /></View>
-          {!collapsed ? <Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.subtext, fontSize: 12, fontWeight: selected ? '700' : '600' }}>{label}</Text> : null}
+          <View style={{ width: 30, height: 30, borderRadius: 10, borderWidth: selected ? 1 : 0, borderColor: colors.border, backgroundColor: selected ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: selected ? 0.1 : 0, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: selected ? 1 : 0 }}><Icon color={selected ? colors.primary : colors.subtext} size={16} strokeWidth={selected ? 2.4 : 2} /></View>
+          {!collapsed ? <Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: selected ? '700' : '600' }}>{label}</Text> : null}
         </Pressable>;
       })}
     </ScrollView>

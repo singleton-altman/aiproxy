@@ -134,7 +134,7 @@ function isRecord(value: unknown): value is ApiRecord {
 function FieldHeader({ name, onRemove }: { name: string; onRemove?: () => void }) {
   const colors = useAppTheme();
   return <View style={{ minHeight: 24, flexDirection: "row", alignItems: "center", gap: 8 }}>
-    <Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: "700" }}>{fieldLabel(name)}</Text>
+    <Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: "700" }}>{fieldLabel(name)}</Text>
     {onRemove ? <Pressable accessibilityLabel={`删除${fieldLabel(name)}`} onPress={onRemove} style={{ width: 28, height: 28, borderRadius: 12, alignItems: "center", justifyContent: "center" }}><Trash2 color={colors.danger} size={14} /></Pressable> : null}
   </View>;
 }
@@ -165,7 +165,7 @@ const NumericField = memo(function NumericField({ name, value, onChange, onRemov
       keyboardType="numeric"
       autoCapitalize="none"
       autoCorrect={false}
-      style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: 8, fontSize: 12 }}
+      style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: 8, fontSize: 11 }}
     />
   </View>;
 });
@@ -220,7 +220,7 @@ const PrimitiveField = memo(function PrimitiveField({
           paddingHorizontal: 12,
           paddingVertical: multiline ? 10 : 8,
           fontFamily: multiline && /content|template|config/i.test(name) ? "monospace" : undefined,
-          fontSize: 12,
+          fontSize: 11,
         }}
       />
     </View>
@@ -240,7 +240,7 @@ const AddField = memo(function AddField({ existingKeys, onAdd }: { existingKeys:
       style={{ height: 40, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}
     >
       <Plus color={colors.primary} size={15} />
-      <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>添加字段</Text>
+      <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}>添加字段</Text>
     </Pressable>
   );
   const options = [["text", "文本"], ["number", "数字"], ["switch", "开关"], ["object", "对象"], ["list", "列表"]] as const;
@@ -335,7 +335,7 @@ function RecordFields({ value, onChange, depth = 0 }: { value: ApiRecord; onChan
         <View key={key} style={{ gap: 7 }}>
           {isRecord(item) ? <>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: "800" }}>{fieldLabel(key)}</Text>
+              <Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: "800" }}>{fieldLabel(key)}</Text>
               <Pressable accessibilityLabel={`删除${fieldLabel(key)}`} onPress={() => removeField(key)}><Trash2 color={colors.danger} size={14} /></Pressable>
             </View>
             <RecordFields value={item} onChange={(nextItem) => onChange({ ...value, [key]: nextItem })} depth={depth + 1} />
@@ -356,7 +356,7 @@ export function StructuredDataView({ value, depth = 0 }: { value: unknown; depth
   const colors = useAppTheme();
   if (isRecord(value)) {
     const entries = Object.entries(value).filter(([key]) => !["ret", "msg"].includes(key));
-    if (!entries.length) return <Text style={{ color: colors.subtext, fontSize: 12 }}>暂无数据</Text>;
+    if (!entries.length) return <Text style={{ color: colors.subtext, fontSize: 11 }}>暂无数据</Text>;
     return <View style={{ gap: 9 }}>
       {entries.slice(0, 200).map(([key, item]) => <View key={key} style={{ gap: 5, paddingLeft: depth ? 10 : 0, borderLeftWidth: depth ? 1 : 0, borderLeftColor: colors.border }}>
         <Text style={{ color: colors.subtext, fontSize: 11, fontWeight: "700" }}>{fieldLabel(key)}</Text>
@@ -366,15 +366,15 @@ export function StructuredDataView({ value, depth = 0 }: { value: unknown; depth
     </View>;
   }
   if (Array.isArray(value)) {
-    if (!value.length) return <Text style={{ color: colors.subtext, fontSize: 12 }}>暂无项目</Text>;
+    if (!value.length) return <Text style={{ color: colors.subtext, fontSize: 11 }}>暂无项目</Text>;
     return <View style={{ gap: 8 }}>
       {value.slice(0, 200).map((item, index) => <View key={index} style={{ gap: 5, padding: 10, borderRadius: 12, backgroundColor: colors.mutedCard }}>
-        <Text style={{ color: colors.subtext, fontSize: 10, fontWeight: "700" }}>第 {index + 1} 项</Text>
+        <Text style={{ color: colors.subtext, fontSize: 11, fontWeight: "700" }}>第 {index + 1} 项</Text>
         <StructuredDataView value={item} depth={depth + 1} />
       </View>)}
       {value.length > 200 ? <Text style={{ color: colors.subtext, fontSize: 11, textAlign: "center" }}>仅显示前 200 项，共 {value.length} 项</Text> : null}
     </View>;
   }
   const text = typeof value === "boolean" ? (value ? "是" : "否") : value === null || value === undefined || value === "" ? "--" : String(value);
-  return <Text selectable style={{ color: colors.text, fontSize: 12, lineHeight: 18 }}>{text}</Text>;
+  return <Text selectable style={{ color: colors.text, fontSize: 11, lineHeight: 18 }}>{text}</Text>;
 }

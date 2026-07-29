@@ -131,7 +131,7 @@ function normalizedEmail(value: ApiRecord) {
 function ConfigField({ label, value, onChangeText, placeholder, numeric = false, multiline = false, secure = false }: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; numeric?: boolean; multiline?: boolean; secure?: boolean }) {
   const colors = useAppTheme();
   return <View style={{ gap: 6 }}>
-    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text>
+    <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text>
     <TextInput
       value={value}
       onChangeText={onChangeText}
@@ -143,7 +143,7 @@ function ConfigField({ label, value, onChangeText, placeholder, numeric = false,
       textAlignVertical={multiline ? 'top' : 'center'}
       autoCapitalize="none"
       autoCorrect={false}
-      style={{ minHeight: multiline ? 84 : 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: multiline ? 10 : 0, fontSize: 12, lineHeight: 18 }}
+      style={{ minHeight: multiline ? 84 : 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: multiline ? 10 : 0, fontSize: 11, lineHeight: 18 }}
     />
   </View>;
 }
@@ -151,14 +151,14 @@ function ConfigField({ label, value, onChangeText, placeholder, numeric = false,
 function ToggleRow({ label, detail, value, onChange }: { label: string; detail?: string; value: boolean; onChange: (value: boolean) => void }) {
   const colors = useAppTheme();
   return <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-    <View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text>{detail ? <Text style={{ color: colors.subtext, fontSize: 10 }}>{detail}</Text> : null}</View>
+    <View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text>{detail ? <Text style={{ color: colors.subtext, fontSize: 11 }}>{detail}</Text> : null}</View>
     <AppSwitch accessibilityLabel={label} value={value} onValueChange={onChange} />
   </View>;
 }
 
 function ChoiceRow({ value, options, onChange }: { value: string; options: readonly (readonly [string, string])[]; onChange: (value: string) => void }) {
   const colors = useAppTheme();
-  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>{options.map(([key, label]) => <Pressable key={key} onPress={() => onChange(key)} style={{ flexGrow: 1, flexBasis: options.length > 3 ? '44%' : 0, minHeight: 38, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: value === key ? colors.primary : colors.border, backgroundColor: value === key ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text></Pressable>)}</View>;
+  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>{options.map(([key, label]) => <Pressable key={key} onPress={() => onChange(key)} style={{ flexGrow: 1, flexBasis: options.length > 3 ? '44%' : 0, minHeight: 38, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: value === key ? colors.primary : colors.border, backgroundColor: value === key ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}</View>;
 }
 
 function Section({ icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
@@ -179,7 +179,7 @@ function SystemConfigForm({ draft, onChange }: { draft: ApiRecord; onChange: (va
       <ConfigField label="公开地址" value={String(server.public_url ?? '')} onChangeText={(value) => set('server', 'public_url', value)} placeholder="https://proxy.example.com" />
     </Section>
     <Section icon={Network} title="路由策略">
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>账号选择策略</Text>
+      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>账号选择策略</Text>
       <ChoiceRow value={String(routing.strategy ?? 'round_robin')} options={strategies} onChange={(value) => set('routing', 'strategy', value)} />
       <ToggleRow label="会话粘滞" detail="同一会话优先使用同一上游账号" value={Boolean(routing.session_affinity)} onChange={(value) => set('routing', 'session_affinity', value)} />
       <ConfigField label="最大账号切换次数" value={String(routing.max_account_switches ?? -1)} onChangeText={(value) => set('routing', 'max_account_switches', value)} numeric />
@@ -198,7 +198,7 @@ function SystemConfigForm({ draft, onChange }: { draft: ApiRecord; onChange: (va
     <Section icon={BarChart3} title="用量与日志">
       <ToggleRow label="启用用量统计" value={usage.enabled !== false} onChange={(value) => set('usage', 'enabled', value)} />
       <ConfigField label="聚合间隔（分钟）" value={String(usage.aggregation_minutes ?? usage.aggregation_interval ?? 0)} onChangeText={(value) => set('usage', 'aggregation_minutes', value)} numeric />
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>日志级别</Text>
+      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>日志级别</Text>
       <ChoiceRow value={String(logging.level ?? 'info')} options={[['debug', 'debug'], ['info', 'info'], ['warn', 'warn'], ['error', 'error']]} onChange={(value) => set('logging', 'level', value)} />
       <ConfigField label="日志保留天数" value={String(logging.retention_days ?? 0)} onChangeText={(value) => set('logging', 'retention_days', value)} numeric />
     </Section>
@@ -220,7 +220,7 @@ function EmailForm({ draft, onChange, scene, onSceneChange }: { draft: ApiRecord
       <ConfigField label="密码" value={String(draft.password ?? '')} onChangeText={(value) => set('password', value)} placeholder="留空保持当前密码" secure />
       <ConfigField label="发件地址" value={String(draft.from ?? '')} onChangeText={(value) => set('from', value)} />
       <ConfigField label="发件人名称" value={String(draft.from_name ?? '')} onChangeText={(value) => set('from_name', value)} />
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>连接安全</Text>
+      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>连接安全</Text>
       <ChoiceRow value={String(draft.security ?? 'starttls')} options={[['starttls', 'STARTTLS'], ['tls', 'TLS'], ['none', '无']]} onChange={(value) => set('security', value)} />
       <ConfigField label="验证码有效期（分钟）" value={String(draft.code_ttl_minutes ?? 10)} onChangeText={(value) => set('code_ttl_minutes', value)} numeric />
     </Section>
@@ -325,8 +325,8 @@ export default function AdminConfigScreen() {
     </Panel> : null}
 
     {query.data ? <View style={{ flexDirection: 'row', gap: 8 }}>
-      {tab === 'config' ? <Pressable disabled={busy} onPress={() => validate.mutate()} style={{ flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}><ShieldCheck color={colors.primary} size={15} /><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>校验</Text></Pressable> : null}
-      <Pressable disabled={busy || (tab === 'github' && !githubToken.trim())} onPress={() => save.mutate()} style={{ flex: 1, minHeight: 46, borderRadius: 12, backgroundColor: busy || (tab === 'github' && !githubToken.trim()) ? colors.disabled : colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>{save.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Save color="#fff" size={15} />}<Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>保存</Text></Pressable>
+      {tab === 'config' ? <Pressable disabled={busy} onPress={() => validate.mutate()} style={{ flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}><ShieldCheck color={colors.primary} size={15} /><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>校验</Text></Pressable> : null}
+      <Pressable disabled={busy || (tab === 'github' && !githubToken.trim())} onPress={() => save.mutate()} style={{ flex: 1, minHeight: 46, borderRadius: 12, backgroundColor: busy || (tab === 'github' && !githubToken.trim()) ? colors.disabled : colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>{save.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Save color="#fff" size={15} />}<Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>保存</Text></Pressable>
     </View> : null}
 
     <Modal visible={result !== undefined} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setResult(undefined)}>

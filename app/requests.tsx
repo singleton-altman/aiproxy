@@ -25,20 +25,20 @@ function RequestCard({ item }: { item: RequestLogItem }) {
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: failed ? colors.danger : colors.success }} />
       <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700', fontFamily: 'monospace' }}>{String(item.model ?? '未知模型')}</Text>
-      <Text style={{ color: failed ? colors.danger : colors.subtext, fontSize: 10, fontWeight: '700' }}>{statusText}</Text>
+      <Text style={{ color: failed ? colors.danger : colors.subtext, fontSize: 11, fontWeight: '700' }}>{statusText}</Text>
     </View>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Text style={{ flex: 1, color: colors.subtext, fontSize: 10 }}>{String(item.created_at ?? '')}</Text>
-      {typeof item.latency_ms === 'number' ? <Text style={{ color: colors.subtext, fontSize: 10, fontVariant: ['tabular-nums'] }}>{item.latency_ms} ms</Text> : null}
-      <Text style={{ color: colors.subtext, fontSize: 10, fontVariant: ['tabular-nums'] }}>{formatTokens(item)}</Text>
-      {typeof item.cost === 'number' ? <Text style={{ color: colors.warning, fontSize: 10, fontVariant: ['tabular-nums'] }}>{item.cost.toFixed(5)}</Text> : null}
+      <Text style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>{String(item.created_at ?? '')}</Text>
+      {typeof item.latency_ms === 'number' ? <Text style={{ color: colors.subtext, fontSize: 11, fontVariant: ['tabular-nums'] }}>{item.latency_ms} ms</Text> : null}
+      <Text style={{ color: colors.subtext, fontSize: 11, fontVariant: ['tabular-nums'] }}>{formatTokens(item)}</Text>
+      {typeof item.cost === 'number' ? <Text style={{ color: colors.warning, fontSize: 11, fontVariant: ['tabular-nums'] }}>{item.cost.toFixed(5)}</Text> : null}
     </View>
     {expanded ? <View style={{ borderTopWidth: 1, borderTopColor: colors.rowBorder, paddingTop: 8, gap: 4 }}>
       {([['请求 ID', item.id], ['提供方', item.provider], ['输入 Token', item.prompt_tokens], ['输出 Token', item.completion_tokens], ['API Key', item.api_key_id]] as const)
         .filter(([, value]) => value !== undefined && value !== null && value !== '')
         .map(([label, value]) => <View key={label} style={{ flexDirection: 'row', gap: 10 }}>
-          <Text style={{ width: 76, color: colors.subtext, fontSize: 10 }}>{label}</Text>
-          <Text selectable style={{ flex: 1, color: colors.text, fontSize: 10, fontFamily: 'monospace' }}>{String(value)}</Text>
+          <Text style={{ width: 76, color: colors.subtext, fontSize: 11 }}>{label}</Text>
+          <Text selectable style={{ flex: 1, color: colors.text, fontSize: 11, fontFamily: 'monospace' }}>{String(value)}</Text>
         </View>)}
       {item.error ? <Text selectable style={{ color: colors.danger, fontSize: 11, lineHeight: 16 }}>{String(item.error)}</Text> : null}
     </View> : null}
@@ -66,7 +66,7 @@ export default function RequestsScreen() {
   return <Page title="请求日志" subtitle="网关调用记录" icon={ScrollText} safeTop={false} scrollable={false} refreshing={query.isRefetching} onRefresh={() => query.refetch()}>
     <SearchField value={search} onChangeText={setSearch} placeholder="搜索模型或关键词，回车提交" />
     <Pressable onPress={() => setSubmittedSearch(search.trim())} style={{ minHeight: 36, borderRadius: 10, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-      <Search color={colors.primary} size={14} /><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>搜索</Text>
+      <Search color={colors.primary} size={14} /><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>搜索</Text>
     </Pressable>
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
     <FlatList

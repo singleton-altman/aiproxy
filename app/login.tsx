@@ -197,7 +197,7 @@ export default function LoginScreen() {
             const selected = mode === key;
             return <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => { setMode(key); setError(''); setNotice(''); }} style={{ flex: 1, minHeight: 40, borderRadius: 10, backgroundColor: selected ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
               <Icon color={selected ? colors.primary : colors.subtext} size={15} />
-              <Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text>
+              <Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text>
             </Pressable>;
           })}
       </View>

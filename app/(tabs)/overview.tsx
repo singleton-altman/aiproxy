@@ -23,8 +23,9 @@ import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
+import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
 import { useAppTheme } from '@/src/lib/theme';
-import { getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
+import { getApiKeys, getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
   getAdminRealtimeUsage,
   getAdminStatsOverview,
@@ -128,10 +129,10 @@ function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, 
   return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 84, borderRadius: 14, borderWidth: 1, borderColor: iconBackground, backgroundColor: colors.card, paddingHorizontal: 9, paddingVertical: 8, justifyContent: 'space-between', gap: 2 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <IconTile icon={Icon} size={24} iconSize={13} color={accent} background={iconBackground} />
-      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12, lineHeight: 16, fontWeight: '700' }}>{label}</Text>
+      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11, lineHeight: 16, fontWeight: '700' }}>{label}</Text>
     </View>
     <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 20, lineHeight: 24, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 12, lineHeight: 16, fontWeight: '700' }}>{detail}</Text> : null}
+    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 11, lineHeight: 16, fontWeight: '700' }}>{detail}</Text> : null}
   </View>;
 }
 
@@ -173,7 +174,7 @@ function RequestTrendChart({ items, range }: { items: UsageTrendItem[]; range: D
         const label = Math.round(top * index / 4);
         return <Fragment key={index}>
           <Line x1={plotLeft} x2={plotRight} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" />
-          <SvgText x="21" y={y + 4} fill={colors.subtext} fontSize="9" textAnchor="end">{label}</SvgText>
+          <SvgText x="21" y={y + 4} fill={colors.subtext} fontSize="11" textAnchor="end">{label}</SvgText>
         </Fragment>;
       })}
       {chartItems.map((item, index) => {
@@ -184,7 +185,7 @@ function RequestTrendChart({ items, range }: { items: UsageTrendItem[]; range: D
         const showLabel = index % labelStep === 0 || index === chartItems.length - 1;
         return <Fragment key={`${label}-${index}`}>
           <Rect x={x} y={plotBottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />
-          {showLabel ? <SvgText x={x + barWidth / 2} y="201" fill={colors.subtext} fontSize="9" textAnchor="middle">{label}</SvgText> : null}
+          {showLabel ? <SvgText x={x + barWidth / 2} y="201" fill={colors.subtext} fontSize="11" textAnchor="middle">{label}</SvgText> : null}
         </Fragment>;
       })}
     </Svg>
@@ -208,7 +209,7 @@ function DimensionHeader({ title, icon: Icon, count, accent, background }: { tit
     <IconTile icon={Icon} size={32} iconSize={16} color={accent} background={background} />
     <Text style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 15, lineHeight: 20, fontWeight: '800' }}>{title}</Text>
     <View style={{ minHeight: 26, paddingHorizontal: 8, borderRadius: 8, backgroundColor: background, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: accent, fontSize: 12, lineHeight: 16, fontWeight: '800' }}>{count} 项</Text>
+      <Text style={{ color: accent, fontSize: 11, lineHeight: 16, fontWeight: '800' }}>{count} 项</Text>
     </View>
   </View>;
 }
@@ -221,20 +222,20 @@ function RankingPanel({ title, icon, items, type, wide }: { title: string; icon:
     <DimensionHeader title={title} icon={icon} count={items.length} accent={colors.primary} background={colors.primarySoft} />
     {visible.length ? <>
       <View style={{ minHeight: 34, paddingHorizontal: 8, borderRadius: 9, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Text style={{ flex: 1, minWidth: 0, color: colors.primary, fontSize: 12, fontWeight: '800' }}>用户</Text>
-        <Text style={{ width: 46, color: colors.cyan, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>请求</Text>
-        <Text style={{ width: 58, color: colors.warning, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>Token</Text>
-        <Text style={{ width: 68, color: colors.success, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>费用</Text>
+        <Text style={{ flex: 1, minWidth: 0, color: colors.primary, fontSize: 11, fontWeight: '800' }}>用户</Text>
+        <Text style={{ width: 46, color: colors.cyan, fontSize: 11, fontWeight: '800', textAlign: 'right' }}>请求</Text>
+        <Text style={{ width: 58, color: colors.warning, fontSize: 11, fontWeight: '800', textAlign: 'right' }}>Token</Text>
+        <Text style={{ width: 68, color: colors.success, fontSize: 11, fontWeight: '800', textAlign: 'right' }}>费用</Text>
       </View>
       {visible.map((item, index) => {
         const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
         const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
         const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
         return <View key={`${rankingName(item, type, index)}-${index}`} style={{ minHeight: 44, paddingHorizontal: 8, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 12, fontWeight: '800' }}>{rankingName(item, type, index)}</Text>
-          <Text style={{ width: 46, color: colors.cyan, fontSize: 12, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
-          <Text style={{ width: 58, color: colors.warning, fontSize: 12, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
-          <Text style={{ width: 68, color: colors.success, fontSize: 12, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: '800' }}>{rankingName(item, type, index)}</Text>
+          <Text style={{ width: 46, color: colors.cyan, fontSize: 11, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
+          <Text style={{ width: 58, color: colors.warning, fontSize: 11, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
+          <Text style={{ width: 68, color: colors.success, fontSize: 11, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>;
       })}
     </> : <EmptyState embedded icon={icon} message="暂无用户数据" />}
@@ -247,9 +248,9 @@ function RankingPanel({ title, icon, items, type, wide }: { title: string; icon:
       const width = `${Math.max(3, maxCost ? cost / maxCost * 100 : 3)}%` as `${number}%`;
       return <View key={`${rankingName(item, type, index)}-${index}`} style={{ gap: 6 }}>
         <View style={{ minHeight: 22, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{rankingName(item, type, index)}</Text>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>{formatNumber(requests)} 次</Text>
-          <Text style={{ minWidth: 62, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+          <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>{rankingName(item, type, index)}</Text>
+          <Text style={{ color: colors.subtext, fontSize: 11 }}>{formatNumber(requests)} 次</Text>
+          <Text style={{ minWidth: 62, color: colors.text, fontSize: 11, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>
         <View style={{ height: 3, borderRadius: 2, backgroundColor: colors.chartTrack, overflow: 'hidden' }}><View style={{ width, height: 3, borderRadius: 2, backgroundColor: colors.cyan }} /></View>
       </View>;
@@ -260,27 +261,8 @@ function RankingPanel({ title, icon, items, type, wide }: { title: string; icon:
 
 type BreakdownType = 'provider' | 'account' | 'apiKey';
 
-function maskedApiKeyPrefix(value: unknown) {
-  if (typeof value !== 'string' && typeof value !== 'number') return '';
-  const text = String(value).trim();
-  if (!text) return '';
-  if (text.includes('*') || text.includes('...')) return text.length > 22 ? `${text.slice(0, 19)}...` : text;
-  return `${text.slice(0, 10)}...`;
-}
-
 function breakdownName(item: ApiRecord, type: BreakdownType, index: number) {
-  if (type === 'apiKey') {
-    const named = [item.api_key_name, item.key_name, item.name, item.label].find((candidate) => {
-      if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
-      const text = String(candidate).trim();
-      return text
-        && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)
-        && !/^(?:sk|aps|key)[-_][a-z0-9_-]{12,}$/i.test(text);
-    });
-    if (named !== undefined) return String(named);
-    const prefix = [item.prefix, item.key_prefix, item.preview].map(maskedApiKeyPrefix).find(Boolean);
-    return prefix || `API Key ${index + 1}`;
-  }
+  if (type === 'apiKey') return apiKeyDisplayName(item);
   const candidates = type === 'provider'
     ? [item.provider_name, item.provider, item.name, item.id]
     : [item.account_name, item.account, item.email, item.label, item.name];
@@ -310,14 +292,14 @@ function BreakdownTable({ title, icon, items, type }: { title: string; icon: Luc
       return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 76, paddingVertical: 11, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 9 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 13, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
-          <View style={{ maxWidth: '34%', minHeight: 26, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.cyanBg, alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: colors.cyan, fontSize: 12, fontWeight: '800' }}>{String(item.provider_name ?? item.provider ?? '--')}</Text></View>
+          <View style={{ maxWidth: '34%', minHeight: 26, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.cyanBg, alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: colors.cyan, fontSize: 11, fontWeight: '800' }}>{String(item.provider_name ?? item.provider ?? '--')}</Text></View>
           <Text style={{ minWidth: 70, color: colors.success, fontSize: 13, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 7 }}>
-          <Text style={{ color: colors.subtext, fontSize: 12 }}>请求 <Text style={{ color: colors.cyan, fontWeight: '800' }}>{formatNumber(requests)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 12 }}>Token <Text style={{ color: colors.warning, fontWeight: '800' }}>{formatNumber(tokens)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 12 }}>失败 <Text style={{ color: failed ? colors.danger : colors.text, fontWeight: '800' }}>{formatNumber(failed)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 12 }}>成功率 <Text style={{ color: failed ? colors.danger : colors.success, fontWeight: '800' }}>{successRate.toFixed(1)}%</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 11 }}>请求 <Text style={{ color: colors.cyan, fontWeight: '800' }}>{formatNumber(requests)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 11 }}>Token <Text style={{ color: colors.warning, fontWeight: '800' }}>{formatNumber(tokens)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 11 }}>失败 <Text style={{ color: failed ? colors.danger : colors.text, fontWeight: '800' }}>{formatNumber(failed)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 11 }}>成功率 <Text style={{ color: failed ? colors.danger : colors.success, fontWeight: '800' }}>{successRate.toFixed(1)}%</Text></Text>
         </View>
       </View>;
     }) : <EmptyState embedded icon={icon} message="暂无账号数据" />}
@@ -327,20 +309,20 @@ function BreakdownTable({ title, icon, items, type }: { title: string; icon: Luc
     <DimensionHeader title={title} icon={icon} count={items.length} accent={accent} background={accentBackground} />
     {visible.length ? <>
       <View style={{ minHeight: 34, paddingHorizontal: 7, borderRadius: 9, backgroundColor: accentBackground, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Text style={{ flex: 1, minWidth: 0, color: accent, fontSize: 12, fontWeight: '800' }}>{firstColumn}</Text>
-        <Text style={{ width: 46, color: colors.cyan, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>请求</Text>
-        <Text style={{ width: 58, color: colors.warning, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>Token</Text>
-        <Text style={{ width: 68, color: colors.success, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>费用</Text>
+        <Text style={{ flex: 1, minWidth: 0, color: accent, fontSize: 11, fontWeight: '800' }}>{firstColumn}</Text>
+        <Text style={{ width: 46, color: colors.cyan, fontSize: 11, fontWeight: '800', textAlign: 'right' }}>请求</Text>
+        <Text style={{ width: 58, color: colors.warning, fontSize: 11, fontWeight: '800', textAlign: 'right' }}>Token</Text>
+        <Text style={{ width: 68, color: colors.success, fontSize: 11, fontWeight: '800', textAlign: 'right' }}>费用</Text>
       </View>
       {visible.map((item, index) => {
         const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
         const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
         const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
         return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 44, paddingHorizontal: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 12, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
-          <Text style={{ width: 46, color: colors.cyan, fontSize: 12, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
-          <Text style={{ width: 58, color: colors.warning, fontSize: 12, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
-          <Text style={{ width: 68, color: colors.success, fontSize: 12, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
+          <Text style={{ width: 46, color: colors.cyan, fontSize: 11, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
+          <Text style={{ width: 58, color: colors.warning, fontSize: 11, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
+          <Text style={{ width: 68, color: colors.success, fontSize: 11, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>;
       })}
     </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : 'API Key'}数据`} />}
@@ -421,6 +403,14 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     ...dashboardQueryDefaults,
     refetchInterval: screenFocused ? 60_000 : false,
   });
+  const apiKeyDirectory = useQuery({
+    queryKey: ['keys'],
+    queryFn: ({ signal }) => getApiKeys(signal),
+    enabled: admin && sessionState.mode !== 'management',
+    retry: 0,
+    ...dashboardQueryDefaults,
+    refetchInterval: screenFocused ? 60_000 : false,
+  });
 
   useFocusEffect(useCallback(() => {
     setScreenFocused(true);
@@ -432,7 +422,10 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     if (refreshing) return;
     setRefreshing(true);
     const requests = [overview.refetch(), trend.refetch()];
-    if (admin) requests.push(realtime.refetch(), analysis.refetch(), accountDirectory.refetch());
+    if (admin) {
+      requests.push(realtime.refetch(), analysis.refetch(), accountDirectory.refetch());
+      if (sessionState.mode !== 'management') requests.push(apiKeyDirectory.refetch());
+    }
     else requests.push(models.refetch());
     void Promise.allSettled(requests).finally(() => setRefreshing(false));
   };
@@ -452,7 +445,10 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     : models.data ?? []).map((item) => item as ModelItem & ApiRecord), [admin, analysis.data, models.data]);
   const userItems = useMemo(() => nestedRecords(analysis.data, ['users', 'by_user', 'user_usage']), [analysis.data]);
   const providerItems = useMemo(() => nestedRecords(analysis.data, ['by_provider', 'providers', 'provider_usage']), [analysis.data]);
-  const apiKeyItems = useMemo(() => nestedRecords(analysis.data, ['by_api_key', 'by_api_keys', 'by_key', 'api_key_usage', 'key_usage', 'api_keys']), [analysis.data]);
+  const apiKeyItems = useMemo(() => enrichApiKeyUsage(
+    nestedRecords(analysis.data, ['by_api_key', 'by_api_keys', 'by_key', 'api_key_usage', 'key_usage', 'api_keys']),
+    (apiKeyDirectory.data ?? []).map((item) => item as ApiRecord),
+  ), [analysis.data, apiKeyDirectory.data]);
   const accountItems = useMemo(() => {
     const directory = new Map<string, ApiRecord>();
     for (const account of accountDirectory.data ?? []) {
@@ -484,7 +480,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ color: colors.text, fontSize: 24, lineHeight: 31, fontWeight: '800' }}>{admin ? '全站用量' : '用量概览'}</Text>
-        <Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>{admin ? `${rangeLabel}全站流量、成本与服务质量。` : `${rangeLabel}调用与消费情况。`}</Text>
+        <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 18 }}>{admin ? `${rangeLabel}全站流量、成本与服务质量。` : `${rangeLabel}调用与消费情况。`}</Text>
       </View>
       {admin ? <Pressable onPress={() => router.push('/admin-stats' as never)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.64 : 1 })}><BarChart3 color={colors.text} size={15} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>完整统计</Text></Pressable> : null}
       <Pressable accessibilityLabel="刷新" disabled={refreshing} onPress={refresh} style={{ width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>{refreshing ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={16} />}</Pressable>
@@ -518,7 +514,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
       </View>
 
       {admin ? <View style={{ gap: 6 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '600' }}>实时流量（近 15 分钟）</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>实时流量（近 15 分钟）</Text></View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           <MetricCard label="请求数" value={formatNumber(firstNumber(live, ['request_count', 'total_requests', 'requests']))} icon={Activity} accent={colors.cyan} iconBackground={colors.cyanBg} basis={realtimeMetricBasis} />
           <MetricCard label="Token 数" value={formatNumber(firstNumber(live, ['total_tokens', 'tokens']))} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={realtimeMetricBasis} />

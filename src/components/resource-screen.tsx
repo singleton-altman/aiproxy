@@ -180,7 +180,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
         onPress={() => void runAction(action, {})}
         style={{ flexGrow: 1, minHeight: 40, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: action.danger ? colors.danger : colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}
       >
-        {busyAction === action.key ? <ActivityIndicator color={colors.primary} /> : <Text style={{ color: action.danger ? colors.danger : colors.primary, fontSize: 12, fontWeight: '700' }}>{action.label}</Text>}
+        {busyAction === action.key ? <ActivityIndicator color={colors.primary} /> : <Text style={{ color: action.danger ? colors.danger : colors.primary, fontSize: 11, fontWeight: '700' }}>{action.label}</Text>}
       </Pressable>)}
     </View> : null}
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
@@ -210,10 +210,10 @@ export function ResourceScreen(props: ResourceScreenProps) {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>{props.titleOf(item)}</Text>
               {badge && tone ? <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, backgroundColor: tone.bg }}>
-                <Text style={{ color: tone.fg, fontSize: 9, fontWeight: '800' }}>{badge.text}</Text>
+                <Text style={{ color: tone.fg, fontSize: 11, fontWeight: '800' }}>{badge.text}</Text>
               </View> : null}
             </View>
-            {props.subtitleOf ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 10, lineHeight: 15 }}>{props.subtitleOf(item)}</Text> : null}
+            {props.subtitleOf ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 11, lineHeight: 15 }}>{props.subtitleOf(item)}</Text> : null}
           </View>
         </Pressable>;
       }}
@@ -249,7 +249,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
               onPress={() => void runAction(action, selected)}
               style={{ flexGrow: 1, minHeight: 40, paddingHorizontal: 12, borderRadius: 11, backgroundColor: action.danger ? colors.dangerBg : colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}
             >
-              {busyAction === action.key ? <ActivityIndicator color={action.danger ? colors.danger : colors.primary} /> : <Text style={{ color: action.danger ? colors.danger : colors.primary, fontSize: 12, fontWeight: '800' }}>{action.label}</Text>}
+              {busyAction === action.key ? <ActivityIndicator color={action.danger ? colors.danger : colors.primary} /> : <Text style={{ color: action.danger ? colors.danger : colors.primary, fontSize: 11, fontWeight: '800' }}>{action.label}</Text>}
             </Pressable>)}
           </View> : null}
 
@@ -282,7 +282,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
               ? activeForm.renderForm({ value: formValue, mode: formVisible as 'create' | 'edit', onChange: (value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); } })
               : <StructuredForm value={formValue} onChange={(value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); }} />}
           </ScrollView>
-          {formMutation.error ? <Text style={{ color: colors.danger, fontSize: 12 }}>{formMutation.error.message}</Text> : null}
+          {formMutation.error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{formMutation.error.message}</Text> : null}
           <Pressable disabled={formMutation.isPending} onPress={() => formMutation.mutate()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: formMutation.isPending ? colors.disabled : colors.primary, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>{formMutation.isPending ? '提交中…' : activeForm?.submitLabel ?? '提交'}</Text>
           </Pressable>

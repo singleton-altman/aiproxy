@@ -23,7 +23,7 @@ export type ApiResult = {
   kind: 'json' | 'text' | 'binary' | 'empty';
   data?: unknown;
   byteLength?: number;
-  blob?: Blob;
+  bytes?: Uint8Array<ArrayBuffer>;
 };
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
@@ -195,9 +195,9 @@ export async function apiFetch(path: string, options: ApiRequestOptions = {}): P
     let result: ApiResult | undefined;
     if (response.status === 204 || response.headers.get('content-length') === '0') {
       result = { status: response.status, contentType, filename, kind: 'empty' };
-    } else if (responseType === 'blob' && response.ok && !contentType.includes('application/json') && !contentType.includes('+json')) {
-      const blob = await response.blob();
-      return { status: response.status, contentType, filename, kind: 'binary', byteLength: blob.size, blob };
+    } else if (responseType === 'blob' && response.ok) {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return { status: response.status, contentType, filename, kind: 'binary', byteLength: bytes.byteLength, bytes };
     } else if (contentType.includes('application/json') || contentType.includes('+json') || responseType === 'json') {
       const raw = await response.text();
       try {
@@ -222,12 +222,12 @@ export async function apiFetch(path: string, options: ApiRequestOptions = {}): P
           ? { status: response.status, contentType, filename, kind: 'text', data: payload }
           : { status: response.status, contentType, filename, kind: 'json', data: payload };
     } else {
-      const blob = await response.blob();
       if (!response.ok) {
-        const detail = blob.size <= 65536 ? (await blob.text()).trim() : '';
+        const detail = (await response.text()).trim();
         throw new Error(extractErrorMessage(detail, httpErrorMessage(response.status)));
       }
-      return { status: response.status, contentType, filename, kind: 'binary', byteLength: blob.size, blob };
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return { status: response.status, contentType, filename, kind: 'binary', byteLength: bytes.byteLength, bytes };
     }
 
     if (isAuthFailure(response.status, payload)) {

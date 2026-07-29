@@ -57,14 +57,14 @@ function normalizedUrl(value: string) {
 function ProviderField({ label, value, placeholder, onChangeText }: { label: string; value: string; placeholder?: string; onChangeText: (value: string) => void }) {
   const colors = useAppTheme();
   return <View style={{ gap: 7 }}>
-    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text>
+    <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text>
     <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, fontSize: 13 }} />
   </View>;
 }
 
 function ToggleRow({ label, detail, value, onChange }: { label: string; detail: string; value: boolean; onChange: (value: boolean) => void }) {
   const colors = useAppTheme();
-  return <View style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text><Text style={{ color: colors.subtext, fontSize: 10, lineHeight: 15, marginTop: 2 }}>{detail}</Text></View><AppSwitch accessibilityLabel={label} value={value} onValueChange={onChange} /></View>;
+  return <View style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text><Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 15, marginTop: 2 }}>{detail}</Text></View><AppSwitch accessibilityLabel={label} value={value} onValueChange={onChange} /></View>;
 }
 
 function ProviderForm({ value, onChange, mode }: { value: ApiRecord; onChange: (value: ApiRecord) => void; mode: 'create' | 'edit' }) {
@@ -94,33 +94,33 @@ function ProviderForm({ value, onChange, mode }: { value: ApiRecord; onChange: (
   };
 
   return <View style={{ gap: 14 }}>
-    {mode === 'edit' ? <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, padding: 11, gap: 3 }}><Text style={{ color: colors.text, fontFamily: 'monospace', fontSize: 12, fontWeight: '800' }}>{identifier}</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>标识已用于账号和路由，编辑时不可修改</Text></View> : null}
+    {mode === 'edit' ? <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, padding: 11, gap: 3 }}><Text style={{ color: colors.text, fontFamily: 'monospace', fontSize: 11, fontWeight: '800' }}>{identifier}</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>标识已用于账号和路由，编辑时不可修改</Text></View> : null}
     <ProviderField label="显示名称" value={displayName} placeholder="比如：智谱备用" onChangeText={(next) => update('display_name', next)} />
-    {mode === 'create' ? <View style={{ paddingHorizontal: 2, gap: 3 }}><Text style={{ color: colors.subtext, fontSize: 10 }}>标识 <Text style={{ color: colors.primary, fontFamily: 'monospace', fontWeight: '700' }}>{identifier}</Text></Text><Text style={{ color: colors.subtext, fontSize: 10, lineHeight: 15 }}>根据显示名称自动生成，用于路由，创建后不可修改。</Text></View> : null}
+    {mode === 'create' ? <View style={{ paddingHorizontal: 2, gap: 3 }}><Text style={{ color: colors.subtext, fontSize: 11 }}>标识 <Text style={{ color: colors.primary, fontFamily: 'monospace', fontWeight: '700' }}>{identifier}</Text></Text><Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 15 }}>根据显示名称自动生成，用于路由，创建后不可修改。</Text></View> : null}
 
     <View style={{ gap: 8 }}>
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>协议与地址</Text>
+      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>协议与地址</Text>
       {protocols.map(({ value: protocol, label }) => {
         const selected = selectedProtocols.includes(protocol);
         return <View key={protocol} style={{ gap: 6 }}>
           <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => toggleProtocol(protocol)} style={{ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {selected ? <CheckCircle2 color={colors.primary} size={18} /> : <Square color={colors.disabled} size={18} />}
-            <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text>
+            <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text>
           </Pressable>
-          <TextInput editable={selected} value={providerProtocolUrl(value, protocol)} onChangeText={(next) => setProtocolUrl(protocol, next)} placeholder={selected ? 'https://api.example.com' : '勾选后可填写'} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} keyboardType="url" style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: selected ? colors.card : colors.mutedCard, color: selected ? colors.text : colors.subtext, paddingHorizontal: 12, fontSize: 12, fontFamily: 'monospace', opacity: selected ? 1 : 0.6 }} />
+          <TextInput editable={selected} value={providerProtocolUrl(value, protocol)} onChangeText={(next) => setProtocolUrl(protocol, next)} placeholder={selected ? 'https://api.example.com' : '勾选后可填写'} placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} keyboardType="url" style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: selected ? colors.card : colors.mutedCard, color: selected ? colors.text : colors.subtext, paddingHorizontal: 12, fontSize: 11, fontFamily: 'monospace', opacity: selected ? 1 : 0.6 }} />
         </View>;
       })}
-      <Text style={{ color: colors.subtext, fontSize: 9, lineHeight: 14 }}>可同时启用多个兼容协议，并为每个协议配置独立地址。</Text>
+      <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 14 }}>可同时启用多个兼容协议，并为每个协议配置独立地址。</Text>
     </View>
 
     <View style={{ gap: 8 }}>
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>模型列表</Text>
+      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>模型列表</Text>
       <View style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingLeft: 12, flexDirection: 'row', alignItems: 'center' }}><TextInput value={modelDraft} onChangeText={setModelDraft} onSubmitEditing={addModels} returnKeyType="done" placeholder="输入模型 ID，回车添加" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ flex: 1, color: colors.text, fontSize: 13, paddingVertical: 9 }} /><Pressable accessibilityLabel="添加模型" onPress={addModels} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><Plus color={colors.primary} size={17} /></Pressable></View>
-      {models.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{models.map((model) => <View key={model} style={{ minHeight: 32, maxWidth: '100%', paddingLeft: 10, borderRadius: 10, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 3 }}><Text numberOfLines={1} style={{ maxWidth: 230, color: colors.primary, fontSize: 11, fontFamily: 'monospace', fontWeight: '700' }}>{model}</Text><Pressable accessibilityLabel={`移除模型 ${model}`} onPress={() => update('models', models.filter((item) => item !== model))} style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}><X color={colors.primary} size={13} /></Pressable></View>)}</View> : <Text style={{ color: colors.subtext, fontSize: 9 }}>留空时由上游模型接口自动收录。</Text>}
+      {models.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{models.map((model) => <View key={model} style={{ minHeight: 32, maxWidth: '100%', paddingLeft: 10, borderRadius: 10, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 3 }}><Text numberOfLines={1} style={{ maxWidth: 230, color: colors.primary, fontSize: 11, fontFamily: 'monospace', fontWeight: '700' }}>{model}</Text><Pressable accessibilityLabel={`移除模型 ${model}`} onPress={() => update('models', models.filter((item) => item !== model))} style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}><X color={colors.primary} size={13} /></Pressable></View>)}</View> : <Text style={{ color: colors.subtext, fontSize: 11 }}>留空时由上游模型接口自动收录。</Text>}
     </View>
 
     <View style={{ borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
-      <Pressable onPress={() => setAdvanced((current) => !current)} style={{ minHeight: 46, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>高级选项</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{advanced ? '收起' : '展开'}</Text>{advanced ? <ChevronUp color={colors.subtext} size={15} /> : <ChevronDown color={colors.subtext} size={15} />}</Pressable>
+      <Pressable onPress={() => setAdvanced((current) => !current)} style={{ minHeight: 46, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>高级选项</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>{advanced ? '收起' : '展开'}</Text>{advanced ? <ChevronUp color={colors.subtext} size={15} /> : <ChevronDown color={colors.subtext} size={15} />}</Pressable>
       {advanced ? <View style={{ paddingHorizontal: 12, paddingBottom: 12, borderTopWidth: 1, borderTopColor: colors.rowBorder, gap: 8 }}>
         <ToggleRow label="Cloudflare TLS" detail="上游位于 Cloudflare 后且 TLS 握手异常时启用。" value={value.cloudflare_tls === true} onChange={(next) => update('cloudflare_tls', next)} />
         <ToggleRow label="中转号池" detail="上游是 new-api 一类号池时启用。" value={value.pooled_upstream === true} onChange={(next) => update('pooled_upstream', next)} />

@@ -41,20 +41,20 @@ export default function SettingsScreen() {
         <IconTile icon={Server} size={46} iconSize={22} />
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>{identity}</Text>
-          <Text selectable numberOfLines={2} style={{ color: colors.subtext, marginTop: 4, fontSize: 12 }}>{session.baseUrl}</Text>
+          <Text selectable numberOfLines={2} style={{ color: colors.subtext, marginTop: 4, fontSize: 11 }}>{session.baseUrl}</Text>
         </View>
         <View style={{ paddingHorizontal: 9, paddingVertical: 5, borderRadius: 9, backgroundColor: colors.primarySoft }}>
-          <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>{role}</Text>
+          <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>{role}</Text>
         </View>
       </View>
       <View style={{ borderTopWidth: 1, borderTopColor: colors.rowBorder, paddingTop: 12, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
           <IconTile icon={UserRound} color={colors.subtext} background={colors.mutedCard} size={28} iconSize={14} />
-          <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{credentialDetail}</Text>
+          <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>{credentialDetail}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
           <IconTile icon={KeyRound} color={colors.subtext} background={colors.mutedCard} size={28} iconSize={14} />
-          <Text style={{ color: colors.subtext, fontSize: 12 }}>凭据由设备安全存储保护</Text>
+          <Text style={{ color: colors.subtext, fontSize: 11 }}>凭据由设备安全存储保护</Text>
         </View>
       </View>
       {session.mode === 'session' ? <Pressable onPress={() => router.push('/profile' as never)} style={({ pressed }) => ({ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 9, opacity: pressed ? 0.62 : 1 })}>

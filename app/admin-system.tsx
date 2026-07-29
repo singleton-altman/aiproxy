@@ -114,8 +114,8 @@ function FieldGrid({ fields }: { fields: Array<[string, unknown]> }) {
   const colors = useAppTheme();
   return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
     {fields.map(([label, value]) => <View key={label} style={{ flexGrow: 1, flexBasis: '46%', minWidth: 0, minHeight: 54, borderRadius: 12, backgroundColor: colors.mutedCard, paddingHorizontal: 10, paddingVertical: 8, gap: 3 }}>
-      <Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text>
-      <Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 12, lineHeight: 17, fontWeight: '700' }}>{displayValue(value)}</Text>
+      <Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{label}</Text>
+      <Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 11, lineHeight: 17, fontWeight: '700' }}>{displayValue(value)}</Text>
     </View>)}
   </View>;
 }
@@ -123,7 +123,7 @@ function FieldGrid({ fields }: { fields: Array<[string, unknown]> }) {
 function ActionButton({ action, icon: Icon, color, busy, pending, onPress }: { action: SystemAction; icon: typeof Power; color: string; busy: boolean; pending: boolean; onPress: () => void }) {
   return <Pressable disabled={busy} onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 140, minHeight: 42, paddingHorizontal: 10, borderRadius: 12, backgroundColor: color, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: busy ? 0.55 : pressed ? 0.72 : 1 })}>
     {pending ? <ActivityIndicator color="#fff" size="small" /> : <Icon color="#fff" size={15} />}
-    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>{actionLabels[action]}</Text>
+    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{actionLabels[action]}</Text>
   </Pressable>;
 }
 
@@ -180,7 +180,7 @@ function OverviewTab({ active }: { active: boolean }) {
 
     <Panel>
       <SectionHeader icon={ArrowDownToLine} title="版本更新" meta={hasUpdate === true ? '有新版本' : hasUpdate === false ? '已是最新' : undefined} />
-      {updateQuery.error ? <Text style={{ color: colors.danger, fontSize: 12 }}>更新检查暂不可用：{updateQuery.error.message}</Text> : null}
+      {updateQuery.error ? <Text style={{ color: colors.danger, fontSize: 11 }}>更新检查暂不可用：{updateQuery.error.message}</Text> : null}
       {updateQuery.isFetching && !updateQuery.data ? <ActivityIndicator color={colors.primary} /> : <FieldGrid fields={[
         ['当前版本', currentVersion],
         ['最新版本', latestVersion],
@@ -188,14 +188,14 @@ function OverviewTab({ active }: { active: boolean }) {
 
       {notes ? <Pressable onPress={() => setNotesVisible(true)} style={({ pressed }) => ({ minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}>
         <FileText color={colors.primary} size={15} />
-        <Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>查看更新说明</Text>
+        <Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>查看更新说明</Text>
         <ChevronRight color={colors.subtext} size={15} />
       </Pressable> : null}
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <Pressable disabled={updateQuery.isFetching} onPress={() => void updateQuery.refetch()} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 140, minHeight: 42, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: updateQuery.isFetching ? 0.55 : pressed ? 0.65 : 1 })}>
           {updateQuery.isFetching ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={15} />}
-          <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12 }}>重新检查</Text>
+          <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 11 }}>重新检查</Text>
         </Pressable>
         <ActionButton action="update" icon={ArrowDownToLine} color={colors.primary} busy={actionMutation.isPending} pending={actionMutation.isPending && actionMutation.variables === 'update'} onPress={() => confirmAction('update')} />
         <ActionButton action="restart" icon={Power} color={colors.warning} busy={actionMutation.isPending} pending={actionMutation.isPending && actionMutation.variables === 'restart'} onPress={() => confirmAction('restart')} />
@@ -211,7 +211,7 @@ function OverviewTab({ active }: { active: boolean }) {
             <Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>更新说明</Text>
             <Pressable accessibilityLabel="关闭" onPress={() => setNotesVisible(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={18} /></Pressable>
           </View>
-          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" contentContainerStyle={{ paddingBottom: 8 }}><Text selectable style={{ color: colors.text, fontSize: 12, lineHeight: 20 }}>{notes}</Text></ScrollView>
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" contentContainerStyle={{ paddingBottom: 8 }}><Text selectable style={{ color: colors.text, fontSize: 11, lineHeight: 20 }}>{notes}</Text></ScrollView>
         </View>
       </FullScreenSafeArea>
     </Modal>
@@ -261,7 +261,7 @@ function SettingsTab({ active }: { active: boolean }) {
       {booleanEntries.map(([key, value]) => <View key={key} style={{ minHeight: 48, borderBottomWidth: 1, borderBottomColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>{settingLabels[key] ?? key}</Text>
-          {settingLabels[key] ? <Text style={{ color: colors.subtext, fontSize: 10 }}>{key}</Text> : null}
+          {settingLabels[key] ? <Text style={{ color: colors.subtext, fontSize: 11 }}>{key}</Text> : null}
         </View>
         <AppSwitch accessibilityLabel={settingLabels[key] ?? key} value={value} onValueChange={(next) => setDraft((current) => ({ ...current, [key]: next }))} />
       </View>)}
@@ -276,15 +276,15 @@ function SettingsTab({ active }: { active: boolean }) {
             autoCapitalize="none"
             autoCorrect={false}
             placeholderTextColor={colors.placeholder}
-            style={{ minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, color: colors.text, fontSize: 12 }}
+            style={{ minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, color: colors.text, fontSize: 11 }}
           />
         </View>)}
       </View> : null}
 
       {advancedEntries.length ? <Pressable onPress={() => setAdvancedVisible(true)} style={({ pressed }) => ({ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}>
         <Settings2 color={colors.subtext} size={15} />
-        <Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>高级配置</Text>
-        <Text style={{ color: colors.subtext, fontSize: 10 }}>{advancedEntries.length} 项</Text>
+        <Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>高级配置</Text>
+        <Text style={{ color: colors.subtext, fontSize: 11 }}>{advancedEntries.length} 项</Text>
         <ChevronRight color={colors.subtext} size={15} />
       </Pressable> : null}
 
@@ -332,8 +332,8 @@ function LogsTab({ active }: { active: boolean }) {
     <View style={{ flex: 1, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
       <View style={{ minHeight: 38, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center' }}>
         <ScrollText color={colors.subtext} size={14} />
-        <Text style={{ flex: 1, marginLeft: 7, color: colors.text, fontSize: 12, fontWeight: '700' }}>应用日志</Text>
-        <Text style={{ color: colors.subtext, fontSize: 10 }}>{lines.length} / {query.data?.length ?? 0}</Text>
+        <Text style={{ flex: 1, marginLeft: 7, color: colors.text, fontSize: 11, fontWeight: '700' }}>应用日志</Text>
+        <Text style={{ color: colors.subtext, fontSize: 11 }}>{lines.length} / {query.data?.length ?? 0}</Text>
       </View>
       <FlatList
         data={lines}
@@ -353,8 +353,8 @@ function LogsTab({ active }: { active: boolean }) {
         contentContainerStyle={{ flexGrow: lines.length ? 0 : 1, paddingBottom: lines.length ? 12 : 0 }}
         ListEmptyComponent={!query.isFetching && !query.error ? <EmptyState embedded icon={ScrollText} message={search ? '没有匹配的日志' : '暂无日志'} /> : null}
         renderItem={({ item, index }) => <View style={{ paddingHorizontal: 11, paddingVertical: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', gap: 9 }}>
-          <Text style={{ width: 30, color: colors.placeholder, fontFamily: 'monospace', fontSize: 9, lineHeight: 16, textAlign: 'right' }}>{index + 1}</Text>
-          <Text selectable style={{ flex: 1, color: colors.text, fontFamily: 'monospace', fontSize: 10, lineHeight: 16 }}>{item}</Text>
+          <Text style={{ width: 30, color: colors.placeholder, fontFamily: 'monospace', fontSize: 11, lineHeight: 16, textAlign: 'right' }}>{index + 1}</Text>
+          <Text selectable style={{ flex: 1, color: colors.text, fontFamily: 'monospace', fontSize: 11, lineHeight: 16 }}>{item}</Text>
         </View>}
       />
     </View>

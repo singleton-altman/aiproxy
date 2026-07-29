@@ -26,7 +26,9 @@ import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, useWindowDime
 import Svg, { Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { EmptyState, ErrorState, IconTile, Page, SearchField, SectionHeader } from '@/src/components/ui';
+import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
 import { useAppTheme } from '@/src/lib/theme';
+import { getApiKeys } from '@/src/services/account';
 import {
   getAdminLogsRequests,
   getAdminRealtimeUsage,
@@ -37,6 +39,7 @@ import {
   getAdminStatsUsers,
   getAdminUsageEvents,
 } from '@/src/services/admin';
+import { sessionState } from '@/src/store/session';
 import type { ApiRecord, UsageTrendItem } from '@/src/types/api';
 
 const tabs = [
@@ -155,21 +158,7 @@ function dimensionLabel(item: ApiRecord, dimension: Dimension, index: number) {
     return value ? String(value) : `用户 ${index + 1}`;
   }
   if (dimension === 'apiKey') {
-    const named = [item.api_key_name, item.key_name, item.name, item.label].find((candidate) => {
-      if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
-      const text = String(candidate).trim();
-      return text
-        && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)
-        && !/^(?:sk|aps|key)[-_][a-z0-9_-]{12,}$/i.test(text);
-    });
-    if (named !== undefined) return String(named);
-    const rawPrefix = [item.prefix, item.key_prefix, item.preview].find((candidate) => (typeof candidate === 'string' || typeof candidate === 'number') && String(candidate).trim());
-    if (rawPrefix !== undefined) {
-      const prefix = String(rawPrefix).trim();
-      if (prefix.includes('*') || prefix.includes('...')) return prefix.length > 22 ? `${prefix.slice(0, 19)}...` : prefix;
-      return `${prefix.slice(0, 10)}...`;
-    }
-    return `API Key ${index + 1}`;
+    return apiKeyDisplayName(item);
   }
   const keys: Record<Dimension, string[]> = {
     model: ['model', 'model_id', 'id', 'name'],
@@ -190,7 +179,7 @@ function RangePicker({ value, onChange }: { value: Range; onChange: (value: Rang
   const colors = useAppTheme();
   return <View accessibilityRole="tablist" style={{ minHeight: 40, padding: 3, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
     {rangeOptions.map(([key, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: value === key }} onPress={() => onChange(key)} style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 32, borderRadius: 10, borderWidth: value === key ? 1 : 0, borderColor: value === key ? colors.border : 'transparent', backgroundColor: value === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
-      <Text numberOfLines={1} style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text>
     </Pressable>)}
   </View>;
 }
@@ -201,7 +190,7 @@ function StatsTabs({ value, onChange }: { value: Tab; onChange: (value: Tab) => 
     <ScrollView horizontal bounces={false} overScrollMode="never" showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 3 }}>
       {tabs.map(([key, label, Icon]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: value === key }} onPress={() => onChange(key)} style={({ pressed }) => ({ minWidth: label.length > 3 ? 82 : 68, minHeight: 36, paddingHorizontal: 9, borderRadius: 10, backgroundColor: value === key ? colors.card : 'transparent', borderWidth: value === key ? 1 : 0, borderColor: value === key ? colors.border : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, opacity: pressed ? 0.65 : 1 })}>
         <Icon color={value === key ? colors.primary : colors.subtext} size={14} strokeWidth={value === key ? 2.4 : 2} />
-        <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text>
+        <Text style={{ color: value === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text>
       </Pressable>)}
     </ScrollView>
   </View>;
@@ -210,9 +199,9 @@ function StatsTabs({ value, onChange }: { value: Tab; onChange: (value: Tab) => 
 function MetricCard({ label, value, detail, icon: Icon, accent, background, basis }: { label: string; value: string; detail?: string; icon: LucideIcon; accent: string; background: string; basis: `${number}%` }) {
   const colors = useAppTheme();
   return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 92, borderRadius: 16, borderWidth: 1, borderColor: background, backgroundColor: colors.card, padding: 10, justifyContent: 'space-between', gap: 5 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><IconTile icon={Icon} size={27} iconSize={14} color={accent} background={background} /><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text></View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><IconTile icon={Icon} size={27} iconSize={14} color={accent} background={background} /><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{label}</Text></View>
     <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 21, lineHeight: 25, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 9, lineHeight: 12, fontWeight: '600' }}>{detail}</Text> : null}
+    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 11, lineHeight: 12, fontWeight: '600' }}>{detail}</Text> : null}
   </View>;
 }
 
@@ -272,14 +261,14 @@ function TrendChart({ items, metric }: { items: ApiRecord[]; metric: TrendMetric
       const y = bottom - index * plotHeight / 4;
       const value = top * index / 4;
       const label = metric === 'cost' ? `$${value.toFixed(3)}` : formatNumber(value);
-      return <Fragment key={index}><Line x1={left} x2={right} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" /><SvgText x="36" y={y + 3} fill={colors.subtext} fontSize="9" textAnchor="end">{label}</SvgText></Fragment>;
+      return <Fragment key={index}><Line x1={left} x2={right} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" /><SvgText x="36" y={y + 3} fill={colors.subtext} fontSize="11" textAnchor="end">{label}</SvgText></Fragment>;
     })}
     {chartItems.map((item, index) => {
       const value = values[index] ?? 0;
       const height = Math.max(value ? 3 : 0, value / top * plotHeight);
       const x = left + slot * index + (slot - barWidth) / 2;
       const showLabel = chartItems.length <= 10 || index % Math.ceil(chartItems.length / 7) === 0 || index === chartItems.length - 1;
-      return <Fragment key={`${trendLabel(item, index)}-${index}`}><Rect x={x} y={bottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />{showLabel ? <SvgText x={x + barWidth / 2} y="207" fill={colors.subtext} fontSize="9" textAnchor="middle">{trendLabel(item, index)}</SvgText> : null}</Fragment>;
+      return <Fragment key={`${trendLabel(item, index)}-${index}`}><Rect x={x} y={bottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />{showLabel ? <SvgText x={x + barWidth / 2} y="207" fill={colors.subtext} fontSize="11" textAnchor="middle">{trendLabel(item, index)}</SvgText> : null}</Fragment>;
     })}
   </Svg></View>;
 }
@@ -335,11 +324,11 @@ function Heatmap({ events, analysis }: { events: unknown; analysis?: unknown }) 
   return <View style={{ gap: 9 }}>
     <SectionHeader icon={CalendarDays} title="请求热力图" meta="按小时" />
     <ScrollView horizontal bounces={false} overScrollMode="never" showsHorizontalScrollIndicator={false}><View style={{ minWidth: 620, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 11, gap: 4 }}>
-      {matrix.map((row, dayIndex) => <View key={days[dayIndex]} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><Text style={{ width: 36, color: colors.subtext, fontSize: 12, fontWeight: '600' }}>{days[dayIndex]}</Text>{row.map((count, hour) => {
+      {matrix.map((row, dayIndex) => <View key={days[dayIndex]} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><Text style={{ width: 36, color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{days[dayIndex]}</Text>{row.map((count, hour) => {
         const level = count && max ? Math.max(1, Math.ceil(count / max * 4)) : 0;
         return <View key={hour} accessibilityLabel={`${days[dayIndex]} ${hour} 时 ${count} 次`} style={{ width: 20, height: 20, borderRadius: 2, backgroundColor: palette[level] }} />;
       })}</View>)}
-      <View style={{ marginLeft: 39, flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: colors.subtext, fontSize: 12 }}>00</Text><Text style={{ color: colors.subtext, fontSize: 12 }}>06</Text><Text style={{ color: colors.subtext, fontSize: 12 }}>12</Text><Text style={{ color: colors.subtext, fontSize: 12 }}>18</Text><Text style={{ color: colors.subtext, fontSize: 12 }}>23</Text></View>
+      <View style={{ marginLeft: 39, flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: colors.subtext, fontSize: 11 }}>00</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>06</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>12</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>18</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>23</Text></View>
     </View></ScrollView>
   </View>;
 }
@@ -367,9 +356,9 @@ function DonutCard({ title, icon: Icon, rows, dimension }: { title: string; icon
           progress += ratio;
           return <Circle key={`${dimensionLabel(item, dimension, index)}-${index}`} cx="54" cy="54" r="38" fill="none" stroke={segmentColors[index]} strokeWidth="10" strokeDasharray={`${ratio * circumference} ${circumference}`} strokeDashoffset={-offset * circumference} rotation="-90" origin="54,54" />;
         })}
-        <SvgText x="54" y="48" fill={colors.subtext} fontSize="12" fontWeight="600" textAnchor="middle">总费用</SvgText><SvgText x="54" y="64" fill={colors.text} fontSize="13" fontWeight="700" textAnchor="middle">{formatCost(cost)}</SvgText>
+        <SvgText x="54" y="48" fill={colors.subtext} fontSize="11" fontWeight="600" textAnchor="middle">总费用</SvgText><SvgText x="54" y="64" fill={colors.text} fontSize="13" fontWeight="700" textAnchor="middle">{formatCost(cost)}</SvgText>
       </Svg></View>
-      {visible.slice(0, 3).map((item, index) => <View key={`${dimensionLabel(item, dimension, index)}-legend`} style={{ minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: segmentColors[index] }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{dimensionLabel(item, dimension, index)}</Text><Text style={{ color: colors.success, fontSize: 12, fontWeight: '700' }}>{formatCost(firstNumber(item, ['cost', 'cost_usd', 'total_cost']))}</Text></View>)}
+      {visible.slice(0, 3).map((item, index) => <View key={`${dimensionLabel(item, dimension, index)}-legend`} style={{ minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: segmentColors[index] }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>{dimensionLabel(item, dimension, index)}</Text><Text style={{ color: colors.success, fontSize: 11, fontWeight: '700' }}>{formatCost(firstNumber(item, ['cost', 'cost_usd', 'total_cost']))}</Text></View>)}
     </> : <EmptyState embedded icon={Icon} message="暂无数据" />}
   </View>;
 }
@@ -392,8 +381,8 @@ function BreakdownSection({ title, icon, rows, dimension, full = false }: { titl
     <SectionHeader icon={icon} title={title} />
     <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
       {rows.slice(0, 8).map((item, index) => <View key={`${dimensionLabel(item, dimension, index)}-${index}`} style={{ minHeight: 56, paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 6 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '800' }}>{dimensionLabel(item, dimension, index)}</Text><Text style={{ color: colors.success, fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{formatCost(firstNumber(item, ['cost', 'cost_usd', 'total_cost']))}</Text></View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 6 }}><Text style={{ color: colors.subtext, fontSize: 12 }}>请求 <Text style={{ color: colors.cyan, fontWeight: '800' }}>{formatNumber(firstNumber(item, ['request_count', 'requests', 'count']))}</Text></Text><Text style={{ color: colors.subtext, fontSize: 12 }}>Token <Text style={{ color: colors.warning, fontWeight: '800' }}>{formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text></Text><Text style={{ color: colors.subtext, fontSize: 12 }}>成功 <Text style={{ color: colors.success, fontWeight: '800' }}>{successRate(item).toFixed(1)}%</Text></Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '800' }}>{dimensionLabel(item, dimension, index)}</Text><Text style={{ color: colors.success, fontSize: 11, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{formatCost(firstNumber(item, ['cost', 'cost_usd', 'total_cost']))}</Text></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 6 }}><Text style={{ color: colors.subtext, fontSize: 11 }}>请求 <Text style={{ color: colors.cyan, fontWeight: '800' }}>{formatNumber(firstNumber(item, ['request_count', 'requests', 'count']))}</Text></Text><Text style={{ color: colors.subtext, fontSize: 11 }}>Token <Text style={{ color: colors.warning, fontWeight: '800' }}>{formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text></Text><Text style={{ color: colors.subtext, fontSize: 11 }}>成功 <Text style={{ color: colors.success, fontWeight: '800' }}>{successRate(item).toFixed(1)}%</Text></Text></View>
       </View>)}
       {!rows.length ? <EmptyState embedded icon={icon} message="暂无数据" /> : null}
     </View>
@@ -409,8 +398,8 @@ function EventRow({ item, index }: { item: ApiRecord; index: number }) {
   const colors = useAppTheme();
   const failed = eventFailed(item);
   return <View style={{ minHeight: 68, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 7 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: failed ? colors.danger : colors.success }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700', fontFamily: 'monospace' }}>{firstText(item, ['model', 'model_id'], '未知模型')}</Text><View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: failed ? colors.dangerBg : colors.successBg }}><Text style={{ color: failed ? colors.danger : colors.success, fontSize: 10, fontWeight: '800' }}>{failed ? '失败' : '正常'}</Text></View></View>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}><Text style={{ flexGrow: 1, color: colors.subtext, fontSize: 10 }}>{firstText(item, ['created_at', 'timestamp', 'time'], '--')}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>Token {formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{formatNumber(firstNumber(item, ['latency_ms', 'duration_ms', 'latency']))} ms</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{formatCost(firstNumber(item, ['cost', 'cost_usd']))}</Text></View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: failed ? colors.danger : colors.success }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700', fontFamily: 'monospace' }}>{firstText(item, ['model', 'model_id'], '未知模型')}</Text><View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: failed ? colors.dangerBg : colors.successBg }}><Text style={{ color: failed ? colors.danger : colors.success, fontSize: 11, fontWeight: '800' }}>{failed ? '失败' : '正常'}</Text></View></View>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}><Text style={{ flexGrow: 1, color: colors.subtext, fontSize: 11 }}>{firstText(item, ['created_at', 'timestamp', 'time'], '--')}</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>Token {formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>{formatNumber(firstNumber(item, ['latency_ms', 'duration_ms', 'latency']))} ms</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>{formatCost(firstNumber(item, ['cost', 'cost_usd']))}</Text></View>
   </View>;
 }
 
@@ -420,13 +409,13 @@ function EventsPanel({ value, title = '最近事件', limit = 8 }: { value: unkn
   return <View style={{ gap: 8 }}><SectionHeader icon={Activity} title={title} /><View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>{rows.map((item, index) => <EventRow key={firstText(item, ['id', 'request_id'], String(index))} item={item} index={index} />)}{!rows.length ? <EmptyState embedded icon={Activity} message="暂无事件" /> : null}</View></View>;
 }
 
-function OverviewContent({ bundle, trendMetric, onTrendMetricChange }: { bundle: DashboardBundle; trendMetric: TrendMetric; onTrendMetricChange: (value: TrendMetric) => void }) {
+function OverviewContent({ bundle, apiKeys, trendMetric, onTrendMetricChange }: { bundle: DashboardBundle; apiKeys: ApiRecord[]; trendMetric: TrendMetric; onTrendMetricChange: (value: TrendMetric) => void }) {
   const analysis = unwrapRecord(bundle.analysis);
   const modelRows = dimensionRows(bundle.models, 'model').length ? dimensionRows(bundle.models, 'model') : dimensionRows(analysis, 'model');
   const userRows = dimensionRows(bundle.users, 'user').length ? dimensionRows(bundle.users, 'user') : dimensionRows(analysis, 'user');
   const providerRows = dimensionRows(analysis, 'provider');
   const accountRows = dimensionRows(analysis, 'account');
-  const apiKeyRows = dimensionRows(analysis, 'apiKey');
+  const apiKeyRows = enrichApiKeyUsage(dimensionRows(analysis, 'apiKey'), apiKeys);
   const endpointRows = dimensionRows(analysis, 'endpoint');
   return <>
     <MetricsGrid value={bundle.overview} />
@@ -451,10 +440,11 @@ function OverviewContent({ bundle, trendMetric, onTrendMetricChange }: { bundle:
   </>;
 }
 
-function AnalysisContent({ value, events }: { value: unknown; events?: unknown }) {
+function AnalysisContent({ value, events, apiKeys }: { value: unknown; events?: unknown; apiKeys: ApiRecord[] }) {
   const analysis = unwrapRecord(value);
   const dimensions: Array<[string, LucideIcon, Dimension]> = [['按模型', Boxes, 'model'], ['按供应商', Server, 'provider'], ['按用户', UsersRound, 'user'], ['按账号', Waypoints, 'account'], ['按 API Key', KeyRound, 'apiKey']];
-  return <><Heatmap events={events} analysis={value} /><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>{dimensions.map(([title, icon, dimension]) => <DonutCard key={dimension} title={title} icon={icon} rows={dimensionRows(analysis, dimension)} dimension={dimension} />)}</View><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{dimensions.map(([title, icon, dimension]) => <BreakdownSection key={dimension} title={title} icon={icon} rows={dimensionRows(analysis, dimension)} dimension={dimension} />)}</View></>;
+  const rows = (dimension: Dimension) => dimension === 'apiKey' ? enrichApiKeyUsage(dimensionRows(analysis, dimension), apiKeys) : dimensionRows(analysis, dimension);
+  return <><Heatmap events={events} analysis={value} /><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>{dimensions.map(([title, icon, dimension]) => <DonutCard key={dimension} title={title} icon={icon} rows={rows(dimension)} dimension={dimension} />)}</View><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{dimensions.map(([title, icon, dimension]) => <BreakdownSection key={dimension} title={title} icon={icon} rows={rows(dimension)} dimension={dimension} />)}</View></>;
 }
 
 function DimensionContent({ value, dimension }: { value: unknown; dimension: 'model' | 'user' }) {
@@ -469,7 +459,7 @@ function RequestList({ value, search, loading, title }: { value: unknown; search
     return records(value, ['events', 'requests', 'logs', 'items', 'rows', 'data']).filter((item) => !keyword || JSON.stringify(item).toLowerCase().includes(keyword));
   }, [search, value]);
   return <View style={{ flex: 1, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
-    <View style={{ minHeight: 44, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center' }}><ScrollText color={colors.subtext} size={16} /><Text style={{ flex: 1, marginLeft: 8, color: colors.text, fontSize: 13, fontWeight: '700' }}>{title}</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>{rows.length} 条</Text></View>
+    <View style={{ minHeight: 44, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center' }}><ScrollText color={colors.subtext} size={16} /><Text style={{ flex: 1, marginLeft: 8, color: colors.text, fontSize: 13, fontWeight: '700' }}>{title}</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>{rows.length} 条</Text></View>
     <FlatList data={rows} bounces={false} alwaysBounceVertical={false} overScrollMode="never" scrollToOverflowEnabled={false} automaticallyAdjustContentInsets={false} contentInsetAdjustmentBehavior="never" keyExtractor={(item, index) => firstText(item, ['id', 'request_id', 'trace_id'], String(index))} keyboardShouldPersistTaps="handled" removeClippedSubviews={false} initialNumToRender={20} maxToRenderPerBatch={20} windowSize={9} style={{ flex: 1 }} contentContainerStyle={{ flexGrow: rows.length ? 0 : 1, paddingBottom: rows.length ? 12 : 0 }} ListEmptyComponent={!loading ? <EmptyState embedded icon={ScrollText} message={search ? '没有匹配的记录' : '暂无记录'} /> : null} ListFooterComponent={loading ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: 16 }} /> : null} renderItem={({ item, index }) => <EventRow item={item} index={index} />} />
   </View>;
 }
@@ -526,14 +516,27 @@ export default function AdminStatsScreen() {
     refetchInterval: heatmapEnabled ? 15_000 : false,
     refetchIntervalInBackground: false,
   });
+  const apiKeyDirectory = useQuery({
+    queryKey: ['keys'],
+    queryFn: ({ signal }) => getApiKeys(signal),
+    enabled: heatmapEnabled && sessionState.mode !== 'management',
+    retry: 0,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: heatmapEnabled ? 60_000 : false,
+    refetchIntervalInBackground: false,
+  });
 
   const showRange = !['models', 'realtime', 'logs'].includes(tab);
+  const apiKeys = (apiKeyDirectory.data ?? []).map((item) => item as ApiRecord);
   const content = () => {
     if (query.isLoading) return <ActivityIndicator color="#0d7f9e" style={{ paddingVertical: 30 }} />;
-    if (tab === 'overview') return <OverviewContent bundle={{ ...((query.data ?? { overview: {} }) as DashboardBundle), events: heatmapEvents.data }} trendMetric={trendMetric} onTrendMetricChange={setTrendMetric} />;
+    if (tab === 'overview') return <OverviewContent bundle={{ ...((query.data ?? { overview: {} }) as DashboardBundle), events: heatmapEvents.data }} apiKeys={apiKeys} trendMetric={trendMetric} onTrendMetricChange={setTrendMetric} />;
     if (tab === 'summary' || tab === 'realtime') return <MetricsGrid value={query.data} />;
     if (tab === 'trend') return <TrendPanel value={query.data} metric={trendMetric} onMetricChange={setTrendMetric} />;
-    if (tab === 'analysis') return <AnalysisContent value={query.data} events={heatmapEvents.data} />;
+    if (tab === 'analysis') return <AnalysisContent value={query.data} events={heatmapEvents.data} apiKeys={apiKeys} />;
     if (tab === 'models' || tab === 'users') return <DimensionContent value={query.data} dimension={tab === 'models' ? 'model' : 'user'} />;
     return null;
   };
@@ -542,7 +545,10 @@ export default function AdminStatsScreen() {
     if (refreshing) return;
     setRefreshing(true);
     const requests = [query.refetch()];
-    if (heatmapEnabled) requests.push(heatmapEvents.refetch());
+    if (heatmapEnabled) {
+      requests.push(heatmapEvents.refetch());
+      if (sessionState.mode !== 'management') requests.push(apiKeyDirectory.refetch());
+    }
     void Promise.allSettled(requests).finally(() => setRefreshing(false));
   };
 

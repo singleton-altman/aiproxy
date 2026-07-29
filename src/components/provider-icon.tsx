@@ -47,7 +47,7 @@ export function ProviderIcon({ provider, size = 36 }: { provider: ApiRecord | st
 
   if (!logo) {
     return <View style={{ width: size, height: size, borderRadius, backgroundColor: definition.color, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontSize: Math.max(10, Math.round(size * 0.4)), fontWeight: '900' }}>{definition.mark}</Text>
+      <Text style={{ color: '#fff', fontSize: Math.max(11, Math.round(size * 0.4)), fontWeight: '900' }}>{definition.mark}</Text>
     </View>;
   }
 

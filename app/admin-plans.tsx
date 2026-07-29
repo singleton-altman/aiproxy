@@ -92,7 +92,7 @@ function validatePlan(value: ApiRecord) {
 function PlanField({ label, value, onChangeText, placeholder, numeric = false, multiline = false }: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; numeric?: boolean; multiline?: boolean }) {
   const colors = useAppTheme();
   return <View style={{ gap: 6 }}>
-    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text>
+    <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text>
     <TextInput
       value={value}
       onChangeText={onChangeText}
@@ -103,7 +103,7 @@ function PlanField({ label, value, onChangeText, placeholder, numeric = false, m
       textAlignVertical={multiline ? 'top' : 'center'}
       autoCapitalize="none"
       autoCorrect={false}
-      style={{ minHeight: multiline ? 76 : 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: multiline ? 10 : 0, fontSize: 12, lineHeight: 18 }}
+      style={{ minHeight: multiline ? 76 : 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: multiline ? 10 : 0, fontSize: 11, lineHeight: 18 }}
     />
   </View>;
 }
@@ -116,27 +116,27 @@ function PlanForm({ value, onChange }: { value: ApiRecord; onChange: (value: Api
     <PlanField label="套餐名称" value={String(value.name ?? '')} onChangeText={(next) => set('name', next)} placeholder="例如：专业版" />
     <PlanField label="说明" value={String(value.description ?? '')} onChangeText={(next) => set('description', next)} placeholder="套餐用途与适用对象" multiline />
     <View style={{ gap: 6 }}>
-      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>限制类型</Text>
+      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>限制类型</Text>
       <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>
         {([['quota', '用量额度'], ['budget', '月度预算']] as const).map(([key, label]) => <Pressable key={key} onPress={() => set('type', key)} style={{ flex: 1, minHeight: 38, borderRadius: 9, backgroundColor: type === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: type === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
       </View>
     </View>
     {type === 'budget' ? <PlanField label="每月预算 (USD)" value={String(value.monthly_budget ?? 0)} onChangeText={(next) => set('monthly_budget', next)} numeric /> : <>
       <View style={{ gap: 6 }}>
-        <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>计量指标</Text>
+        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>计量指标</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-          {metrics.map(([key, label]) => <Pressable key={key} onPress={() => set('metric', key)} style={{ flexGrow: 1, flexBasis: '30%', minHeight: 38, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: value.metric === key ? colors.primary : colors.border, backgroundColor: value.metric === key ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit style={{ color: value.metric === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text></Pressable>)}
+          {metrics.map(([key, label]) => <Pressable key={key} onPress={() => set('metric', key)} style={{ flexGrow: 1, flexBasis: '30%', minHeight: 38, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: value.metric === key ? colors.primary : colors.border, backgroundColor: value.metric === key ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit style={{ color: value.metric === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
         </View>
       </View>
       <PlanField label="滚动窗口（小时）" value={String(value.window_hours ?? 5)} onChangeText={(next) => set('window_hours', next)} numeric />
       <PlanField label="窗口额度" value={String(value.window_limit ?? 100)} onChangeText={(next) => set('window_limit', next)} numeric />
       <PlanField label="每日额度" value={String(value.daily_limit ?? 500)} onChangeText={(next) => set('daily_limit', next)} numeric />
       <PlanField label="每周额度" value={String(value.weekly_limit ?? 2000)} onChangeText={(next) => set('weekly_limit', next)} numeric />
-      <Text style={{ color: colors.subtext, fontSize: 10 }}>额度填写 0 表示不限制。</Text>
+      <Text style={{ color: colors.subtext, fontSize: 11 }}>额度填写 0 表示不限制。</Text>
     </>}
     <PlanField label="允许的模型" value={String(value.allowed_models_text ?? '')} onChangeText={(next) => set('allowed_models_text', next)} placeholder="每行一个模型；留空允许全部模型" multiline />
     <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>套餐上架</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>用户端只展示已上架套餐</Text></View>
+      <View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>套餐上架</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>用户端只展示已上架套餐</Text></View>
       <AppSwitch accessibilityLabel="套餐上架" value={Boolean(value.active)} onValueChange={(next) => set('active', next)} />
     </View>
   </View>;

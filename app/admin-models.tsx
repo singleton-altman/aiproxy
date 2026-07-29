@@ -142,7 +142,7 @@ function CompactButton({ label, icon: Icon, onPress, primary = false, busy = fal
 
 function PriceCell({ label, value }: { label: string; value: string }) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: '46%', minWidth: 0, gap: 3 }}><Text style={{ color: colors.subtext, fontSize: 9 }}>{label}</Text><Text numberOfLines={1} style={{ color: colors.text, fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{value}</Text></View>;
+  return <View style={{ flexGrow: 1, flexBasis: '46%', minWidth: 0, gap: 3 }}><Text style={{ color: colors.subtext, fontSize: 11 }}>{label}</Text><Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{value}</Text></View>;
 }
 
 function MobileModelCard({ item, busy, onToggle, onEdit, onDelete }: { item: ApiRecord; busy: boolean; onToggle: (enabled: boolean) => void; onEdit: () => void; onDelete: () => void }) {
@@ -150,13 +150,13 @@ function MobileModelCard({ item, busy, onToggle, onEdit, onDelete }: { item: Api
   return <View style={{ marginHorizontal: 1, borderWidth: 1, borderTopWidth: 0, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 10 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
       <AppSwitch accessibilityLabel={`${modelId(item) || '未命名模型'} 启用状态`} value={item.enabled !== false} disabled={busy} onValueChange={onToggle} />
-      <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 13, fontWeight: '800', fontFamily: 'monospace' }}>{modelId(item) || '未命名模型'}</Text>{displayName(item) !== '—' ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, marginTop: 2 }}>{displayName(item)}</Text> : null}</View>
+      <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 13, fontWeight: '800', fontFamily: 'monospace' }}>{modelId(item) || '未命名模型'}</Text>{displayName(item) !== '—' ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, marginTop: 2 }}>{displayName(item)}</Text> : null}</View>
       <Pressable accessibilityLabel="编辑模型" onPress={onEdit} style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><SlidersHorizontal color={colors.primary} size={15} /></Pressable>
       <Pressable accessibilityLabel="删除模型" onPress={onDelete} style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.dangerBg, alignItems: 'center', justifyContent: 'center' }}><Trash2 color={colors.danger} size={15} /></Pressable>
     </View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      <View style={{ flexGrow: 1, flexBasis: '46%' }}><Text style={{ color: colors.subtext, fontSize: 9 }}>上游模型</Text><Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, marginTop: 3 }}>{upstreamModel(item)}</Text></View>
-      <View style={{ flexGrow: 1, flexBasis: '46%' }}><Text style={{ color: colors.subtext, fontSize: 9 }}>模态 / 分布</Text><Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, marginTop: 3 }}>{modalities(item)} · {accountCount(item)}</Text></View>
+      <View style={{ flexGrow: 1, flexBasis: '46%' }}><Text style={{ color: colors.subtext, fontSize: 11 }}>上游模型</Text><Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, marginTop: 3 }}>{upstreamModel(item)}</Text></View>
+      <View style={{ flexGrow: 1, flexBasis: '46%' }}><Text style={{ color: colors.subtext, fontSize: 11 }}>模态 / 分布</Text><Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, marginTop: 3 }}>{modalities(item)} · {accountCount(item)}</Text></View>
     </View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, padding: 10, borderRadius: 14, backgroundColor: colors.mutedCard }}>
       <PriceCell label="输入 / 1M" value={price(item, ['prompt_per_1m', 'input_price_per_1m', 'prompt_price_per_1m'])} />
@@ -170,12 +170,12 @@ function MobileModelCard({ item, busy, onToggle, onEdit, onDelete }: { item: Api
 function DesktopHeader() {
   const colors = useAppTheme();
   const cells: [string, number][] = [['启用', 0.45], ['模型 ID', 1.25], ['显示名称', 0.9], ['上游模型', 0.9], ['模态', 0.55], ['出口分布', 0.75], ['协议', 0.55], ['输入/1M', 0.62], ['输出/1M', 0.62], ['缓存读', 0.62], ['缓存写', 0.62], ['', 0.45]];
-  return <View style={{ minHeight: 38, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderTopWidth: 0, borderColor: colors.border, backgroundColor: colors.mutedCard, paddingHorizontal: 8 }}>{cells.map(([label, flex], index) => <Text key={`${label}-${index}`} numberOfLines={1} style={{ flex, color: colors.subtext, fontSize: 9, fontWeight: '700', paddingHorizontal: 4 }}>{label}</Text>)}</View>;
+  return <View style={{ minHeight: 38, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderTopWidth: 0, borderColor: colors.border, backgroundColor: colors.mutedCard, paddingHorizontal: 8 }}>{cells.map(([label, flex], index) => <Text key={`${label}-${index}`} numberOfLines={1} style={{ flex, color: colors.subtext, fontSize: 11, fontWeight: '700', paddingHorizontal: 4 }}>{label}</Text>)}</View>;
 }
 
 function DesktopModelRow({ item, busy, onToggle, onEdit, onDelete }: { item: ApiRecord; busy: boolean; onToggle: (enabled: boolean) => void; onEdit: () => void; onDelete: () => void }) {
   const colors = useAppTheme();
-  const textStyle = { color: colors.text, fontSize: 10, paddingHorizontal: 4 } as const;
+  const textStyle = { color: colors.text, fontSize: 11, paddingHorizontal: 4 } as const;
   return <View style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderTopWidth: 0, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8 }}>
     <View style={{ flex: 0.45, paddingHorizontal: 4 }}><AppSwitch accessibilityLabel={`${modelId(item) || '未命名模型'} 启用状态`} value={item.enabled !== false} disabled={busy} onValueChange={onToggle} /></View>
     <Text numberOfLines={2} style={[textStyle, { flex: 1.25, fontWeight: '800', fontFamily: 'monospace' }]}>{modelId(item)}</Text>
@@ -316,7 +316,7 @@ export default function AdminModelsScreen() {
     </View>
     <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
       <View style={{ flex: wide ? 1 : undefined, minHeight: 44 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索模型或供应商…" /></View>
-      <Pressable onPress={() => setFilterVisible(true)} style={{ minWidth: wide ? 220 : undefined, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}><SlidersHorizontal color={colors.subtext} size={15} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{providerFilter}</Text><ChevronDown color={colors.subtext} size={15} /></Pressable>
+      <Pressable onPress={() => setFilterVisible(true)} style={{ minWidth: wide ? 220 : undefined, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}><SlidersHorizontal color={colors.subtext} size={15} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>{providerFilter}</Text><ChevronDown color={colors.subtext} size={15} /></Pressable>
     </View>
     {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
 
@@ -346,8 +346,8 @@ export default function AdminModelsScreen() {
               {open ? <ChevronDown color={colors.subtext} size={16} /> : <ChevronRight color={colors.subtext} size={16} />}
               <View style={{ width: 30, height: 30, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><Boxes color={colors.text} size={15} /></View>
               <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '800' }}>{entry.group.provider}</Text>
-              <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.text, fontSize: 9, fontWeight: '700' }}>{entry.group.items.length} 个模型</Text></View>
-              <Pressable disabled={groupBusy} onPress={(event) => { event.stopPropagation(); void maintenance('probe', { provider: entry.group.provider }); }} style={{ minHeight: 34, paddingHorizontal: 9, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}>{groupBusy ? <ActivityIndicator color={colors.primary} size="small" /> : <Radar color={colors.primary} size={13} />}<Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>探测</Text></Pressable>
+              <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{entry.group.items.length} 个模型</Text></View>
+              <Pressable disabled={groupBusy} onPress={(event) => { event.stopPropagation(); void maintenance('probe', { provider: entry.group.provider }); }} style={{ minHeight: 34, paddingHorizontal: 9, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}>{groupBusy ? <ActivityIndicator color={colors.primary} size="small" /> : <Radar color={colors.primary} size={13} />}<Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>探测</Text></Pressable>
             </Pressable>
             {open && wide ? <DesktopHeader /> : null}
           </View>;
@@ -358,7 +358,7 @@ export default function AdminModelsScreen() {
     />
 
     <Modal visible={filterVisible} transparent animationType="fade" onRequestClose={() => setFilterVisible(false)}>
-      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.45)' }}><View style={{ width: '100%', maxWidth: 420, maxHeight: '75%', alignSelf: 'center', borderRadius: 18, backgroundColor: colors.page, padding: 16, gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '800' }}>筛选供应商</Text><Pressable accessibilityLabel="关闭" onPress={() => setFilterVisible(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View><FlatList data={providers} bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyExtractor={(item) => item} renderItem={({ item }) => <Pressable onPress={() => { setProviderFilter(item); setFilterVisible(false); }} style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: providerFilter === item ? '800' : '600' }}>{item}</Text>{providerFilter === item ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} /> : null}</Pressable>} /></View></FullScreenSafeArea>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.45)' }}><View style={{ width: '100%', maxWidth: 420, maxHeight: '75%', alignSelf: 'center', borderRadius: 18, backgroundColor: colors.page, padding: 16, gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '800' }}>筛选供应商</Text><Pressable accessibilityLabel="关闭" onPress={() => setFilterVisible(false)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View><FlatList data={providers} bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyExtractor={(item) => item} renderItem={({ item }) => <Pressable onPress={() => { setProviderFilter(item); setFilterVisible(false); }} style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: providerFilter === item ? '800' : '600' }}>{item}</Text>{providerFilter === item ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} /> : null}</Pressable>} /></View></FullScreenSafeArea>
     </Modal>
 
     <Modal visible={Boolean(formMode)} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setFormMode('')}>

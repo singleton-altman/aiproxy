@@ -47,10 +47,10 @@ function KeyRow({ item, onToggle, onCopy, onDelete, busy }: { item: ApiKeyItem; 
     </View>
     <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
       <Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>{String(item.name ?? '未命名 Key')}</Text>
-      <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, fontFamily: 'monospace' }}>
+      <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontFamily: 'monospace' }}>
         {String(item.prefix ?? '')}{item.prefix ? '…' : ''} · {keyUsageLabel(item)}
       </Text>
-      {item.expires_at ? <Text numberOfLines={1} style={{ color: colors.warning, fontSize: 10 }}>到期：{String(item.expires_at)}</Text> : null}
+      {item.expires_at ? <Text numberOfLines={1} style={{ color: colors.warning, fontSize: 11 }}>到期：{String(item.expires_at)}</Text> : null}
     </View>
     <AppSwitch accessibilityLabel={`${String(item.name ?? '未命名 Key')} 启用状态`} value={!disabled} disabled={busy || !keyId(item)} onValueChange={(enabled) => onToggle(item, !enabled)} />
     <Pressable accessibilityLabel="复制 Key" onPress={() => onCopy(item)} style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}>
@@ -143,7 +143,7 @@ export default function KeysScreen() {
   }
 
   return <Page title="密钥与模型" subtitle={apiKeyMode ? 'API Key 登录模式' : '网关 API Key 与可见模型'} icon={KeyRound} refreshing={refreshing || keys.isFetching} onRefresh={refresh}>
-    {apiKeyMode ? <Panel><Text style={{ color: colors.subtext, fontSize: 12, lineHeight: 18 }}>API Key 登录模式下无法管理 Key 列表，请使用邮箱账号登录。</Text></Panel> : <>
+    {apiKeyMode ? <Panel><Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 18 }}>API Key 登录模式下无法管理 Key 列表，请使用邮箱账号登录。</Text></Panel> : <>
       {keys.error ? <ErrorState message={keys.error.message} retry={() => keys.refetch()} /> : null}
       <Panel>
         <SectionHeader icon={KeyRound} title="API Keys" meta={keys.data ? `${keys.data.length} 个` : undefined} />
@@ -173,8 +173,8 @@ export default function KeysScreen() {
         const id = String(model.id ?? '');
         return <View key={id} style={{ minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: colors.rowBorder, paddingVertical: 6 }}>
           <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <Text numberOfLines={1} style={{ color: colors.text, fontSize: 12, fontFamily: 'monospace', fontWeight: '700' }}>{id}</Text>
-            <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>
+            <Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, fontFamily: 'monospace', fontWeight: '700' }}>{id}</Text>
+            <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>
               {String(model.provider ?? model.owned_by ?? '')}{model.family ? ` · ${model.family}` : ''}
               {typeof model.prompt_price_per_1m === 'number' ? ` · 输入 ${model.prompt_price_per_1m}/1M` : ''}
               {typeof model.completion_price_per_1m === 'number' ? ` · 输出 ${model.completion_price_per_1m}/1M` : ''}
@@ -202,7 +202,7 @@ export default function KeysScreen() {
             <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>过期时间（可选，ISO 格式）</Text>
             <TextInput value={newExpiry} onChangeText={setNewExpiry} placeholder="2026-12-31T00:00:00Z" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, fontFamily: 'monospace', fontSize: 13 }} />
           </View>
-          {createMutation.error ? <Text style={{ color: colors.danger, fontSize: 12 }}>{createMutation.error.message}</Text> : null}
+          {createMutation.error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{createMutation.error.message}</Text> : null}
           <Pressable disabled={!newName.trim() || createMutation.isPending} onPress={() => createMutation.mutate()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: newName.trim() && !createMutation.isPending ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>{createMutation.isPending ? '创建中…' : '创建'}</Text>
           </Pressable>
@@ -214,9 +214,9 @@ export default function KeysScreen() {
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 22 }}>
         <View style={{ borderRadius: 20, backgroundColor: colors.page, padding: 20, gap: 14 }}>
           <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }}>Key 创建成功</Text>
-          <Text style={{ color: colors.warning, fontSize: 12, lineHeight: 18 }}>完整 Key 只显示这一次，请立即复制并妥善保存。</Text>
+          <Text style={{ color: colors.warning, fontSize: 11, lineHeight: 18 }}>完整 Key 只显示这一次，请立即复制并妥善保存。</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, backgroundColor: colors.mutedCard }}>
-            <Text selectable numberOfLines={3} style={{ flex: 1, color: colors.text, fontFamily: 'monospace', fontSize: 12 }}>{secretVisible ? secret : secret.replace(/./g, '•').slice(0, 40)}</Text>
+            <Text selectable numberOfLines={3} style={{ flex: 1, color: colors.text, fontFamily: 'monospace', fontSize: 11 }}>{secretVisible ? secret : secret.replace(/./g, '•').slice(0, 40)}</Text>
             <Pressable accessibilityLabel={secretVisible ? '隐藏' : '显示'} onPress={() => setSecretVisible(!secretVisible)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
               {secretVisible ? <EyeOff color={colors.subtext} size={16} /> : <Eye color={colors.subtext} size={16} />}
             </Pressable>

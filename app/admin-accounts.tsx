@@ -63,6 +63,7 @@ import {
   type UpstreamAccountStatus,
 } from '@/src/lib/account-display';
 import { apiFetch, apiJson, firstArray, type ApiResult } from '@/src/lib/api';
+import { documentMultipartBody } from '@/src/lib/file-transfer';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import { setAdminAccountEnabled } from '@/src/services/admin';
@@ -221,18 +222,19 @@ function safeFilename(value: string | undefined) {
   return (value?.trim() || `accounts-export-${Date.now()}.json`).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_');
 }
 
-function exportBlob(result: ApiResult) {
-  if (result.blob) return result.blob;
-  if (result.kind === 'json') return new Blob([JSON.stringify(result.data, null, 2)], { type: result.contentType || 'application/json' });
-  if (result.kind === 'text') return new Blob([String(result.data ?? '')], { type: result.contentType || 'text/plain' });
+function exportBytes(result: ApiResult) {
+  if (result.bytes) return result.bytes;
+  if (result.kind === 'json') return new TextEncoder().encode(JSON.stringify(result.data, null, 2));
+  if (result.kind === 'text') return new TextEncoder().encode(String(result.data ?? ''));
   throw new Error('服务器没有返回可导出的文件');
 }
 
 async function shareExportResult(result: ApiResult) {
-  const blob = exportBlob(result);
+  const bytes = exportBytes(result);
   const filename = safeFilename(result.filename);
-  const mimeType = (result.contentType || blob.type || 'application/json').split(';')[0];
+  const mimeType = (result.contentType || 'application/json').split(';')[0];
   if (Platform.OS === 'web') {
+    const blob = new Blob([bytes], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -244,20 +246,12 @@ async function shareExportResult(result: ApiResult) {
   if (!await Sharing.isAvailableAsync()) throw new Error('当前设备不支持文件分享');
   const file = new ExpoFile(Paths.cache, `${Date.now()}-${filename}`);
   file.create({ overwrite: true, intermediates: true });
-  file.write(new Uint8Array(await blob.arrayBuffer()));
+  file.write(bytes);
   await Sharing.shareAsync(file.uri, {
     dialogTitle: '导出上游账号',
     mimeType,
     UTI: mimeType.includes('json') ? 'public.json' : 'public.data',
   });
-}
-
-function multipartBody(asset: DocumentPickerAsset) {
-  if (typeof FormData === 'undefined') throw new Error('当前设备不支持文件上传');
-  const data = new FormData();
-  if (asset.file) data.append('file', asset.file, asset.name);
-  else data.append('file', { uri: asset.uri, name: asset.name, type: asset.mimeType || 'application/json' } as unknown as Blob);
-  return data;
 }
 
 function SheetFrame({ visible, onClose, children, maxHeight = '88%' }: { visible: boolean; onClose: () => void; children: React.ReactNode; maxHeight?: `${number}%` }) {
@@ -276,7 +270,7 @@ function SheetFrame({ visible, onClose, children, maxHeight = '88%' }: { visible
 function SheetHeader({ title, subtitle, onClose }: { title: string; subtitle?: string; onClose: () => void }) {
   const colors = useAppTheme();
   return <View style={{ minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-    <View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>{title}</Text>{subtitle ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{subtitle}</Text> : null}</View>
+    <View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>{title}</Text>{subtitle ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{subtitle}</Text> : null}</View>
     <Pressable accessibilityLabel="关闭" onPress={onClose} style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable>
   </View>;
 }
@@ -312,14 +306,14 @@ function AccountToggleButton({ account, busy, locked, onPress }: { account: ApiR
     onPress={(event) => { event.stopPropagation(); onPress(); }}
     style={({ pressed }) => ({ flexShrink: 0, minWidth: 58, height: 30, paddingHorizontal: 9, borderRadius: 9, backgroundColor: background, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, opacity: locked ? 0.48 : pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
   >
-    {busy ? <ActivityIndicator color="#fff" size="small" /> : <><Power color="#fff" size={12} strokeWidth={2.5} /><Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{enable ? '启用' : '禁用'}</Text></>}
+    {busy ? <ActivityIndicator color="#fff" size="small" /> : <><Power color="#fff" size={12} strokeWidth={2.5} /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{enable ? '启用' : '禁用'}</Text></>}
   </Pressable>;
 }
 
 function SummaryMetric({ label, value, tone }: { label: string; value: number; tone?: 'success' | 'danger' }) {
   const colors = useAppTheme();
   const foreground = tone === 'success' ? colors.success : tone === 'danger' ? colors.danger : colors.text;
-  return <View style={{ minHeight: 30, flexDirection: 'row', alignItems: 'baseline', gap: 4 }}><Text style={{ color: foreground, fontSize: 14, fontWeight: '900' }}>{value}</Text><Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text></View>;
+  return <View style={{ minHeight: 30, flexDirection: 'row', alignItems: 'baseline', gap: 4 }}><Text style={{ color: foreground, fontSize: 14, fontWeight: '900' }}>{value}</Text><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{label}</Text></View>;
 }
 
 function AccountCard({ item, proxies, proxiesLoaded, now, toggling, toggleLocked, onPress, onToggle }: { item: ApiRecord; proxies: ApiRecord[]; proxiesLoaded: boolean; now: number; toggling: boolean; toggleLocked: boolean; onPress: () => void; onToggle: () => void }) {
@@ -338,21 +332,21 @@ function AccountCard({ item, proxies, proxiesLoaded, now, toggling, toggleLocked
       <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: provider.color, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 15, fontWeight: '900' }}>{provider.mark}</Text></View>
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '800' }}>{identity.primary}</Text><AccountToggleButton account={item} busy={toggling} locked={toggleLocked} onPress={onToggle} /></View>
-        {identity.secondary ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{identity.secondary}</Text> : null}
-        <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{provider.label}{plan ? ` / ${plan}` : ''}</Text>
+        {identity.secondary ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{identity.secondary}</Text> : null}
+        <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{provider.label}{plan ? ` / ${plan}` : ''}</Text>
       </View>
       <MoreHorizontal color={colors.subtext} size={18} />
     </View>
     <View style={{ marginLeft: 48, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Network color={egress.missing ? colors.warning : colors.subtext} size={13} /><Text numberOfLines={1} style={{ flex: 1, color: egress.missing ? colors.warning : colors.subtext, fontSize: 10, fontWeight: egress.missing ? '700' : '500' }}>{egressText}</Text></View>
-      <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Clock3 color={colors.subtext} size={13} /><Text style={{ color: colors.subtext, fontSize: 10 }}>{accountLastUsed(item.last_used_at, now)}</Text></View>
+      <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Network color={egress.missing ? colors.warning : colors.subtext} size={13} /><Text numberOfLines={1} style={{ flex: 1, color: egress.missing ? colors.warning : colors.subtext, fontSize: 11, fontWeight: egress.missing ? '700' : '500' }}>{egressText}</Text></View>
+      <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Clock3 color={colors.subtext} size={13} /><Text style={{ color: colors.subtext, fontSize: 11 }}>{accountLastUsed(item.last_used_at, now)}</Text></View>
     </View>
-    {reason ? <Text numberOfLines={2} style={{ marginLeft: 48, color: statusTone(status, colors).foreground, fontSize: 10, lineHeight: 14 }}>{reason}</Text> : null}
+    {reason ? <Text numberOfLines={2} style={{ marginLeft: 48, color: statusTone(status, colors).foreground, fontSize: 11, lineHeight: 14 }}>{reason}</Text> : null}
     {item.ws_enabled || priority !== 0 || item.warmup_enabled || item.models_probe_error ? <View style={{ marginLeft: 48, flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-      {item.ws_enabled ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 8, fontWeight: '700' }}>WS</Text></View> : null}
-      {priority !== 0 ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 8, fontWeight: '700' }}>优先级 {priority}</Text></View> : null}
-      {item.warmup_enabled ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: item.warmup_last_error ? colors.warningBg : colors.mutedCard }}><Text numberOfLines={1} style={{ color: item.warmup_last_error ? colors.warning : colors.subtext, fontSize: 8, fontWeight: '700' }}>预热{warmupTimes.length ? ` ${warmupTimes.join(' ')}` : ''}</Text></View> : null}
-      {item.models_probe_error ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.warningBg }}><Text style={{ color: colors.warning, fontSize: 8, fontWeight: '700' }}>模型探测失败</Text></View> : null}
+      {item.ws_enabled ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>WS</Text></View> : null}
+      {priority !== 0 ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>优先级 {priority}</Text></View> : null}
+      {item.warmup_enabled ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: item.warmup_last_error ? colors.warningBg : colors.mutedCard }}><Text numberOfLines={1} style={{ color: item.warmup_last_error ? colors.warning : colors.subtext, fontSize: 11, fontWeight: '700' }}>预热{warmupTimes.length ? ` ${warmupTimes.join(' ')}` : ''}</Text></View> : null}
+      {item.models_probe_error ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.warningBg }}><Text style={{ color: colors.warning, fontSize: 11, fontWeight: '700' }}>模型探测失败</Text></View> : null}
     </View> : null}
   </Pressable>;
 }
@@ -361,7 +355,7 @@ function ActionRow({ icon: Icon, label, onPress, busy = false, disabled = false,
   const colors = useAppTheme();
   return <Pressable disabled={disabled || busy} onPress={onPress} style={({ pressed }) => ({ minHeight: 46, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: disabled ? 0.42 : pressed ? 0.62 : 1 })}>
     <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: danger ? colors.dangerBg : colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{busy ? <ActivityIndicator color={danger ? colors.danger : colors.primary} size="small" /> : <Icon color={danger ? colors.danger : colors.subtext} size={15} />}</View>
-    <Text style={{ flex: 1, color: danger ? colors.danger : colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text>
+    <Text style={{ flex: 1, color: danger ? colors.danger : colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text>
   </Pressable>;
 }
 
@@ -391,8 +385,8 @@ function AccountInput({ label, value, onChangeText, placeholder, numeric = false
   return <View style={{ gap: 6 }}>
     <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text>
     <View style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center' }}>
-      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.placeholder} keyboardType={numeric ? 'number-pad' : 'default'} autoCapitalize="none" autoCorrect={false} secureTextEntry={secure && !visible} style={{ flex: 1, minHeight: 42, color: colors.text, paddingHorizontal: 11, fontSize: 12 }} />
-      {secure ? <Pressable accessibilityLabel={visible ? '隐藏凭据' : '显示凭据'} onPress={() => setVisible((current) => !current)} style={{ width: 40, height: 42, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>{visible ? '隐藏' : '显示'}</Text></Pressable> : null}
+      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.placeholder} keyboardType={numeric ? 'number-pad' : 'default'} autoCapitalize="none" autoCorrect={false} secureTextEntry={secure && !visible} style={{ flex: 1, minHeight: 42, color: colors.text, paddingHorizontal: 11, fontSize: 11 }} />
+      {secure ? <Pressable accessibilityLabel={visible ? '隐藏凭据' : '显示凭据'} onPress={() => setVisible((current) => !current)} style={{ width: 40, height: 42, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>{visible ? '隐藏' : '显示'}</Text></Pressable> : null}
     </View>
   </View>;
 }
@@ -490,19 +484,19 @@ function AccountEditSheet({ account, accounts, proxies, proxiesLoaded, onClose, 
     <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 11, paddingBottom: 4 }}>
       <AccountInput label="账号标签" value={draft.label} onChangeText={(label) => setDraft((current) => ({ ...current, label }))} placeholder={accountIdentity(account).primary} />
       <AccountInput label="优先级" value={draft.priority} onChangeText={(priority) => setDraft((current) => ({ ...current, priority }))} numeric />
-      {!priorityValid ? <Text style={{ color: colors.danger, fontSize: 9 }}>优先级必须是数字</Text> : null}
+      {!priorityValid ? <Text style={{ color: colors.danger, fontSize: 11 }}>优先级必须是数字</Text> : null}
       <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>状态</Text>{editableStatus ? <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>{([['active', '启用'], ['disabled', '禁用']] as const).map(([status, label]) => <Pressable key={status} onPress={() => setDraft((current) => ({ ...current, status }))} style={{ flex: 1, minHeight: 38, borderRadius: 9, backgroundColor: draft.status === status ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: draft.status === status ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}</View> : <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.mutedCard, paddingHorizontal: 11, justifyContent: 'center' }}><Text style={{ color: colors.subtext, fontSize: 11 }}>{accountStatusLabels[accountStatus(account)]} · 系统维护状态</Text></View>}</View>
-      <View style={{ gap: 7 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>出口代理</Text>{egress.advanced ? <View style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, paddingHorizontal: 11, justifyContent: 'center' }}><Text selectable numberOfLines={2} style={{ color: colors.subtext, fontFamily: 'monospace', fontSize: 10 }}>{stringValue(account.egress_selector)}</Text></View> : <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-        <Pressable onPress={() => setDraft((current) => ({ ...current, egressSelector: '' }))} style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: draft.egressSelector === '' ? colors.primary : colors.border, backgroundColor: draft.egressSelector === '' ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: draft.egressSelector === '' ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>直连</Text></Pressable>
-        {proxies.map((proxy, index) => { const id = stringValue(proxy.id) || String(index); const selected = draft.egressSelector === id; const name = stringValue(proxy.name) || stringValue(proxy.host) || id; const ownerId = proxyOwners[id]; const ownedByOther = Boolean(ownerId && ownerId !== accountId(account)); const owner = ownedByOther ? accounts.find((item) => accountId(item) === ownerId) : undefined; return <Pressable key={id} disabled={ownedByOther} onPress={() => setDraft((current) => ({ ...current, egressSelector: id }))} style={{ minHeight: 36, maxWidth: '100%', paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center', opacity: ownedByOther ? 0.45 : 1 }}><Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{name}{proxy.enabled === false ? '（禁用）' : ''}{proxy.sticky ? ' · 专属' : ''}{owner ? ` · 已分配给 ${accountIdentity(owner).primary}` : ''}</Text></Pressable>; })}
-        {draft.egressSelector && !proxies.some((proxy) => stringValue(proxy.id) === draft.egressSelector) ? <View style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 11, backgroundColor: colors.warningBg, justifyContent: 'center' }}><Text style={{ color: colors.warning, fontSize: 10, fontWeight: '700' }}>{draft.egressSelector}（未找到）</Text></View> : null}
+      <View style={{ gap: 7 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>出口代理</Text>{egress.advanced ? <View style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, paddingHorizontal: 11, justifyContent: 'center' }}><Text selectable numberOfLines={2} style={{ color: colors.subtext, fontFamily: 'monospace', fontSize: 11 }}>{stringValue(account.egress_selector)}</Text></View> : <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+        <Pressable onPress={() => setDraft((current) => ({ ...current, egressSelector: '' }))} style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: draft.egressSelector === '' ? colors.primary : colors.border, backgroundColor: draft.egressSelector === '' ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: draft.egressSelector === '' ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>直连</Text></Pressable>
+        {proxies.map((proxy, index) => { const id = stringValue(proxy.id) || String(index); const selected = draft.egressSelector === id; const name = stringValue(proxy.name) || stringValue(proxy.host) || id; const ownerId = proxyOwners[id]; const ownedByOther = Boolean(ownerId && ownerId !== accountId(account)); const owner = ownedByOther ? accounts.find((item) => accountId(item) === ownerId) : undefined; return <Pressable key={id} disabled={ownedByOther} onPress={() => setDraft((current) => ({ ...current, egressSelector: id }))} style={{ minHeight: 36, maxWidth: '100%', paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center', opacity: ownedByOther ? 0.45 : 1 }}><Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{name}{proxy.enabled === false ? '（禁用）' : ''}{proxy.sticky ? ' · 专属' : ''}{owner ? ` · 已分配给 ${accountIdentity(owner).primary}` : ''}</Text></Pressable>; })}
+        {draft.egressSelector && !proxies.some((proxy) => stringValue(proxy.id) === draft.egressSelector) ? <View style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 11, backgroundColor: colors.warningBg, justifyContent: 'center' }}><Text style={{ color: colors.warning, fontSize: 11, fontWeight: '700' }}>{draft.egressSelector}（未找到）</Text></View> : null}
       </View>}</View>
-      <View style={{ minHeight: 46, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9 }}><Wifi color={draft.wsEnabled ? colors.primary : colors.subtext} size={15} /><View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>WebSocket</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>允许该账号承载 WebSocket 会话</Text></View><AppSwitch accessibilityLabel="WebSocket" value={draft.wsEnabled} onValueChange={(wsEnabled) => setDraft((current) => ({ ...current, wsEnabled }))} /></View>
+      <View style={{ minHeight: 46, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9 }}><Wifi color={draft.wsEnabled ? colors.primary : colors.subtext} size={15} /><View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>WebSocket</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>允许该账号承载 WebSocket 会话</Text></View><AppSwitch accessibilityLabel="WebSocket" value={draft.wsEnabled} onValueChange={(wsEnabled) => setDraft((current) => ({ ...current, wsEnabled }))} /></View>
       {fields.map((field) => <AccountInput key={field.key} label={field.label} value={draft.credentials[field.key] ?? ''} onChangeText={(value) => setDraft((current) => ({ ...current, credentials: { ...current.credentials, [field.key]: value } }))} placeholder={field.placeholder} secure={field.secure} />)}
-      {fields.length ? <Text style={{ color: colors.subtext, fontSize: 9, lineHeight: 14 }}>凭据留空时保持现有值不变。</Text> : null}
+      {fields.length ? <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 14 }}>凭据留空时保持现有值不变。</Text> : null}
     </ScrollView>
     {error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{error}</Text> : null}
-    <Pressable disabled={!priorityValid || saving} onPress={() => void save()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: priorityValid && !saving ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{saving ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={16} />}<Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{saving ? '保存中...' : '保存账号'}</Text></Pressable>
+    <Pressable disabled={!priorityValid || saving} onPress={() => void save()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: priorityValid && !saving ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{saving ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={16} />}<Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{saving ? '保存中...' : '保存账号'}</Text></Pressable>
   </SheetFrame>;
 }
 
@@ -643,14 +637,14 @@ function AccountModelsSheet({ account, onClose }: { account?: ApiRecord; onClose
     <SheetHeader title="可用模型" subtitle={account ? `${identity.primary} · ${accountProvider(account).label}` : undefined} onClose={closeSheet} />
     <View style={{ height: Math.min(640, Math.max(330, height * 0.7)), gap: 10 }}>
       {query.isLoading ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 9 }}><ActivityIndicator color={colors.primary} /><Text style={{ color: colors.subtext, fontSize: 11 }}>正在读取账号模型...</Text></View> : query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : !supported ? <View style={{ gap: 12 }}>
-        <View style={{ borderRadius: 14, backgroundColor: colors.mutedCard, padding: 12, gap: 4 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '800' }}>该提供商不支持模型目录</Text><Text style={{ color: colors.subtext, fontSize: 10, lineHeight: 15 }}>输入模型 ID 可直接检查该账号是否可用。</Text></View>
-        <View style={{ flexDirection: 'row', gap: 8 }}><TextInput value={manualModel} onChangeText={setManualModel} placeholder="输入模型 ID" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 12, fontFamily: 'monospace' }} /><Pressable disabled={!manualTestEnabled} onPress={() => void testModel(manualModel)} style={{ width: 46, height: 44, borderRadius: 12, backgroundColor: manualTestEnabled || testing.has(manualModel.trim()) ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>{testing.has(manualModel.trim()) ? <ActivityIndicator color="#fff" size="small" /> : <Play color="#fff" size={16} />}</Pressable></View>
+        <View style={{ borderRadius: 14, backgroundColor: colors.mutedCard, padding: 12, gap: 4 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '800' }}>该提供商不支持模型目录</Text><Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 15 }}>输入模型 ID 可直接检查该账号是否可用。</Text></View>
+        <View style={{ flexDirection: 'row', gap: 8 }}><TextInput value={manualModel} onChangeText={setManualModel} placeholder="输入模型 ID" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 11, fontFamily: 'monospace' }} /><Pressable disabled={!manualTestEnabled} onPress={() => void testModel(manualModel)} style={{ width: 46, height: 44, borderRadius: 12, backgroundColor: manualTestEnabled || testing.has(manualModel.trim()) ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>{testing.has(manualModel.trim()) ? <ActivityIndicator color="#fff" size="small" /> : <Play color="#fff" size={16} />}</Pressable></View>
         {manualState ? <Text style={{ color: manualState.ok ? colors.success : colors.danger, fontSize: 11, lineHeight: 16 }}>{manualState.message} · {manualState.testedAt}</Text> : null}
       </View> : <>
-        <View style={{ minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '800' }}>{models.length} 个模型</Text><Pressable disabled={!models.length || testsBusy} onPress={() => void testAll()} style={{ minHeight: 38, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: models.length ? 1 : 0.45 }}>{testingAll ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={14} />}<Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>{testAllLabel}</Text></Pressable></View>
-        {testAllError ? <Text numberOfLines={2} style={{ color: colors.danger, fontSize: 10, lineHeight: 14 }}>批量测试已中断：{testAllError}</Text> : null}
+        <View style={{ minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '800' }}>{models.length} 个模型</Text><Pressable disabled={!models.length || testsBusy} onPress={() => void testAll()} style={{ minHeight: 38, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: models.length ? 1 : 0.45 }}>{testingAll ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={14} />}<Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>{testAllLabel}</Text></Pressable></View>
+        {testAllError ? <Text numberOfLines={2} style={{ color: colors.danger, fontSize: 11, lineHeight: 14 }}>批量测试已中断：{testAllError}</Text> : null}
         <SearchField value={search} onChangeText={setSearch} placeholder="搜索模型" />
-        {account?.models_probe_error ? <Text numberOfLines={2} style={{ color: colors.warning, fontSize: 10, lineHeight: 14 }}>目录探测：{String(account.models_probe_error)}</Text> : null}
+        {account?.models_probe_error ? <Text numberOfLines={2} style={{ color: colors.warning, fontSize: 11, lineHeight: 14 }}>目录探测：{String(account.models_probe_error)}</Text> : null}
         <FlatList
           data={filtered}
           bounces={false}
@@ -671,8 +665,8 @@ function AccountModelsSheet({ account, onClose }: { account?: ApiRecord; onClose
             const message = testState?.message || probeError;
             const ok = testState ? testState.ok : !probeError;
             return <View style={{ minHeight: 70, borderBottomWidth: 1, borderBottomColor: colors.rowBorder, paddingVertical: 10, gap: 6 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><Boxes color={colors.primary} size={16} /></View><View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 12, lineHeight: 16, fontWeight: '800', fontFamily: 'monospace' }}>{model || '未命名模型'}</Text>{displayName || context ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9 }}>{[displayName !== model ? displayName : '', context].filter(Boolean).join(' · ')}</Text> : null}</View><Pressable accessibilityLabel="复制模型 ID" onPress={() => void copyModel(model)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{copiedId === model ? <Check color={colors.success} size={15} /> : <Copy color={colors.subtext} size={15} />}</Pressable><Pressable accessibilityLabel="测试模型" disabled={testsBusy} onPress={() => void testModel(model)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: testsBusy && !testing.has(model) ? 0.45 : 1 }}>{testing.has(model) ? <ActivityIndicator color={colors.primary} size="small" /> : <Play color={colors.primary} size={15} />}</Pressable></View>
-              {message || probeTime ? <Text numberOfLines={2} style={{ marginLeft: 42, color: ok ? colors.success : colors.danger, fontSize: 9, lineHeight: 14 }}>{message || '上次探测成功'}{testState?.testedAt ? ` · ${testState.testedAt}` : probeTime ? ` · ${probeTime}` : ''}</Text> : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><Boxes color={colors.primary} size={16} /></View><View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text selectable numberOfLines={2} style={{ color: colors.text, fontSize: 11, lineHeight: 16, fontWeight: '800', fontFamily: 'monospace' }}>{model || '未命名模型'}</Text>{displayName || context ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{[displayName !== model ? displayName : '', context].filter(Boolean).join(' · ')}</Text> : null}</View><Pressable accessibilityLabel="复制模型 ID" onPress={() => void copyModel(model)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>{copiedId === model ? <Check color={colors.success} size={15} /> : <Copy color={colors.subtext} size={15} />}</Pressable><Pressable accessibilityLabel="测试模型" disabled={testsBusy} onPress={() => void testModel(model)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: testsBusy && !testing.has(model) ? 0.45 : 1 }}>{testing.has(model) ? <ActivityIndicator color={colors.primary} size="small" /> : <Play color={colors.primary} size={15} />}</Pressable></View>
+              {message || probeTime ? <Text numberOfLines={2} style={{ marginLeft: 42, color: ok ? colors.success : colors.danger, fontSize: 11, lineHeight: 14 }}>{message || '上次探测成功'}{testState?.testedAt ? ` · ${testState.testedAt}` : probeTime ? ` · ${probeTime}` : ''}</Text> : null}
             </View>;
           }}
         />
@@ -732,17 +726,17 @@ function WarmupSheet({ account, onClose, onSaved }: { account?: ApiRecord; onClo
   return <SheetFrame visible={Boolean(account)} onClose={onClose} maxHeight="92%">
     <SheetHeader title="定时预热" subtitle={account ? accountIdentity(account).primary : undefined} onClose={onClose} />
     <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
-      <View style={{ minHeight: 50, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 9 }}><Clock3 color={draft.enabled ? colors.primary : colors.subtext} size={16} /><View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '800' }}>启用定时预热</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>按设定时间预先调用上游账号</Text></View><AppSwitch accessibilityLabel="启用定时预热" value={draft.enabled} onValueChange={(enabled) => setDraft((current) => ({ ...current, enabled }))} /></View>
-      <View style={{ gap: 7 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>执行时间</Text>{draft.times.map((time, index) => <View key={index} style={{ flexDirection: 'row', gap: 7 }}><TextInput value={time} onChangeText={(value) => setDraft((current) => ({ ...current, times: current.times.map((entry, entryIndex) => entryIndex === index ? value : entry) }))} placeholder="07:00" placeholderTextColor={colors.placeholder} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} style={{ flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? colors.border : colors.danger, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 12, fontFamily: 'monospace' }} /><Pressable accessibilityLabel="移除时间" disabled={draft.times.length <= 1} onPress={() => setDraft((current) => ({ ...current, times: current.times.filter((_, entryIndex) => entryIndex !== index) }))} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center', opacity: draft.times.length <= 1 ? 0.4 : 1 }}><Trash2 color={colors.subtext} size={15} /></Pressable></View>)}<Pressable disabled={draft.times.length >= 8} onPress={() => setDraft((current) => ({ ...current, times: [...current.times, ''] }))} style={{ alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 10, borderRadius: 11, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Plus color={colors.primary} size={14} /><Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>添加时间</Text></Pressable></View>
+      <View style={{ minHeight: 50, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 9 }}><Clock3 color={draft.enabled ? colors.primary : colors.subtext} size={16} /><View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '800' }}>启用定时预热</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>按设定时间预先调用上游账号</Text></View><AppSwitch accessibilityLabel="启用定时预热" value={draft.enabled} onValueChange={(enabled) => setDraft((current) => ({ ...current, enabled }))} /></View>
+      <View style={{ gap: 7 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>执行时间</Text>{draft.times.map((time, index) => <View key={index} style={{ flexDirection: 'row', gap: 7 }}><TextInput value={time} onChangeText={(value) => setDraft((current) => ({ ...current, times: current.times.map((entry, entryIndex) => entryIndex === index ? value : entry) }))} placeholder="07:00" placeholderTextColor={colors.placeholder} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} style={{ flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? colors.border : colors.danger, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 11, fontFamily: 'monospace' }} /><Pressable accessibilityLabel="移除时间" disabled={draft.times.length <= 1} onPress={() => setDraft((current) => ({ ...current, times: current.times.filter((_, entryIndex) => entryIndex !== index) }))} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center', opacity: draft.times.length <= 1 ? 0.4 : 1 }}><Trash2 color={colors.subtext} size={15} /></Pressable></View>)}<Pressable disabled={draft.times.length >= 8} onPress={() => setDraft((current) => ({ ...current, times: [...current.times, ''] }))} style={{ alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 10, borderRadius: 11, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Plus color={colors.primary} size={14} /><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>添加时间</Text></Pressable></View>
       <AccountInput label="时区" value={draft.timezone} onChangeText={(timezone) => setDraft((current) => ({ ...current, timezone }))} placeholder="留空跟随服务器" />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{timezonePresets.map((timezone) => <Pressable key={timezone} onPress={() => setDraft((current) => ({ ...current, timezone }))} style={{ minHeight: 32, paddingHorizontal: 9, borderRadius: 10, backgroundColor: draft.timezone === timezone ? colors.primarySoft : colors.mutedCard, justifyContent: 'center' }}><Text style={{ color: draft.timezone === timezone ? colors.primary : colors.subtext, fontSize: 9, fontWeight: '700' }}>{timezone}</Text></Pressable>)}</View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{timezonePresets.map((timezone) => <Pressable key={timezone} onPress={() => setDraft((current) => ({ ...current, timezone }))} style={{ minHeight: 32, paddingHorizontal: 9, borderRadius: 10, backgroundColor: draft.timezone === timezone ? colors.primarySoft : colors.mutedCard, justifyContent: 'center' }}><Text style={{ color: draft.timezone === timezone ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{timezone}</Text></Pressable>)}</View>
       <AccountInput label="预热模型" value={draft.model} onChangeText={(model) => setDraft((current) => ({ ...current, model }))} placeholder="留空自动选择" />
-      {suggestions.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{suggestions.map((item) => { const model = availableModelId(item); return <Pressable key={model} onPress={() => setDraft((current) => ({ ...current, model }))} style={{ maxWidth: '100%', minHeight: 32, paddingHorizontal: 9, borderRadius: 10, backgroundColor: colors.mutedCard, justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9, fontFamily: 'monospace' }}>{model}</Text></Pressable>; })}</View> : null}
-      {account?.warmup_last_at ? <View style={{ borderTopWidth: 1, borderTopColor: colors.rowBorder, paddingTop: 9, gap: 4 }}><Text style={{ color: colors.subtext, fontSize: 9 }}>上次执行 · {formatTimestamp(account.warmup_last_at)}</Text>{account.warmup_last_error ? <Text style={{ color: colors.warning, fontSize: 10, lineHeight: 14 }}>{String(account.warmup_last_error)}</Text> : null}</View> : null}
+      {suggestions.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{suggestions.map((item) => { const model = availableModelId(item); return <Pressable key={model} onPress={() => setDraft((current) => ({ ...current, model }))} style={{ maxWidth: '100%', minHeight: 32, paddingHorizontal: 9, borderRadius: 10, backgroundColor: colors.mutedCard, justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontFamily: 'monospace' }}>{model}</Text></Pressable>; })}</View> : null}
+      {account?.warmup_last_at ? <View style={{ borderTopWidth: 1, borderTopColor: colors.rowBorder, paddingTop: 9, gap: 4 }}><Text style={{ color: colors.subtext, fontSize: 11 }}>上次执行 · {formatTimestamp(account.warmup_last_at)}</Text>{account.warmup_last_error ? <Text style={{ color: colors.warning, fontSize: 11, lineHeight: 14 }}>{String(account.warmup_last_error)}</Text> : null}</View> : null}
     </ScrollView>
-    {draft.enabled && !timeValid ? <Text style={{ color: colors.danger, fontSize: 10 }}>请填写有效时间，格式为 HH:mm。</Text> : null}
+    {draft.enabled && !timeValid ? <Text style={{ color: colors.danger, fontSize: 11 }}>请填写有效时间，格式为 HH:mm。</Text> : null}
     {error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{error}</Text> : null}
-    <Pressable disabled={!canSave} onPress={() => void save()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: canSave ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{saving ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={16} />}<Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{saving ? '保存中...' : '保存预热配置'}</Text></Pressable>
+    <Pressable disabled={!canSave} onPress={() => void save()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: canSave ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{saving ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={16} />}<Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{saving ? '保存中...' : '保存预热配置'}</Text></Pressable>
   </SheetFrame>;
 }
 
@@ -776,7 +770,7 @@ function ImportSheet({ visible, onClose, onImported }: { visible: boolean; onClo
     setBusy(true);
     setError('');
     try {
-      const payload = await apiJson<unknown>('/admin/accounts/import', { method: 'POST', body: multipartBody(file), query: { dry_run: dryRun ? 1 : undefined }, timeoutMs: 120000 });
+      const payload = await apiJson<unknown>('/admin/accounts/import', { method: 'POST', body: documentMultipartBody(file), query: { dry_run: dryRun ? 1 : undefined }, timeoutMs: 120000 });
       setResult(payload);
       setResultMode(dryRun ? 'check' : 'import');
       if (!dryRun) onImported();
@@ -789,7 +783,7 @@ function ImportSheet({ visible, onClose, onImported }: { visible: boolean; onClo
 
   return <SheetFrame visible={visible} onClose={onClose} maxHeight="90%">
     <SheetHeader title="导入账号文件" subtitle="JSON、CSV 或文本格式" onClose={onClose} />
-    <Pressable disabled={busy} onPress={() => void chooseFile()} style={{ minHeight: 52, borderRadius: 13, borderWidth: 1, borderColor: file ? colors.success : colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 }}><FileUp color={file ? colors.success : colors.primary} size={17} /><View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text numberOfLines={1} style={{ color: file ? colors.text : colors.subtext, fontSize: 11, fontWeight: '700' }}>{file?.name ?? '选择账号文件'}</Text>{file?.size ? <Text style={{ color: colors.subtext, fontSize: 9 }}>{file.size} bytes</Text> : null}</View></Pressable>
+    <Pressable disabled={busy} onPress={() => void chooseFile()} style={{ minHeight: 52, borderRadius: 13, borderWidth: 1, borderColor: file ? colors.success : colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 }}><FileUp color={file ? colors.success : colors.primary} size={17} /><View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text numberOfLines={1} style={{ color: file ? colors.text : colors.subtext, fontSize: 11, fontWeight: '700' }}>{file?.name ?? '选择账号文件'}</Text>{file?.size ? <Text style={{ color: colors.subtext, fontSize: 11 }}>{file.size} bytes</Text> : null}</View></Pressable>
     {file ? <View style={{ flexDirection: 'row', gap: 8 }}><CompactButton icon={SearchX} label="检查文件" busy={busy} onPress={() => void submit(true)} /><CompactButton icon={Upload} label="正式导入" primary busy={busy} onPress={() => void submit(false)} /></View> : null}
     {error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{error}</Text> : null}
     {result !== undefined ? <View style={{ maxHeight: 280, gap: 7 }}><Text style={{ color: resultMode === 'import' ? colors.success : colors.primary, fontSize: 11, fontWeight: '800' }}>{resultMode === 'import' ? '导入完成' : '文件检查结果'}</Text><ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" style={{ flexGrow: 0 }}><StructuredDataView value={result} /></ScrollView></View> : null}
@@ -800,7 +794,7 @@ function FilterSheet({ mode, options, selected, onSelect, onClose }: { mode: Fil
   const colors = useAppTheme();
   return <SheetFrame visible={Boolean(mode)} onClose={onClose} maxHeight="72%">
     <SheetHeader title={mode === 'status' ? '筛选状态' : '筛选供应商'} onClose={onClose} />
-    <FlatList data={options} bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyExtractor={(item) => item.key} style={{ flexGrow: 0 }} renderItem={({ item }) => <Pressable onPress={() => { onSelect(item.key); onClose(); }} style={({ pressed }) => ({ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9, opacity: pressed ? 0.62 : 1 })}><View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 12, fontWeight: selected === item.key ? '800' : '600' }}>{item.label}</Text>{item.detail ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9 }}>{item.detail}</Text> : null}</View>{item.count !== undefined ? <Text style={{ color: colors.subtext, fontSize: 10 }}>{item.count}</Text> : null}{selected === item.key ? <Check color={colors.primary} size={16} /> : null}</Pressable>} />
+    <FlatList data={options} bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyExtractor={(item) => item.key} style={{ flexGrow: 0 }} renderItem={({ item }) => <Pressable onPress={() => { onSelect(item.key); onClose(); }} style={({ pressed }) => ({ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9, opacity: pressed ? 0.62 : 1 })}><View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, fontWeight: selected === item.key ? '800' : '600' }}>{item.label}</Text>{item.detail ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{item.detail}</Text> : null}</View>{item.count !== undefined ? <Text style={{ color: colors.subtext, fontSize: 11 }}>{item.count}</Text> : null}{selected === item.key ? <Check color={colors.primary} size={16} /> : null}</Pressable>} />
   </SheetFrame>;
 }
 
@@ -976,13 +970,13 @@ export default function AdminAccountsScreen() {
         <SummaryMetric label="启用" value={counts.statuses.active} tone="success" />
         <SummaryMetric label="需处理" value={counts.needsAttention} tone={counts.needsAttention ? 'danger' : undefined} />
         <SummaryMetric label="禁用" value={counts.statuses.disabled} tone={counts.statuses.disabled ? 'danger' : undefined} />
-        <View style={{ marginLeft: wide ? 'auto' : 0, minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 }}><RefreshCw color={autoRefresh ? colors.primary : colors.subtext} size={14} /><Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>自动刷新</Text><AppSwitch accessibilityLabel="自动刷新" value={autoRefresh} onValueChange={setAutoRefresh} /></View>
+        <View style={{ marginLeft: wide ? 'auto' : 0, minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 }}><RefreshCw color={autoRefresh ? colors.primary : colors.subtext} size={14} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>自动刷新</Text><AppSwitch accessibilityLabel="自动刷新" value={autoRefresh} onValueChange={setAutoRefresh} /></View>
       </View>
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
         <View style={{ flex: wide ? 1 : undefined, minHeight: 44 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索账号、邮箱、供应商或出口" /></View>
         <View style={{ minWidth: wide ? 360 : undefined, flexDirection: 'row', gap: 8 }}><FilterButton icon={Filter} label={selectedStatusLabel} active={statusFilter !== 'all'} onPress={() => setFilterMode('status')} /><FilterButton icon={SlidersHorizontal} label={selectedProviderLabel} active={providerFilter !== 'all'} onPress={() => setFilterMode('provider')} />{filtersActive ? <Pressable accessibilityLabel="清除筛选" onPress={() => { setStatusFilter('all'); setProviderFilter('all'); }} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={15} /></Pressable> : null}</View>
       </View>
-      {proxies.error ? <Text style={{ color: colors.warning, fontSize: 9 }}>出口配置暂时无法核对：{proxies.error.message}</Text> : null}
+      {proxies.error ? <Text style={{ color: colors.warning, fontSize: 11 }}>出口配置暂时无法核对：{proxies.error.message}</Text> : null}
       {accounts.error ? <ErrorState message={accounts.error.message} retry={() => accounts.refetch()} /> : null}
       <FlatList
         data={filtered}
@@ -1001,7 +995,7 @@ export default function AdminAccountsScreen() {
         windowSize={7}
         style={{ flex: 1, width: '100%' }}
         contentContainerStyle={{ gap: 8, paddingBottom: 12, flexGrow: filtered.length ? 0 : 1 }}
-        ListHeaderComponent={accounts.data ? <Text style={{ color: colors.subtext, fontSize: 9, paddingBottom: 2 }}>显示 {filtered.length} / {allAccounts.length}</Text> : null}
+        ListHeaderComponent={accounts.data ? <Text style={{ color: colors.subtext, fontSize: 11, paddingBottom: 2 }}>显示 {filtered.length} / {allAccounts.length}</Text> : null}
         ListEmptyComponent={accounts.isLoading ? <View style={{ flex: 1, minHeight: 180, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View> : <EmptyState icon={filtersActive || search.trim() ? SearchX : CloudCog} message={filtersActive || search.trim() ? '没有匹配的账号' : '暂无上游账号'} />}
         renderItem={({ item }) => <AccountCard item={item} proxies={proxyItems} proxiesLoaded={proxiesLoaded} now={now} toggling={togglingId === accountId(item)} toggleLocked={Boolean(togglingId || busyAction)} onPress={() => setSelectedId(accountId(item))} onToggle={() => void toggleAccount(item)} />}
       />
