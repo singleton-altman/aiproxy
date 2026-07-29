@@ -199,7 +199,7 @@ export async function getAdminRequestLogs(params?: { limit?: number }, signal?: 
 }
 
 export function getAdminUsageEvents(params?: { range?: string; page?: number; page_size?: number }, signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/admin/usage/events', { signal, query: params });
+  return apiJson<ApiRecord>('/admin/usage/events', { signal, cache: 'no-store', query: params });
 }
 
 export function getAdminLogsRequests(params?: { page?: number; page_size?: number }, signal?: AbortSignal) {
@@ -253,6 +253,13 @@ export function getAdminModelWarnings(signal?: AbortSignal) {
 }
 
 // ---- Quota ----
+
+export function setAdminAccountEnabled(id: string, enabled: boolean) {
+  return apiJson<ApiRecord>(`/admin/accounts/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: enabled ? 'active' : 'disabled' }),
+  });
+}
 
 function normalizeAdminQuotaPayload(value: unknown) {
   const root = recordValue(value);

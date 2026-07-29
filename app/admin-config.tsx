@@ -16,10 +16,10 @@ import {
 import type { LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StructuredDataView } from '@/src/components/structured-form';
-import { ErrorState, FullScreenSafeArea, Page, Panel, SectionHeader } from '@/src/components/ui';
+import { AppSwitch, ErrorState, FullScreenSafeArea, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import {
@@ -152,7 +152,7 @@ function ToggleRow({ label, detail, value, onChange }: { label: string; detail?:
   const colors = useAppTheme();
   return <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
     <View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text>{detail ? <Text style={{ color: colors.subtext, fontSize: 10 }}>{detail}</Text> : null}</View>
-    <Switch value={value} onValueChange={onChange} trackColor={{ false: colors.disabled, true: colors.primary }} />
+    <AppSwitch accessibilityLabel={label} value={value} onValueChange={onChange} />
   </View>;
 }
 

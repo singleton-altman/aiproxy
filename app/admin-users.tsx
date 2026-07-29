@@ -1,9 +1,9 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CircleDollarSign, Eye, EyeOff, Save, ShieldCheck, Trash2, UsersRound, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
-import { EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField } from '@/src/components/ui';
+import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import {
@@ -157,11 +157,14 @@ export default function AdminUsersScreen() {
       bounces={false}
       alwaysBounceVertical={false}
       overScrollMode="never"
+      scrollToOverflowEnabled={false}
+      automaticallyAdjustContentInsets={false}
+      contentInsetAdjustmentBehavior="never"
       keyExtractor={(item, index) => userId(item) || String(index)}
       keyboardShouldPersistTaps="handled"
-      removeClippedSubviews={Platform.OS === 'android'}
+      removeClippedSubviews={false}
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ gap: 8, paddingBottom: 20, flexGrow: items.length ? 0 : 1 }}
+      contentContainerStyle={{ gap: 8, paddingBottom: 12, flexGrow: items.length ? 0 : 1 }}
       ListHeaderComponent={users.data ? <Text style={{ color: colors.subtext, fontSize: 10, paddingBottom: 2 }}>显示 {items.length} / {users.data.items.length}</Text> : null}
       ListEmptyComponent={!users.isFetching ? <EmptyState message="没有匹配的用户" icon={UsersRound} /> : null}
       renderItem={({ item }) => {
@@ -187,7 +190,7 @@ export default function AdminUsersScreen() {
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>角色</Text><View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>{roleOptions.map(([key, label]) => <Pressable key={key} onPress={() => setDraft((current) => ({ ...current, role: key }))} style={{ flex: 1, minHeight: 38, borderRadius: 9, backgroundColor: draft.role === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} adjustsFontSizeToFit style={{ color: draft.role === key ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{label}</Text></Pressable>)}</View></View>
             <FormField label="新密码" value={draft.password} onChangeText={(value) => setDraft((current) => ({ ...current, password: value }))} placeholder="留空保持当前密码不变" secure={!passwordVisible} onToggleSecure={() => setPasswordVisible((value) => !value)} />
             {draft.password && !passwordValid ? <Text style={{ color: colors.danger, fontSize: 9 }}>密码至少 8 个字符</Text> : null}
-            <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9 }}><ShieldCheck color={draft.enabled ? colors.success : colors.subtext} size={15} /><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>账号启用</Text><Switch value={draft.enabled} onValueChange={(enabled) => setDraft((current) => ({ ...current, enabled }))} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>
+            <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9 }}><ShieldCheck color={draft.enabled ? colors.success : colors.subtext} size={15} /><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>账号启用</Text><AppSwitch accessibilityLabel="账号启用" value={draft.enabled} onValueChange={(enabled) => setDraft((current) => ({ ...current, enabled }))} /></View>
             <View style={{ gap: 6 }}><View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>余额调整</Text><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>当前 {formatBalance(selected.balance ?? 0)}</Text></View><View style={{ flexDirection: 'row', gap: 7 }}><TextInput value={balanceDraft} onChangeText={setBalanceDraft} placeholder="正数充值，负数扣减" placeholderTextColor={colors.placeholder} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} style={{ flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 11 }} /><Pressable disabled={balanceMutation.isPending || !balanceDraft.trim() || !Number.isFinite(Number(balanceDraft))} onPress={() => balanceMutation.mutate({ item: selected, amount: Number(balanceDraft) })} style={{ minWidth: 78, minHeight: 42, borderRadius: 12, backgroundColor: balanceDraft.trim() && Number.isFinite(Number(balanceDraft)) ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}>{balanceMutation.isPending ? <ActivityIndicator color="#fff" size="small" /> : <CircleDollarSign color="#fff" size={14} />}<Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>提交</Text></Pressable></View></View>
             {balanceMutation.error ? <Text style={{ color: colors.danger, fontSize: 9 }}>{balanceMutation.error.message}</Text> : null}
             <Pressable disabled={deleteMutation.isPending} onPress={() => confirmDelete(selected)} style={{ minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.danger, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Trash2 color={colors.danger} size={14} /><Text style={{ color: colors.danger, fontSize: 11, fontWeight: '800' }}>{deleteMutation.isPending ? '删除中...' : '删除用户'}</Text></Pressable>

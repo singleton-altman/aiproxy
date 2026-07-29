@@ -19,10 +19,10 @@ import {
   X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EmptyState, ErrorState, FullScreenSafeArea, IconTile, PageHeader, SearchField, SheetHandle } from '@/src/components/ui';
+import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, IconTile, PageHeader, SearchField, SheetHandle } from '@/src/components/ui';
 import { GatewayKeyPicker } from '@/src/components/gateway-key-picker';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
@@ -274,8 +274,12 @@ export default function ChatScreen() {
           bounces={false}
           alwaysBounceVertical={false}
           overScrollMode="never"
+          scrollToOverflowEnabled={false}
+          automaticallyAdjustContentInsets={false}
+          contentInsetAdjustmentBehavior="never"
           keyExtractor={(entry) => String(entry.id)}
           style={{ flex: 1 }}
+          removeClippedSubviews={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           contentContainerStyle={{ gap: 10, paddingVertical: 4, flexGrow: 1 }}
@@ -338,7 +342,7 @@ export default function ChatScreen() {
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>系统提示词</Text><TextInput value={systemPrompt} onChangeText={setSystemPrompt} placeholder="可选" placeholderTextColor={colors.placeholder} multiline textAlignVertical="top" style={[inputBoxStyle, { minHeight: 72, maxHeight: 96 }]} /></View>
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>温度</Text><View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>{[0, 0.3, 0.7, 1].map((value) => <Pressable key={value} onPress={() => setTemperature(value)} style={{ flex: 1, minHeight: 36, borderRadius: 9, backgroundColor: temperature === value ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: temperature === value ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{value}</Text></Pressable>)}</View></View>
             <View style={{ gap: 6 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>最大输出 Token</Text><TextInput value={maxTokens} onChangeText={setMaxTokens} keyboardType="number-pad" placeholder="2048" placeholderTextColor={colors.placeholder} style={inputBoxStyle} /></View>
-            <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>流式响应</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>关闭后使用普通 JSON 响应</Text></View><Switch value={streamEnabled} onValueChange={setStreamEnabled} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>
+            <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>流式响应</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>关闭后使用普通 JSON 响应</Text></View><AppSwitch accessibilityLabel="流式响应" value={streamEnabled} onValueChange={setStreamEnabled} /></View>
           </ScrollView>
           <Pressable onPress={() => setSettingsOpen(false)} style={{ height: 42, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>完成</Text></Pressable>
         </View>

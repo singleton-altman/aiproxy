@@ -1,8 +1,9 @@
 import { CheckCircle2, ChevronDown, ChevronUp, Network, Plus, Square, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { ResourceScreen } from '@/src/components/resource-screen';
+import { AppSwitch } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { useAppTheme } from '@/src/lib/theme';
 import type { ApiRecord } from '@/src/types/api';
@@ -63,7 +64,7 @@ function ProviderField({ label, value, placeholder, onChangeText }: { label: str
 
 function ToggleRow({ label, detail, value, onChange }: { label: string; detail: string; value: boolean; onChange: (value: boolean) => void }) {
   const colors = useAppTheme();
-  return <View style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text><Text style={{ color: colors.subtext, fontSize: 10, lineHeight: 15, marginTop: 2 }}>{detail}</Text></View><Switch value={value} onValueChange={onChange} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>;
+  return <View style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{label}</Text><Text style={{ color: colors.subtext, fontSize: 10, lineHeight: 15, marginTop: 2 }}>{detail}</Text></View><AppSwitch accessibilityLabel={label} value={value} onValueChange={onChange} /></View>;
 }
 
 function ProviderForm({ value, onChange, mode }: { value: ApiRecord; onChange: (value: ApiRecord) => void; mode: 'create' | 'edit' }) {
@@ -206,6 +207,7 @@ export default function AdminProvidersScreen() {
     titleOf={(item) => String(item.display_name ?? item.name ?? providerId(item) ?? 'Provider')}
     subtitleOf={(item) => `${providerProtocols(item).join(' / ')}${item.base_url ? ` · ${item.base_url}` : ''}${item.route_prefix ? ` · 前缀 ${item.route_prefix}` : ''}`}
     badgeOf={(item) => item.enabled === false ? { text: '停用', tone: 'muted' } : { text: '启用', tone: 'success' }}
+    editOnPress
     headerActions={[
       { key: 'builtin', label: '内置 Providers', run: () => apiJson('/admin/providers/builtin') },
     ]}

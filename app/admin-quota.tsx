@@ -1,13 +1,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { CircleAlert, Clock3, Coins, Eye, EyeOff, RefreshCw, Settings2 } from 'lucide-react-native';
-import { ActivityIndicator, Alert, Pressable, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 
-import { EmptyState, ErrorState, IconTile, Page, SectionHeader } from '@/src/components/ui';
+import { ProviderIcon } from '@/src/components/provider-icon';
+import { AppSwitch, EmptyState, ErrorState, Page } from '@/src/components/ui';
 import { maskAccountIdentity } from '@/src/lib/account-display';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
-import { getAdminQuota, refreshAdminQuota } from '@/src/services/admin';
+import { getAdminQuota, refreshAdminQuota, setAdminAccountEnabled } from '@/src/services/admin';
 import { setPrivacyMode, usePrivacyMode } from '@/src/store/privacy';
 import type { ApiRecord } from '@/src/types/api';
 
@@ -115,6 +116,35 @@ function quotaGroups(value: unknown): QuotaGroup[] {
     byProvider.set(provider, [...(byProvider.get(provider) ?? []), account]);
   }
   return Array.from(byProvider, ([key, items]) => ({ key, label: key, accounts: items }));
+}
+
+function quotaProvider(account: ApiRecord | undefined, key: string, label: string): ApiRecord {
+  return {
+    provider: account ? firstText([account], ['provider', 'provider_name']) || key : key,
+    provider_display_name: account ? firstText([account], ['provider_display_name', 'provider_label']) || label : label,
+  };
+}
+
+function updateQuotaAccountStatus(value: unknown, id: string, enabled: boolean) {
+  if (!isRecord(value) || !Array.isArray(value.groups)) return value;
+  return {
+    ...value,
+    groups: value.groups.map((group) => {
+      if (!isRecord(group) || !Array.isArray(group.accounts)) return group;
+      return {
+        ...group,
+        accounts: group.accounts.map((account) => {
+          if (!isRecord(account) || firstText([account], ['id']) !== id) return account;
+          return {
+            ...account,
+            status: enabled ? 'active' : 'disabled',
+            enabled,
+            disabled: !enabled,
+          };
+        }),
+      };
+    }),
+  };
 }
 
 function clampPercent(value: number) {
@@ -250,11 +280,15 @@ function quotaAmount(source: ApiRecord) {
   return { remaining, limit, unit };
 }
 
+function accountIsDisabled(account: ApiRecord) {
+  const status = firstText([account], ['status']).toLowerCase();
+  return account.disabled === true || account.enabled === false || status === 'disabled' || status === 'auto_disabled' || status === 'inactive';
+}
+
 function statusDetails(account: ApiRecord) {
   const status = firstText([account], ['status']).toLowerCase();
-  const disabled = account.disabled === true || account.enabled === false || status === 'disabled' || status === 'auto_disabled' || status === 'inactive';
   const error = String(account.last_error ?? account.error ?? '');
-  if (disabled) return { text: '禁用', tone: 'muted' as const };
+  if (accountIsDisabled(account)) return { text: '禁用', tone: 'muted' as const };
   if (status === 'needs_reauth' || /suspend/i.test(`${status} ${account.status_reason ?? ''}`)) return { text: '异常', tone: 'danger' as const };
   if (/usage_limit_reached|rate limited|quota|limit/i.test(`${status} ${error}`)) return { text: '受限', tone: 'danger' as const };
   return { text: '正常', tone: 'success' as const };
@@ -282,13 +316,13 @@ function QuotaWindowRow({ source, account }: { source: ApiRecord; account: ApiRe
   if (balance) {
     return <View style={{ gap: 6 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>{windowLabel(source)}</Text>
-        <Text numberOfLines={1} style={{ color: amount ? colors.text : colors.subtext, fontSize: amount ? 14 : 10, fontWeight: '800' }}>{amount || '额度待查询'}</Text>
+        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{windowLabel(source)}</Text>
+        <Text numberOfLines={1} style={{ color: amount ? colors.text : colors.subtext, fontSize: amount ? 14 : 12, fontWeight: '800' }}>{amount || '额度待查询'}</Text>
       </View>
       <View style={{ minHeight: 15, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
         <Clock3 color={colors.subtext} size={12} />
-        <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 9 }}>{resetLabel(source)}</Text>
-        {limitText ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 9 }}>{limitText}</Text> : null}
+        <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{resetLabel(source)}</Text>
+        {limitText ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 12 }}>{limitText}</Text> : null}
       </View>
     </View>;
   }
@@ -299,8 +333,8 @@ function QuotaWindowRow({ source, account }: { source: ApiRecord; account: ApiRe
     : amount;
   return <View style={{ gap: 5 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>{windowLabel(source)}</Text>
-      <Text numberOfLines={1} style={{ color: unlimited ? colors.success : percent === undefined ? colors.subtext : progressColor, fontSize: 10, fontWeight: '800' }}>
+      <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 12, fontWeight: '700' }}>{windowLabel(source)}</Text>
+      <Text numberOfLines={1} style={{ color: unlimited ? colors.success : percent === undefined ? colors.subtext : progressColor, fontSize: 12, fontWeight: '800' }}>
         {unlimited ? '无限' : percent === undefined ? '额度待查询' : `${percent.toFixed(percent >= 10 ? 0 : 1)}% 已用`}
       </Text>
     </View>
@@ -309,15 +343,25 @@ function QuotaWindowRow({ source, account }: { source: ApiRecord; account: ApiRe
     </View> : null}
     <View style={{ minHeight: 15, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
       <Clock3 color={colors.subtext} size={12} />
-      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 9 }}>{resetLabel(source)}</Text>
-      {remainingText ? <Text numberOfLines={1} style={{ maxWidth: '48%', color: colors.subtext, fontSize: 9 }}>{remainingText}</Text> : null}
+      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12 }}>{resetLabel(source)}</Text>
+      {remainingText ? <Text numberOfLines={1} style={{ maxWidth: '48%', color: colors.subtext, fontSize: 12 }}>{remainingText}</Text> : null}
     </View>
   </View>;
 }
 
-function QuotaCard({ account, provider, privacy }: { account: ApiRecord; provider: string; privacy: boolean }) {
+function QuotaGroupHeader({ group }: { group: QuotaGroup }) {
+  const colors = useAppTheme();
+  return <View style={{ minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    <ProviderIcon provider={quotaProvider(group.accounts[0], group.key, group.label)} size={30} />
+    <Text style={{ flex: 1, color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '700' }}>{group.label}</Text>
+    <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '700' }}>{group.accounts.length} 个账号</Text></View>
+  </View>;
+}
+
+function QuotaCard({ account, providerKey, providerLabel, privacy, toggling, toggleLocked, onToggle }: { account: ApiRecord; providerKey: string; providerLabel: string; privacy: boolean; toggling: boolean; toggleLocked: boolean; onToggle: (enabled: boolean) => void }) {
   const colors = useAppTheme();
   const status = statusDetails(account);
+  const disabled = accountIsDisabled(account);
   const sources = accountSources(account);
   const windows = quotaWindows(account);
   const rawTitle = firstText([account], ['label', 'email', 'name', 'username']);
@@ -325,7 +369,7 @@ function QuotaCard({ account, provider, privacy }: { account: ApiRecord; provide
   const title = rawTitle ? (privacy ? maskAccountIdentity(rawTitle) : rawTitle) : '未命名账号';
   const subtitle = rawEmail && rawEmail !== rawTitle
     ? (privacy ? maskAccountIdentity(rawEmail) : rawEmail)
-    : provider;
+    : providerLabel;
   const plan = firstText(sources, ['plan_label', 'plan_type', 'plan', 'tier', 'subscription']) || '未知套餐';
   const priority = firstNumber([account], ['priority']) ?? 0;
   const statusColors = status.tone === 'danger'
@@ -336,13 +380,16 @@ function QuotaCard({ account, provider, privacy }: { account: ApiRecord; provide
 
   return <View style={{ minHeight: 154, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 10 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <IconTile icon={Coins} size={34} iconSize={16} />
+      <ProviderIcon provider={quotaProvider(account, providerKey, providerLabel)} size={34} />
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
         <Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '800' }}>{title}</Text>
-        <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{subtitle}</Text>
+        <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 12 }}>{subtitle}</Text>
       </View>
-      <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, backgroundColor: statusColors.background }}>
-        <Text style={{ color: statusColors.foreground, fontSize: 9, fontWeight: '800' }}>{status.text}</Text>
+      <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+        <View style={{ paddingHorizontal: 7, paddingVertical: 4, borderRadius: 8, backgroundColor: statusColors.background }}>
+          <Text style={{ color: statusColors.foreground, fontSize: 12, fontWeight: '800' }}>{status.text}</Text>
+        </View>
+        {toggling ? <View style={{ width: 44, height: 34, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} size="small" /></View> : <AppSwitch accessibilityLabel={disabled ? `启用${title}` : `禁用${title}`} value={!disabled} disabled={toggleLocked} onValueChange={onToggle} />}
       </View>
     </View>
 
@@ -351,14 +398,14 @@ function QuotaCard({ account, provider, privacy }: { account: ApiRecord; provide
         <QuotaWindowRow source={source} account={account} />
       </View>)}
     </View> : <View style={{ minHeight: 68, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, gap: 3 }}>
-      <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>暂无额度数据</Text>
-      <Text style={{ color: colors.subtext, fontSize: 9 }}>刷新后等待上游返回额度窗口</Text>
+      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>暂无额度数据</Text>
+      <Text style={{ color: colors.subtext, fontSize: 12 }}>刷新后等待上游返回额度窗口</Text>
     </View>}
 
     <View style={{ marginTop: 'auto', paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <Text numberOfLines={1} style={{ flex: 1, minWidth: 90, color: colors.subtext, fontSize: 9 }}>{formatLastUsed(account.last_used_at ?? account.last_used)}</Text>
-      <View style={{ maxWidth: '34%', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 8, fontWeight: '700' }}>{plan}</Text></View>
-      <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.primarySoft }}><Text style={{ color: colors.primary, fontSize: 8, fontWeight: '700' }}>优先级 {priority}</Text></View>
+      <Text numberOfLines={1} style={{ flex: 1, minWidth: 90, color: colors.subtext, fontSize: 12 }}>{formatLastUsed(account.last_used_at ?? account.last_used)}</Text>
+      <View style={{ maxWidth: '34%', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 12, fontWeight: '700' }}>{plan}</Text></View>
+      <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.primarySoft }}><Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>优先级 {priority}</Text></View>
     </View>
   </View>;
 }
@@ -387,24 +434,50 @@ export default function AdminQuotaScreen() {
     },
     onError: (error) => Alert.alert('刷新失败', error.message),
   });
+  const toggleAccount = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => setAdminAccountEnabled(id, enabled),
+    onSuccess: (_result, variables) => {
+      queryClient.setQueryData(QUOTA_QUERY_KEY, (current: unknown) => updateQuotaAccountStatus(current, variables.id, variables.enabled));
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'quota'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'accounts'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+    },
+    onError: (error, variables) => Alert.alert(variables.enabled ? '启用失败' : '禁用失败', error.message),
+  });
 
   return <Page title="供应商配额" subtitle="按供应商分组，实时展示各上游账号的限额用量" icon={Coins} safeTop={false} refreshing={quota.isFetching || refresh.isPending}>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      <View style={{ minHeight: 40, paddingLeft: 10, paddingRight: 4, borderRadius: 12, borderWidth: 1, borderColor: privacy.enabled ? colors.primary : colors.border, backgroundColor: privacy.enabled ? colors.primarySoft : colors.card, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {privacy.enabled ? <EyeOff color={colors.primary} size={14} /> : <Eye color={colors.subtext} size={14} />}
-        <Text style={{ color: privacy.enabled ? colors.primary : colors.text, fontSize: 11, fontWeight: '700' }}>账号脱敏</Text>
-        <Switch accessibilityLabel="账号脱敏" value={privacy.enabled} onValueChange={setPrivacyMode} trackColor={{ false: colors.disabled, true: colors.primary }} style={{ transform: [{ scaleX: 0.72 }, { scaleY: 0.72 }] }} />
-      </View>
-      <Pressable onPress={() => router.push('/admin-providers' as never)} style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.65 : 1 })}><Settings2 color={colors.text} size={14} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>查询设置</Text></Pressable>
-      <Pressable disabled={refresh.isPending} onPress={() => refresh.mutate()} style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: refresh.isPending ? colors.disabled : colors.primarySoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.65 : 1 })}>{refresh.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={14} />}<Text style={{ color: refresh.isPending ? colors.subtext : colors.primary, fontSize: 11, fontWeight: '800' }}>{refresh.isPending ? '刷新中' : '刷新额度'}</Text></Pressable>
+      <Pressable
+        accessibilityLabel={privacy.enabled ? '显示完整账号' : '隐藏账号信息'}
+        accessibilityState={{ selected: privacy.enabled }}
+        hitSlop={4}
+        onPress={() => setPrivacyMode(!privacy.enabled)}
+        style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 12, borderWidth: 1, borderColor: privacy.enabled ? colors.primary : colors.border, backgroundColor: privacy.enabled ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}
+      >
+        {privacy.enabled ? <EyeOff color={colors.primary} size={18} strokeWidth={2.2} /> : <Eye color={colors.subtext} size={18} strokeWidth={2.2} />}
+      </Pressable>
+      <Pressable onPress={() => router.push('/admin-providers' as never)} style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.65 : 1 })}><Settings2 color={colors.text} size={14} /><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>查询设置</Text></Pressable>
+      <Pressable disabled={refresh.isPending} onPress={() => refresh.mutate()} style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: refresh.isPending ? colors.disabled : colors.primarySoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.65 : 1 })}>{refresh.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={14} />}<Text style={{ color: refresh.isPending ? colors.subtext : colors.primary, fontSize: 12, fontWeight: '800' }}>{refresh.isPending ? '刷新中' : '刷新额度'}</Text></Pressable>
       <View style={{ flexGrow: 1 }} />
-      <Text style={{ alignSelf: 'center', color: colors.subtext, fontSize: 10 }}>{groups.length} 个供应商 · {accountCount} 个账号</Text>
+      <Text style={{ alignSelf: 'center', color: colors.subtext, fontSize: 12 }}>{groups.length} 个供应商 · {accountCount} 个账号</Text>
     </View>
 
     {quota.error ? <ErrorState message={quota.error.message} retry={() => quota.refetch()} /> : null}
     {groups.map((group) => <View key={group.key} style={{ gap: 10 }}>
-      <SectionHeader icon={Coins} title={group.label} meta={`${group.accounts.length} 个账号`} />
-      {group.accounts.map((account, index) => <QuotaCard key={String(account.id ?? account.email ?? account.label ?? index)} account={account} provider={group.label} privacy={privacy.enabled} />)}
+      <QuotaGroupHeader group={group} />
+      {group.accounts.map((account, index) => {
+        const id = firstText([account], ['id']);
+        return <QuotaCard
+          key={String(account.id ?? account.email ?? account.label ?? index)}
+          account={account}
+          providerKey={group.key}
+          providerLabel={group.label}
+          privacy={privacy.enabled}
+          toggling={toggleAccount.isPending && toggleAccount.variables?.id === id}
+          toggleLocked={toggleAccount.isPending || !id}
+          onToggle={(enabled) => toggleAccount.mutate({ id, enabled })}
+        />;
+      })}
     </View>)}
     {!quota.isFetching && !quota.error && !groups.length ? <EmptyState icon={CircleAlert} message="暂无可展示的供应商额度" /> : null}
   </Page>;

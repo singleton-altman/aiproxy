@@ -11,9 +11,9 @@ import {
   X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
-import { EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField } from '@/src/components/ui';
+import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import {
@@ -149,7 +149,7 @@ function MobileModelCard({ item, busy, onToggle, onEdit, onDelete }: { item: Api
   const colors = useAppTheme();
   return <View style={{ marginHorizontal: 1, borderWidth: 1, borderTopWidth: 0, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 10 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-      <Switch value={item.enabled !== false} disabled={busy} onValueChange={onToggle} trackColor={{ false: colors.disabled, true: colors.primary }} />
+      <AppSwitch accessibilityLabel={`${modelId(item) || '未命名模型'} 启用状态`} value={item.enabled !== false} disabled={busy} onValueChange={onToggle} />
       <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 13, fontWeight: '800', fontFamily: 'monospace' }}>{modelId(item) || '未命名模型'}</Text>{displayName(item) !== '—' ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, marginTop: 2 }}>{displayName(item)}</Text> : null}</View>
       <Pressable accessibilityLabel="编辑模型" onPress={onEdit} style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><SlidersHorizontal color={colors.primary} size={15} /></Pressable>
       <Pressable accessibilityLabel="删除模型" onPress={onDelete} style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.dangerBg, alignItems: 'center', justifyContent: 'center' }}><Trash2 color={colors.danger} size={15} /></Pressable>
@@ -177,7 +177,7 @@ function DesktopModelRow({ item, busy, onToggle, onEdit, onDelete }: { item: Api
   const colors = useAppTheme();
   const textStyle = { color: colors.text, fontSize: 10, paddingHorizontal: 4 } as const;
   return <View style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderTopWidth: 0, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8 }}>
-    <View style={{ flex: 0.45, paddingHorizontal: 4 }}><Switch value={item.enabled !== false} disabled={busy} onValueChange={onToggle} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>
+    <View style={{ flex: 0.45, paddingHorizontal: 4 }}><AppSwitch accessibilityLabel={`${modelId(item) || '未命名模型'} 启用状态`} value={item.enabled !== false} disabled={busy} onValueChange={onToggle} /></View>
     <Text numberOfLines={2} style={[textStyle, { flex: 1.25, fontWeight: '800', fontFamily: 'monospace' }]}>{modelId(item)}</Text>
     <Text numberOfLines={2} style={[textStyle, { flex: 0.9 }]}>{displayName(item)}</Text>
     <Text numberOfLines={2} style={[textStyle, { flex: 0.9 }]}>{upstreamModel(item)}</Text>
@@ -325,14 +325,17 @@ export default function AdminModelsScreen() {
       bounces={false}
       alwaysBounceVertical={false}
       overScrollMode="never"
+      scrollToOverflowEnabled={false}
+      automaticallyAdjustContentInsets={false}
+      contentInsetAdjustmentBehavior="never"
       keyExtractor={(entry, index) => entry.kind === 'provider' ? `provider-${entry.group.provider}` : `model-${entry.provider}-${modelId(entry.item)}-${index}`}
       initialNumToRender={18}
       maxToRenderPerBatch={16}
       windowSize={7}
-      removeClippedSubviews={Platform.OS === 'android'}
+      removeClippedSubviews={false}
       keyboardShouldPersistTaps="handled"
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ paddingBottom: 20, flexGrow: listData.length ? 0 : 1 }}
+      contentContainerStyle={{ paddingBottom: 12, flexGrow: listData.length ? 0 : 1 }}
       ListEmptyComponent={!query.isFetching ? <EmptyState icon={Boxes} message="没有匹配的模型" /> : null}
       renderItem={({ item: entry }) => {
         if (entry.kind === 'provider') {
@@ -372,7 +375,7 @@ export default function AdminModelsScreen() {
           <FormField label="输出价格 / 1M" value={draft.completion_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, completion_per_1m: value }))} />
           <FormField label="缓存读取 / 1M" value={draft.cache_read_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, cache_read_per_1m: value }))} />
           <FormField label="缓存写入 / 1M" value={draft.cache_write_per_1m} numeric onChangeText={(value) => setDraft((current) => ({ ...current, cache_write_per_1m: value }))} />
-          <View style={{ flexGrow: 1, flexBasis: '100%', minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>启用模型</Text><Switch value={draft.enabled} onValueChange={(value) => setDraft((current) => ({ ...current, enabled: value }))} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>
+          <View style={{ flexGrow: 1, flexBasis: '100%', minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: '700' }}>启用模型</Text><AppSwitch accessibilityLabel="启用模型" value={draft.enabled} onValueChange={(value) => setDraft((current) => ({ ...current, enabled: value }))} /></View>
         </ScrollView>
         <Pressable disabled={formMutation.isPending || !draft.id.trim() || !draft.provider.trim()} onPress={() => formMutation.mutate()} style={{ minHeight: 48, borderRadius: 12, backgroundColor: draft.id.trim() && draft.provider.trim() ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>{formMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800' }}>保存模型</Text>}</Pressable>
       </View></FullScreenSafeArea>

@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Activity, BarChart3, CloudCog, Coins, KeySquare, LayoutGrid, Network, Package, ServerCog, Settings2, ShieldAlert, TicketPercent, UsersRound, Waypoints, Boxes } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ErrorState, Page, Panel, SectionHeader, ServiceButton } from '@/src/components/ui';
@@ -10,6 +10,14 @@ import { getAdminStatsOverview } from '@/src/services/admin';
 import { isAdmin, sessionState } from '@/src/store/session';
 
 const { useSnapshot } = require('valtio/react');
+const TODAY_STATS_QUERY_KEY = ['admin', 'stats', 'overview', 'today'] as const;
+
+function localTodayRange() {
+  const to = new Date();
+  const from = new Date(to);
+  from.setHours(0, 0, 0, 0);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
 
 function formatNumber(value: unknown) {
   const number = typeof value === 'number' ? value : Number(value);
@@ -22,16 +30,30 @@ function formatNumber(value: unknown) {
 export default function AdminScreen() {
   const colors = useAppTheme();
   const router = useRouter();
+  const queryClient = useQueryClient();
   useSnapshot(sessionState);
   const admin = isAdmin();
   const [refreshing, setRefreshing] = useState(false);
+  const [screenFocused, setScreenFocused] = useState(false);
 
   const stats = useQuery({
-    queryKey: ['admin', 'stats', 'overview'],
-    queryFn: ({ signal }) => getAdminStatsOverview({ range: 'day' }, signal),
+    queryKey: TODAY_STATS_QUERY_KEY,
+    queryFn: ({ signal }) => getAdminStatsOverview(localTodayRange(), signal),
     enabled: admin,
     retry: 0,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: screenFocused ? 30_000 : false,
+    refetchIntervalInBackground: false,
   });
+
+  useFocusEffect(useCallback(() => {
+    setScreenFocused(true);
+    if (admin) void queryClient.invalidateQueries({ queryKey: TODAY_STATS_QUERY_KEY });
+    return () => setScreenFocused(false);
+  }, [admin, queryClient]));
 
   const refresh = () => {
     if (refreshing || !admin) return;

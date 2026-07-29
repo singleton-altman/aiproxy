@@ -3,10 +3,10 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Pencil, Plus, Trash2, X } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { StructuredDataView, StructuredForm } from '@/src/components/structured-form';
-import { EmptyState, ErrorState, FullScreenSafeArea, IconTile, Page, SearchField, SheetHandle } from '@/src/components/ui';
+import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, IconTile, Page, SearchField, SheetHandle } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import type { ApiRecord } from '@/src/types/api';
@@ -41,6 +41,7 @@ export type ResourceScreenProps = {
   actions?: ResourceAction[];
   create?: ResourceFormExtension & { label: string; template: ApiRecord; run: (value: ApiRecord) => Promise<unknown>; note?: string };
   edit?: ResourceFormExtension & { pick: (item: ApiRecord) => ApiRecord; run: (item: ApiRecord, value: ApiRecord) => Promise<unknown> };
+  editOnPress?: boolean;
   remove?: { run: (item: ApiRecord) => Promise<unknown>; confirm: (item: ApiRecord) => string };
   headerActions?: ResourceAction[];
   footer?: ReactNode;
@@ -124,6 +125,18 @@ export function ResourceScreen(props: ResourceScreenProps) {
     },
   });
 
+  function openEdit(item: ApiRecord) {
+    if (!props.edit) {
+      setSelectedId(idOf(item));
+      return;
+    }
+    setFormItem(item);
+    setFormValue(props.edit.pick(item));
+    setSelectedId('');
+    setFormVisible('edit');
+    formMutation.reset();
+  }
+
   async function runAction(action: ResourceAction, item: ApiRecord) {
     const execute = async () => {
       setBusyAction(action.key);
@@ -176,19 +189,22 @@ export function ResourceScreen(props: ResourceScreenProps) {
       bounces={false}
       alwaysBounceVertical={false}
       overScrollMode="never"
+      scrollToOverflowEnabled={false}
+      automaticallyAdjustContentInsets={false}
+      contentInsetAdjustmentBehavior="never"
       keyExtractor={(item, index) => idOf(item) || String(index)}
       keyboardShouldPersistTaps="handled"
-      removeClippedSubviews={Platform.OS === 'android'}
+      removeClippedSubviews={false}
       initialNumToRender={14}
       maxToRenderPerBatch={14}
       windowSize={9}
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ gap: 10, paddingBottom: props.create || props.footer ? 86 : 20, flexGrow: items.length ? 0 : 1 }}
+      contentContainerStyle={{ gap: 10, paddingBottom: props.create ? 76 : 12, flexGrow: items.length ? 0 : 1 }}
       ListEmptyComponent={!query.isFetching ? <EmptyState message="暂无数据" icon={props.icon} /> : null}
       renderItem={({ item }) => {
         const badge = props.badgeOf?.(item);
         const tone = badge ? badgeColors[badge.tone] : undefined;
-        return <Pressable onPress={() => setSelectedId(idOf(item))} style={({ pressed }) => ({ borderRadius: 16, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 11, opacity: pressed ? 0.78 : 1 })}>
+        return <Pressable onPress={() => props.editOnPress ? openEdit(item) : setSelectedId(idOf(item))} style={({ pressed }) => ({ borderRadius: 16, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 11, opacity: pressed ? 0.78 : 1 })}>
           <IconTile icon={props.icon} size={38} iconSize={18} />
           <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -217,13 +233,13 @@ export function ResourceScreen(props: ResourceScreenProps) {
           <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>{props.titleOf(selected)}</Text>
-            {props.edit ? <Pressable accessibilityLabel="编辑" onPress={() => { setFormItem(selected); setFormValue(props.edit!.pick(selected)); setSelectedId(''); setFormVisible('edit'); formMutation.reset(); }} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Pencil color={colors.primary} size={15} /></Pressable> : null}
+            {props.edit ? <Pressable accessibilityLabel="编辑" onPress={() => openEdit(selected)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Pencil color={colors.primary} size={15} /></Pressable> : null}
             <Pressable accessibilityLabel="关闭" onPress={() => setSelectedId('')} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
 
           {props.toggle ? <View style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12 }}>
             <Text style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '600' }}>{props.toggle.label}</Text>
-            <Switch value={props.toggle.value(selected)} disabled={toggleMutation.isPending} onValueChange={(next) => toggleMutation.mutate({ item: selected, next })} trackColor={{ false: colors.disabled, true: colors.primary }} />
+            <AppSwitch accessibilityLabel={props.toggle.label} value={props.toggle.value(selected)} disabled={toggleMutation.isPending} onValueChange={(next) => toggleMutation.mutate({ item: selected, next })} />
           </View> : null}
 
           {props.actions?.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

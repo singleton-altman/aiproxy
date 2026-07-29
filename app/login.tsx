@@ -181,7 +181,7 @@ export default function LoginScreen() {
     ? '处理中'
     : mode === 'setup' ? '创建管理员并登录' : mode === 'login' ? '登录' : mode === 'register' ? '注册并登录' : mode === 'reset' ? '重置密码' : mode === 'management' ? '使用管理令牌登录' : '使用 Key 登录';
 
-  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }}><ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" automaticallyAdjustKeyboardInsets keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 22 }}>
+  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }}><ScrollView style={{ flex: 1 }} bounces={false} alwaysBounceVertical={false} overScrollMode="never" scrollToOverflowEnabled={false} automaticallyAdjustContentInsets={false} automaticallyAdjustKeyboardInsets contentInsetAdjustmentBehavior="never" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" removeClippedSubviews={false} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 22 }}>
     <View style={{ width: Math.min(460, Math.max(0, viewport.width - 44)), alignSelf: 'center', gap: 22 }}>
       <View style={{ gap: 8, alignItems: 'center' }}>
         <Image source={require('../assets/ai-proxy-mark.png')} resizeMode="contain" style={{ width: 76, height: 76 }} />

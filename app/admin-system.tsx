@@ -19,16 +19,15 @@ import {
   Alert,
   FlatList,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
 
 import {
+  AppSwitch,
   EmptyState,
   ErrorState,
   FullScreenSafeArea,
@@ -264,7 +263,7 @@ function SettingsTab({ active }: { active: boolean }) {
           <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>{settingLabels[key] ?? key}</Text>
           {settingLabels[key] ? <Text style={{ color: colors.subtext, fontSize: 10 }}>{key}</Text> : null}
         </View>
-        <Switch value={value} onValueChange={(next) => setDraft((current) => ({ ...current, [key]: next }))} trackColor={{ false: colors.disabled, true: colors.primary }} />
+        <AppSwitch accessibilityLabel={settingLabels[key] ?? key} value={value} onValueChange={(next) => setDraft((current) => ({ ...current, [key]: next }))} />
       </View>)}
 
       {primitiveEntries.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
@@ -341,13 +340,17 @@ function LogsTab({ active }: { active: boolean }) {
         bounces={false}
         alwaysBounceVertical={false}
         overScrollMode="never"
+        scrollToOverflowEnabled={false}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
         keyExtractor={(_, index) => String(index)}
         keyboardShouldPersistTaps="handled"
-        removeClippedSubviews={Platform.OS === 'android'}
+        removeClippedSubviews={false}
         initialNumToRender={30}
         maxToRenderPerBatch={30}
         windowSize={9}
-        contentContainerStyle={{ flexGrow: lines.length ? 0 : 1 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: lines.length ? 0 : 1, paddingBottom: lines.length ? 12 : 0 }}
         ListEmptyComponent={!query.isFetching && !query.error ? <EmptyState embedded icon={ScrollText} message={search ? '没有匹配的日志' : '暂无日志'} /> : null}
         renderItem={({ item, index }) => <View style={{ paddingHorizontal: 11, paddingVertical: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', gap: 9 }}>
           <Text style={{ width: 30, color: colors.placeholder, fontFamily: 'monospace', fontSize: 9, lineHeight: 16, textAlign: 'right' }}>{index + 1}</Text>

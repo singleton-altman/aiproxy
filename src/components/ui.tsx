@@ -1,8 +1,8 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { Inbox, RefreshCw, Search, TriangleAlert } from 'lucide-react-native';
 import type { ComponentProps, ReactNode } from 'react';
-import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/src/lib/theme';
@@ -31,19 +31,32 @@ type PageHeaderProps = { title: string; subtitle?: string; icon?: LucideIcon; re
 export function PageHeader({ title, subtitle, icon: Icon, refreshing, onRefresh }: PageHeaderProps) {
   const colors = useAppTheme();
   return <View style={{ minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>{Icon ? <IconTile icon={Icon} size={42} iconSize={20} /> : null}<View style={{ flex: 1, gap: 1 }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800' }}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 11, lineHeight: 16 }}>{subtitle}</Text> : null}</View></View>
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>{Icon ? <IconTile icon={Icon} size={42} iconSize={20} /> : null}<View style={{ flex: 1, gap: 1 }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800' }}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={{ color: colors.subtext, fontSize: 12, lineHeight: 17 }}>{subtitle}</Text> : null}</View></View>
     {onRefresh ? <Pressable accessibilityLabel="刷新" onPress={onRefresh} disabled={refreshing} style={({ pressed }) => ({ width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primarySoft, opacity: refreshing ? 0.55 : pressed ? 0.62 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}>{refreshing ? <ActivityIndicator color={colors.primary} /> : <RefreshCw color={colors.primary} size={17} strokeWidth={2.25} />}</Pressable> : null}
   </View>;
 }
 
 export function Page({ title, subtitle, icon, children, refreshing, onRefresh, safeTop = true, contentMaxWidth = 820, scrollable = true, showHeader = true }: PageHeaderProps & { children: ReactNode; safeTop?: boolean; contentMaxWidth?: number; scrollable?: boolean; showHeader?: boolean }) {
   const colors = useAppTheme();
-  const content = <View style={{ width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: scrollable ? 20 : 10, gap: 12, flex: scrollable ? undefined : 1 }}>
+  const content = <View style={{ width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: scrollable ? 12 : 10, gap: 12, flex: scrollable ? undefined : 1 }}>
       {showHeader ? <PageHeader title={title} subtitle={subtitle} icon={icon} refreshing={refreshing} onRefresh={onRefresh} /> : null}
       {children}
     </View>;
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={safeTop ? ['top'] : []}>
-    {scrollable ? <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" automaticallyAdjustKeyboardInsets contentInsetAdjustmentBehavior="automatic" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" removeClippedSubviews={Platform.OS === 'android'} contentContainerStyle={{ width: '100%', flexGrow: 1 }}>{content}</ScrollView> : content}
+    {scrollable ? <ScrollView
+      style={{ flex: 1 }}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
+      scrollToOverflowEnabled={false}
+      automaticallyAdjustContentInsets={false}
+      automaticallyAdjustKeyboardInsets
+      contentInsetAdjustmentBehavior="never"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      keyboardShouldPersistTaps="handled"
+      removeClippedSubviews={false}
+      contentContainerStyle={{ width: '100%', flexGrow: 1 }}
+    >{content}</ScrollView> : content}
   </SafeAreaView>;
 }
 
@@ -97,6 +110,44 @@ export function IconTile({ icon: Icon, color, background, size = 36, iconSize = 
   return <View style={{ width: size, height: size, borderRadius: Math.max(10, Math.round(size * 0.3)), borderWidth: 1, borderColor: background ?? colors.primarySoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: background ?? colors.primarySoft }}><Icon color={color ?? colors.primary} size={iconSize} strokeWidth={2.25} /></View>;
 }
 
+export function AppSwitch({ value, onValueChange, disabled = false, accessibilityLabel }: { value: boolean; onValueChange: (value: boolean) => void; disabled?: boolean; accessibilityLabel?: string }) {
+  const colors = useAppTheme();
+  const position = useRef(new Animated.Value(value ? 1 : 0)).current;
+
+  useEffect(() => {
+    const animation = Animated.timing(position, {
+      toValue: value ? 1 : 0,
+      duration: 160,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [position, value]);
+
+  return <Pressable
+    accessibilityLabel={accessibilityLabel}
+    accessibilityRole="switch"
+    accessibilityState={{ checked: value, disabled }}
+    accessibilityValue={{ text: value ? '开启' : '关闭' }}
+    disabled={disabled}
+    hitSlop={5}
+    onPress={() => onValueChange(!value)}
+    style={({ pressed }) => ({
+      width: 44,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      opacity: disabled ? 0.42 : pressed ? 0.72 : 1,
+      transform: [{ scale: pressed ? 0.97 : 1 }],
+    })}
+  >
+    <View style={{ width: 38, height: 22, borderRadius: 11, borderWidth: 1, borderColor: value ? colors.primary : colors.border, backgroundColor: value ? colors.primary : colors.muted, justifyContent: 'center' }}>
+      <Animated.View style={{ position: 'absolute', top: 1, left: 1, width: 18, height: 18, borderRadius: 9, backgroundColor: '#ffffff', shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2, transform: [{ translateX: position.interpolate({ inputRange: [0, 1], outputRange: [0, 18] }) }] }} />
+    </View>
+  </Pressable>;
+}
+
 export function EmptyState({ message, icon: Icon = Inbox, embedded = false }: { message: string; icon?: LucideIcon; embedded?: boolean }) {
   const colors = useAppTheme();
   const content = <View style={{ alignItems: 'center', paddingVertical: 20, gap: 10 }}><IconTile icon={Icon} color={colors.subtext} background={colors.mutedCard} size={42} iconSize={21} /><Text style={{ color: colors.subtext, textAlign: 'center' }}>{message}</Text></View>;
@@ -110,7 +161,7 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
 
 export function SectionHeader({ icon: Icon, title, meta }: { icon: LucideIcon; title: string; meta?: string }) {
   const colors = useAppTheme();
-  return <View style={{ minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 8 }}><IconTile icon={Icon} size={30} iconSize={15} /><Text style={{ flex: 1, color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '700' }}>{title}</Text>{meta ? <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 9, fontWeight: '700' }}>{meta}</Text></View> : null}</View>;
+  return <View style={{ minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 8 }}><IconTile icon={Icon} size={30} iconSize={15} /><Text style={{ flex: 1, color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '700' }}>{title}</Text>{meta ? <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '700' }}>{meta}</Text></View> : null}</View>;
 }
 
 export function SheetHandle() {
@@ -127,6 +178,6 @@ export function SearchField({ value, onChangeText, placeholder }: { value: strin
 export function ServiceButton({ icon: Icon, label, detail, onPress, iconColor, iconBackground }: { icon: LucideIcon; label: string; detail: string; onPress: () => void; iconColor?: string; iconBackground?: string }) {
   const colors = useAppTheme();
   return <Pressable onPress={onPress} style={({ pressed }) => ({ flexGrow: 1, flexBasis: 160, minHeight: 82, padding: 11, borderRadius: 16, backgroundColor: pressed ? colors.mutedCard : colors.card, borderWidth: 1, borderColor: pressed ? colors.primary : iconBackground ?? colors.border, ...surfaceShadow(Platform.OS), opacity: pressed ? 0.78 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={36} iconSize={18} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: '800', fontSize: 14, lineHeight: 19 }}>{label}</Text><Text numberOfLines={2} ellipsizeMode="tail" style={{ color: iconColor ?? colors.primary, fontSize: 11, lineHeight: 15 }}>{detail}</Text></View></View>
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconTile icon={Icon} color={iconColor} background={iconBackground} size={36} iconSize={18} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: '800', fontSize: 14, lineHeight: 19 }}>{label}</Text><Text numberOfLines={2} ellipsizeMode="tail" style={{ color: iconColor ?? colors.primary, fontSize: 12, lineHeight: 17, fontWeight: '600' }}>{detail}</Text></View></View>
   </Pressable>;
 }

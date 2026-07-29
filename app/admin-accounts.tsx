@@ -42,7 +42,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   useWindowDimensions,
@@ -50,7 +49,7 @@ import {
 } from 'react-native';
 
 import { StructuredDataView } from '@/src/components/structured-form';
-import { EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField, SheetHandle } from '@/src/components/ui';
+import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField, SheetHandle } from '@/src/components/ui';
 import {
   accountEgress,
   accountIdentity,
@@ -66,6 +65,7 @@ import {
 import { apiFetch, apiJson, firstArray, type ApiResult } from '@/src/lib/api';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
+import { setAdminAccountEnabled } from '@/src/services/admin';
 import type { ApiRecord } from '@/src/types/api';
 
 type StatusFilter = 'all' | UpstreamAccountStatus;
@@ -109,6 +109,11 @@ function recordValue(value: unknown): ApiRecord {
 
 function accountId(item: ApiRecord) {
   return stringValue(item.id);
+}
+
+function accountIsDisabled(item: ApiRecord) {
+  const status = stringValue(item.status).toLowerCase();
+  return item.disabled === true || item.enabled === false || status === 'disabled' || status === 'auto_disabled' || status === 'inactive';
 }
 
 function availableModelId(item: ApiRecord) {
@@ -294,10 +299,21 @@ function FilterButton({ icon: Icon, label, active, onPress }: { icon: LucideIcon
   </Pressable>;
 }
 
-function StatusBadge({ status }: { status: UpstreamAccountStatus }) {
+function AccountToggleButton({ account, busy, locked, onPress }: { account: ApiRecord; busy: boolean; locked: boolean; onPress: () => void }) {
   const colors = useAppTheme();
-  const tone = statusTone(status, colors);
-  return <View style={{ flexShrink: 0, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: tone.background }}><Text style={{ color: tone.foreground, fontSize: 9, fontWeight: '800' }}>{accountStatusLabels[status]}</Text></View>;
+  const enable = accountIsDisabled(account);
+  const background = enable ? colors.success : colors.danger;
+  return <Pressable
+    accessibilityLabel={enable ? '启用账号' : '禁用账号'}
+    accessibilityRole="button"
+    accessibilityState={{ disabled: locked || busy, busy }}
+    disabled={locked || busy}
+    hitSlop={4}
+    onPress={(event) => { event.stopPropagation(); onPress(); }}
+    style={({ pressed }) => ({ flexShrink: 0, minWidth: 58, height: 30, paddingHorizontal: 9, borderRadius: 9, backgroundColor: background, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, opacity: locked ? 0.48 : pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+  >
+    {busy ? <ActivityIndicator color="#fff" size="small" /> : <><Power color="#fff" size={12} strokeWidth={2.5} /><Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{enable ? '启用' : '禁用'}</Text></>}
+  </Pressable>;
 }
 
 function SummaryMetric({ label, value, tone }: { label: string; value: number; tone?: 'success' | 'danger' }) {
@@ -306,7 +322,7 @@ function SummaryMetric({ label, value, tone }: { label: string; value: number; t
   return <View style={{ minHeight: 30, flexDirection: 'row', alignItems: 'baseline', gap: 4 }}><Text style={{ color: foreground, fontSize: 14, fontWeight: '900' }}>{value}</Text><Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text></View>;
 }
 
-function AccountCard({ item, proxies, proxiesLoaded, now, onPress }: { item: ApiRecord; proxies: ApiRecord[]; proxiesLoaded: boolean; now: number; onPress: () => void }) {
+function AccountCard({ item, proxies, proxiesLoaded, now, toggling, toggleLocked, onPress, onToggle }: { item: ApiRecord; proxies: ApiRecord[]; proxiesLoaded: boolean; now: number; toggling: boolean; toggleLocked: boolean; onPress: () => void; onToggle: () => void }) {
   const colors = useAppTheme();
   const identity = accountIdentity(item);
   const provider = accountProvider(item);
@@ -321,7 +337,7 @@ function AccountCard({ item, proxies, proxiesLoaded, now, onPress }: { item: Api
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
       <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: provider.color, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 15, fontWeight: '900' }}>{provider.mark}</Text></View>
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '800' }}>{identity.primary}</Text><StatusBadge status={status} /></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '800' }}>{identity.primary}</Text><AccountToggleButton account={item} busy={toggling} locked={toggleLocked} onPress={onToggle} /></View>
         {identity.secondary ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10 }}>{identity.secondary}</Text> : null}
         <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{provider.label}{plan ? ` / ${plan}` : ''}</Text>
       </View>
@@ -353,7 +369,7 @@ function AccountActionsSheet({ account, busyAction, onClose, onRecover, onReauth
   const identity = account ? accountIdentity(account) : { primary: '', secondary: '' };
   const provider = account ? accountProvider(account) : accountProvider('');
   const status = account ? accountStatus(account) : 'active';
-  const rawDisabled = account?.status === 'disabled';
+  const rawDisabled = account ? accountIsDisabled(account) : false;
   return <SheetFrame visible={Boolean(account)} onClose={onClose} maxHeight="88%">
     <SheetHeader title={identity.primary || '上游账号'} subtitle={[provider.label, identity.secondary].filter(Boolean).join(' · ')} onClose={onClose} />
     <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 2 }}>
@@ -481,7 +497,7 @@ function AccountEditSheet({ account, accounts, proxies, proxiesLoaded, onClose, 
         {proxies.map((proxy, index) => { const id = stringValue(proxy.id) || String(index); const selected = draft.egressSelector === id; const name = stringValue(proxy.name) || stringValue(proxy.host) || id; const ownerId = proxyOwners[id]; const ownedByOther = Boolean(ownerId && ownerId !== accountId(account)); const owner = ownedByOther ? accounts.find((item) => accountId(item) === ownerId) : undefined; return <Pressable key={id} disabled={ownedByOther} onPress={() => setDraft((current) => ({ ...current, egressSelector: id }))} style={{ minHeight: 36, maxWidth: '100%', paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primarySoft : colors.card, alignItems: 'center', justifyContent: 'center', opacity: ownedByOther ? 0.45 : 1 }}><Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.subtext, fontSize: 10, fontWeight: '700' }}>{name}{proxy.enabled === false ? '（禁用）' : ''}{proxy.sticky ? ' · 专属' : ''}{owner ? ` · 已分配给 ${accountIdentity(owner).primary}` : ''}</Text></Pressable>; })}
         {draft.egressSelector && !proxies.some((proxy) => stringValue(proxy.id) === draft.egressSelector) ? <View style={{ minHeight: 36, paddingHorizontal: 11, borderRadius: 11, backgroundColor: colors.warningBg, justifyContent: 'center' }}><Text style={{ color: colors.warning, fontSize: 10, fontWeight: '700' }}>{draft.egressSelector}（未找到）</Text></View> : null}
       </View>}</View>
-      <View style={{ minHeight: 46, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9 }}><Wifi color={draft.wsEnabled ? colors.primary : colors.subtext} size={15} /><View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>WebSocket</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>允许该账号承载 WebSocket 会话</Text></View><Switch value={draft.wsEnabled} onValueChange={(wsEnabled) => setDraft((current) => ({ ...current, wsEnabled }))} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>
+      <View style={{ minHeight: 46, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 9 }}><Wifi color={draft.wsEnabled ? colors.primary : colors.subtext} size={15} /><View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>WebSocket</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>允许该账号承载 WebSocket 会话</Text></View><AppSwitch accessibilityLabel="WebSocket" value={draft.wsEnabled} onValueChange={(wsEnabled) => setDraft((current) => ({ ...current, wsEnabled }))} /></View>
       {fields.map((field) => <AccountInput key={field.key} label={field.label} value={draft.credentials[field.key] ?? ''} onChangeText={(value) => setDraft((current) => ({ ...current, credentials: { ...current.credentials, [field.key]: value } }))} placeholder={field.placeholder} secure={field.secure} />)}
       {fields.length ? <Text style={{ color: colors.subtext, fontSize: 9, lineHeight: 14 }}>凭据留空时保持现有值不变。</Text> : null}
     </ScrollView>
@@ -716,7 +732,7 @@ function WarmupSheet({ account, onClose, onSaved }: { account?: ApiRecord; onClo
   return <SheetFrame visible={Boolean(account)} onClose={onClose} maxHeight="92%">
     <SheetHeader title="定时预热" subtitle={account ? accountIdentity(account).primary : undefined} onClose={onClose} />
     <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
-      <View style={{ minHeight: 50, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 9 }}><Clock3 color={draft.enabled ? colors.primary : colors.subtext} size={16} /><View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '800' }}>启用定时预热</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>按设定时间预先调用上游账号</Text></View><Switch value={draft.enabled} onValueChange={(enabled) => setDraft((current) => ({ ...current, enabled }))} trackColor={{ false: colors.disabled, true: colors.primary }} /></View>
+      <View style={{ minHeight: 50, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 9 }}><Clock3 color={draft.enabled ? colors.primary : colors.subtext} size={16} /><View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '800' }}>启用定时预热</Text><Text style={{ color: colors.subtext, fontSize: 9 }}>按设定时间预先调用上游账号</Text></View><AppSwitch accessibilityLabel="启用定时预热" value={draft.enabled} onValueChange={(enabled) => setDraft((current) => ({ ...current, enabled }))} /></View>
       <View style={{ gap: 7 }}><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>执行时间</Text>{draft.times.map((time, index) => <View key={index} style={{ flexDirection: 'row', gap: 7 }}><TextInput value={time} onChangeText={(value) => setDraft((current) => ({ ...current, times: current.times.map((entry, entryIndex) => entryIndex === index ? value : entry) }))} placeholder="07:00" placeholderTextColor={colors.placeholder} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} style={{ flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? colors.border : colors.danger, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 12, fontFamily: 'monospace' }} /><Pressable accessibilityLabel="移除时间" disabled={draft.times.length <= 1} onPress={() => setDraft((current) => ({ ...current, times: current.times.filter((_, entryIndex) => entryIndex !== index) }))} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center', opacity: draft.times.length <= 1 ? 0.4 : 1 }}><Trash2 color={colors.subtext} size={15} /></Pressable></View>)}<Pressable disabled={draft.times.length >= 8} onPress={() => setDraft((current) => ({ ...current, times: [...current.times, ''] }))} style={{ alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: 10, borderRadius: 11, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Plus color={colors.primary} size={14} /><Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>添加时间</Text></Pressable></View>
       <AccountInput label="时区" value={draft.timezone} onChangeText={(timezone) => setDraft((current) => ({ ...current, timezone }))} placeholder="留空跟随服务器" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{timezonePresets.map((timezone) => <Pressable key={timezone} onPress={() => setDraft((current) => ({ ...current, timezone }))} style={{ minHeight: 32, paddingHorizontal: 9, borderRadius: 10, backgroundColor: draft.timezone === timezone ? colors.primarySoft : colors.mutedCard, justifyContent: 'center' }}><Text style={{ color: draft.timezone === timezone ? colors.primary : colors.subtext, fontSize: 9, fontWeight: '700' }}>{timezone}</Text></Pressable>)}</View>
@@ -805,6 +821,7 @@ export default function AdminAccountsScreen() {
   const [warmupAccount, setWarmupAccount] = useState<ApiRecord>();
   const [importVisible, setImportVisible] = useState(false);
   const [busyAction, setBusyAction] = useState('');
+  const [togglingId, setTogglingId] = useState('');
   const [exportingAll, setExportingAll] = useState(false);
 
   const accounts = useQuery({
@@ -871,6 +888,24 @@ export default function AdminAccountsScreen() {
     void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
   }
 
+  async function toggleAccount(item: ApiRecord) {
+    const id = accountId(item);
+    if (!id || togglingId || busyAction) return;
+    const enable = accountIsDisabled(item);
+    setTogglingId(id);
+    try {
+      await setAdminAccountEnabled(id, enable);
+      queryClient.setQueryData<ApiRecord[]>(['admin', 'accounts'], (current) => current?.map((account) => accountId(account) === id
+        ? { ...account, status: enable ? 'active' : 'disabled', enabled: enable, disabled: !enable }
+        : account));
+      invalidate();
+    } catch (error) {
+      Alert.alert(enable ? '启用失败' : '禁用失败', error instanceof Error ? error.message : '请求失败');
+    } finally {
+      setTogglingId('');
+    }
+  }
+
   async function runAction(key: string, label: string, operation: () => Promise<unknown>) {
     if (busyAction) return;
     setBusyAction(key);
@@ -900,8 +935,8 @@ export default function AdminAccountsScreen() {
 
   function toggleSelected() {
     if (!selectedAccount) return;
-    const enable = selectedAccount.status === 'disabled';
-    Alert.alert(enable ? '启用账号' : '禁用账号', `确定${enable ? '启用' : '禁用'}「${accountIdentity(selectedAccount).primary}」？`, [{ text: '取消', style: 'cancel' }, { text: '确认', style: enable ? 'default' : 'destructive', onPress: () => void runAction('toggle', enable ? '启用账号' : '禁用账号', () => apiJson(`/admin/accounts/${encodeURIComponent(accountId(selectedAccount))}`, { method: 'PUT', body: JSON.stringify({ status: enable ? 'active' : 'disabled' }) })) }]);
+    const enable = accountIsDisabled(selectedAccount);
+    Alert.alert(enable ? '启用账号' : '禁用账号', `确定${enable ? '启用' : '禁用'}「${accountIdentity(selectedAccount).primary}」？`, [{ text: '取消', style: 'cancel' }, { text: '确认', style: enable ? 'default' : 'destructive', onPress: () => void runAction('toggle', enable ? '启用账号' : '禁用账号', () => setAdminAccountEnabled(accountId(selectedAccount), enable)) }]);
   }
 
   function deleteSelected() {
@@ -941,7 +976,7 @@ export default function AdminAccountsScreen() {
         <SummaryMetric label="启用" value={counts.statuses.active} tone="success" />
         <SummaryMetric label="需处理" value={counts.needsAttention} tone={counts.needsAttention ? 'danger' : undefined} />
         <SummaryMetric label="禁用" value={counts.statuses.disabled} tone={counts.statuses.disabled ? 'danger' : undefined} />
-        <View style={{ marginLeft: wide ? 'auto' : 0, minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 }}><RefreshCw color={autoRefresh ? colors.primary : colors.subtext} size={14} /><Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>自动刷新</Text><Switch value={autoRefresh} onValueChange={setAutoRefresh} trackColor={{ false: colors.disabled, true: colors.primary }} style={{ transform: [{ scaleX: 0.78 }, { scaleY: 0.78 }] }} /></View>
+        <View style={{ marginLeft: wide ? 'auto' : 0, minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 }}><RefreshCw color={autoRefresh ? colors.primary : colors.subtext} size={14} /><Text style={{ color: colors.subtext, fontSize: 10, fontWeight: '600' }}>自动刷新</Text><AppSwitch accessibilityLabel="自动刷新" value={autoRefresh} onValueChange={setAutoRefresh} /></View>
       </View>
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
         <View style={{ flex: wide ? 1 : undefined, minHeight: 44 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索账号、邮箱、供应商或出口" /></View>
@@ -951,21 +986,24 @@ export default function AdminAccountsScreen() {
       {accounts.error ? <ErrorState message={accounts.error.message} retry={() => accounts.refetch()} /> : null}
       <FlatList
         data={filtered}
-        extraData={now}
+        extraData={`${now}:${togglingId}:${busyAction}`}
         bounces={false}
         alwaysBounceVertical={false}
         overScrollMode="never"
+        scrollToOverflowEnabled={false}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
         keyExtractor={(item, index) => accountId(item) || String(index)}
         keyboardShouldPersistTaps="handled"
-        removeClippedSubviews={Platform.OS === 'android'}
+        removeClippedSubviews={false}
         initialNumToRender={12}
         maxToRenderPerBatch={12}
         windowSize={7}
         style={{ flex: 1, width: '100%' }}
-        contentContainerStyle={{ gap: 8, paddingBottom: 16, flexGrow: filtered.length ? 0 : 1 }}
+        contentContainerStyle={{ gap: 8, paddingBottom: 12, flexGrow: filtered.length ? 0 : 1 }}
         ListHeaderComponent={accounts.data ? <Text style={{ color: colors.subtext, fontSize: 9, paddingBottom: 2 }}>显示 {filtered.length} / {allAccounts.length}</Text> : null}
         ListEmptyComponent={accounts.isLoading ? <View style={{ flex: 1, minHeight: 180, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View> : <EmptyState icon={filtersActive || search.trim() ? SearchX : CloudCog} message={filtersActive || search.trim() ? '没有匹配的账号' : '暂无上游账号'} />}
-        renderItem={({ item }) => <AccountCard item={item} proxies={proxyItems} proxiesLoaded={proxiesLoaded} now={now} onPress={() => setSelectedId(accountId(item))} />}
+        renderItem={({ item }) => <AccountCard item={item} proxies={proxyItems} proxiesLoaded={proxiesLoaded} now={now} toggling={togglingId === accountId(item)} toggleLocked={Boolean(togglingId || busyAction)} onPress={() => setSelectedId(accountId(item))} onToggle={() => void toggleAccount(item)} />}
       />
     </Page>
 

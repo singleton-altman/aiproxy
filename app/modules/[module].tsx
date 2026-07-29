@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Braces, ChevronRight, Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { FlatList, Platform, Pressable, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 
 import { EmptyState, Page, SearchField, SectionHeader } from '@/src/components/ui';
 import { useAppTheme } from '@/src/lib/theme';
@@ -41,14 +41,17 @@ export default function ModuleEndpointsScreen() {
       bounces={false}
       alwaysBounceVertical={false}
       overScrollMode="never"
+      scrollToOverflowEnabled={false}
+      automaticallyAdjustContentInsets={false}
+      contentInsetAdjustmentBehavior="never"
       keyExtractor={(item) => item.id}
       keyboardShouldPersistTaps="handled"
-      removeClippedSubviews={Platform.OS === 'android'}
+      removeClippedSubviews={false}
       initialNumToRender={12}
       maxToRenderPerBatch={12}
       windowSize={9}
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ gap: 10, paddingBottom: 20, flexGrow: endpoints.length ? 0 : 1 }}
+      contentContainerStyle={{ gap: 10, paddingBottom: 12, flexGrow: endpoints.length ? 0 : 1 }}
       ListEmptyComponent={<EmptyState message="没有匹配的接口" icon={Search} />}
       renderItem={({ item }) => <EndpointRow endpoint={item} onPress={() => router.push(`/endpoints/${encodeURIComponent(item.id)}` as never)} />}
     />

@@ -1,7 +1,8 @@
 import { Package } from 'lucide-react-native';
-import { Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { ResourceScreen } from '@/src/components/resource-screen';
+import { AppSwitch } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { useAppTheme } from '@/src/lib/theme';
 import type { ApiRecord } from '@/src/types/api';
@@ -136,7 +137,7 @@ function PlanForm({ value, onChange }: { value: ApiRecord; onChange: (value: Api
     <PlanField label="允许的模型" value={String(value.allowed_models_text ?? '')} onChangeText={(next) => set('allowed_models_text', next)} placeholder="每行一个模型；留空允许全部模型" multiline />
     <View style={{ minHeight: 48, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <View style={{ flex: 1, gap: 2 }}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>套餐上架</Text><Text style={{ color: colors.subtext, fontSize: 10 }}>用户端只展示已上架套餐</Text></View>
-      <Switch value={Boolean(value.active)} onValueChange={(next) => set('active', next)} trackColor={{ false: colors.disabled, true: colors.primary }} />
+      <AppSwitch accessibilityLabel="套餐上架" value={Boolean(value.active)} onValueChange={(next) => set('active', next)} />
     </View>
   </View>;
 }

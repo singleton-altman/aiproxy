@@ -2,9 +2,9 @@ import * as Clipboard from 'expo-clipboard';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Boxes, Copy, Eye, EyeOff, KeyRound, Plus, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
 
-import { EmptyState, ErrorState, FullScreenSafeArea, Page, Panel, SectionHeader } from '@/src/components/ui';
+import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import {
@@ -52,7 +52,7 @@ function KeyRow({ item, onToggle, onCopy, onDelete, busy }: { item: ApiKeyItem; 
       </Text>
       {item.expires_at ? <Text numberOfLines={1} style={{ color: colors.warning, fontSize: 10 }}>到期：{String(item.expires_at)}</Text> : null}
     </View>
-    <Switch value={!disabled} disabled={busy || !keyId(item)} onValueChange={(enabled) => onToggle(item, !enabled)} trackColor={{ false: colors.disabled, true: colors.primary }} />
+    <AppSwitch accessibilityLabel={`${String(item.name ?? '未命名 Key')} 启用状态`} value={!disabled} disabled={busy || !keyId(item)} onValueChange={(enabled) => onToggle(item, !enabled)} />
     <Pressable accessibilityLabel="复制 Key" onPress={() => onCopy(item)} style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}>
       <Copy color={colors.primary} size={15} />
     </Pressable>
@@ -181,7 +181,7 @@ export default function KeysScreen() {
               {model.free ? ' · 免费' : ''}
             </Text>
           </View>
-          {!apiKeyMode ? <Switch value={!model.hidden} disabled={visibilityMutation.isPending} onValueChange={(visible) => toggleModelHidden(id, !visible)} trackColor={{ false: colors.disabled, true: colors.primary }} /> : null}
+          {!apiKeyMode ? <AppSwitch accessibilityLabel={`${id} 可见状态`} value={!model.hidden} disabled={visibilityMutation.isPending} onValueChange={(visible) => toggleModelHidden(id, !visible)} /> : null}
         </View>;
       })}
       {!models.data?.length && !models.isFetching ? <EmptyState message="暂无模型" embedded /> : null}

@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ScrollText, Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 
 import { EmptyState, ErrorState, Page, SearchField } from '@/src/components/ui';
 import { useAppTheme } from '@/src/lib/theme';
@@ -74,14 +74,17 @@ export default function RequestsScreen() {
       bounces={false}
       alwaysBounceVertical={false}
       overScrollMode="never"
+      scrollToOverflowEnabled={false}
+      automaticallyAdjustContentInsets={false}
+      contentInsetAdjustmentBehavior="never"
       keyExtractor={(item, index) => String(item.id ?? index)}
       keyboardShouldPersistTaps="handled"
-      removeClippedSubviews={Platform.OS === 'android'}
+      removeClippedSubviews={false}
       initialNumToRender={15}
       maxToRenderPerBatch={15}
       windowSize={9}
       style={{ flex: 1, width: '100%' }}
-      contentContainerStyle={{ gap: 10, paddingBottom: 20, flexGrow: items.length ? 0 : 1 }}
+      contentContainerStyle={{ gap: 10, paddingBottom: 12, flexGrow: items.length ? 0 : 1 }}
       ListEmptyComponent={!query.isFetching ? <EmptyState message="暂无请求记录" icon={ScrollText} /> : null}
       onEndReachedThreshold={0.4}
       onEndReached={() => {

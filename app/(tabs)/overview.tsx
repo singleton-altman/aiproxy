@@ -125,13 +125,13 @@ type MetricCardProps = {
 
 function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, basis }: MetricCardProps) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 92, borderRadius: 16, borderWidth: 1, borderColor: iconBackground, backgroundColor: colors.card, padding: 10, justifyContent: 'space-between', gap: 5 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-      <IconTile icon={Icon} size={27} iconSize={14} color={accent} background={iconBackground} />
-      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 10, fontWeight: '600' }}>{label}</Text>
+  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 84, borderRadius: 14, borderWidth: 1, borderColor: iconBackground, backgroundColor: colors.card, paddingHorizontal: 9, paddingVertical: 8, justifyContent: 'space-between', gap: 2 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <IconTile icon={Icon} size={24} iconSize={13} color={accent} background={iconBackground} />
+      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 12, lineHeight: 16, fontWeight: '700' }}>{label}</Text>
     </View>
-    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={{ color: colors.text, fontSize: 21, lineHeight: 25, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 9, lineHeight: 12, fontWeight: '600' }}>{detail}</Text> : null}
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 20, lineHeight: 24, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 12, lineHeight: 16, fontWeight: '700' }}>{detail}</Text> : null}
   </View>;
 }
 
@@ -202,28 +202,39 @@ function rankingName(item: ApiRecord, type: 'model' | 'user', index: number) {
   return value ? String(value) : `用户 ${index + 1}`;
 }
 
+function DimensionHeader({ title, icon: Icon, count, accent, background }: { title: string; icon: LucideIcon; count: number; accent: string; background: string }) {
+  const colors = useAppTheme();
+  return <View style={{ minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+    <IconTile icon={Icon} size={32} iconSize={16} color={accent} background={background} />
+    <Text style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 15, lineHeight: 20, fontWeight: '800' }}>{title}</Text>
+    <View style={{ minHeight: 26, paddingHorizontal: 8, borderRadius: 8, backgroundColor: background, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: accent, fontSize: 12, lineHeight: 16, fontWeight: '800' }}>{count} 项</Text>
+    </View>
+  </View>;
+}
+
 function RankingPanel({ title, icon, items, type, wide }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: 'model' | 'user'; wide: boolean }) {
   const colors = useAppTheme();
   const visible = items.slice(0, 5);
   const maxCost = Math.max(0, ...visible.map((item) => firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount'])));
-  if (type === 'user') return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
-    <SectionHeader icon={icon} title={title} />
+  if (type === 'user') return <View style={{ flexGrow: 1, flexBasis: wide ? 0 : '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.primarySoft, backgroundColor: colors.card, padding: 14, gap: 10 }}>
+    <DimensionHeader title={title} icon={icon} count={items.length} accent={colors.primary} background={colors.primarySoft} />
     {visible.length ? <>
-      <View style={{ minHeight: 28, paddingHorizontal: 8, borderRadius: 9, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 9 }}>用户</Text>
-        <Text style={{ width: 42, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>次数</Text>
-        <Text style={{ width: 54, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>Token</Text>
-        <Text style={{ width: 66, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>费用</Text>
+      <View style={{ minHeight: 34, paddingHorizontal: 8, borderRadius: 9, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text style={{ flex: 1, minWidth: 0, color: colors.primary, fontSize: 12, fontWeight: '800' }}>用户</Text>
+        <Text style={{ width: 46, color: colors.cyan, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>请求</Text>
+        <Text style={{ width: 58, color: colors.warning, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>Token</Text>
+        <Text style={{ width: 68, color: colors.success, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>费用</Text>
       </View>
       {visible.map((item, index) => {
         const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
         const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
         const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-        return <View key={`${rankingName(item, type, index)}-${index}`} style={{ minHeight: 36, paddingHorizontal: 8, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: '700' }}>{rankingName(item, type, index)}</Text>
-          <Text style={{ width: 42, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
-          <Text style={{ width: 54, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
-          <Text style={{ width: 66, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+        return <View key={`${rankingName(item, type, index)}-${index}`} style={{ minHeight: 44, paddingHorizontal: 8, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 12, fontWeight: '800' }}>{rankingName(item, type, index)}</Text>
+          <Text style={{ width: 46, color: colors.cyan, fontSize: 12, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
+          <Text style={{ width: 58, color: colors.warning, fontSize: 12, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
+          <Text style={{ width: 68, color: colors.success, fontSize: 12, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>;
       })}
     </> : <EmptyState embedded icon={icon} message="暂无用户数据" />}
@@ -247,7 +258,29 @@ function RankingPanel({ title, icon, items, type, wide }: { title: string; icon:
   </View>;
 }
 
-function breakdownName(item: ApiRecord, type: 'provider' | 'account', index: number) {
+type BreakdownType = 'provider' | 'account' | 'apiKey';
+
+function maskedApiKeyPrefix(value: unknown) {
+  if (typeof value !== 'string' && typeof value !== 'number') return '';
+  const text = String(value).trim();
+  if (!text) return '';
+  if (text.includes('*') || text.includes('...')) return text.length > 22 ? `${text.slice(0, 19)}...` : text;
+  return `${text.slice(0, 10)}...`;
+}
+
+function breakdownName(item: ApiRecord, type: BreakdownType, index: number) {
+  if (type === 'apiKey') {
+    const named = [item.api_key_name, item.key_name, item.name, item.label].find((candidate) => {
+      if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
+      const text = String(candidate).trim();
+      return text
+        && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)
+        && !/^(?:sk|aps|key)[-_][a-z0-9_-]{12,}$/i.test(text);
+    });
+    if (named !== undefined) return String(named);
+    const prefix = [item.prefix, item.key_prefix, item.preview].map(maskedApiKeyPrefix).find(Boolean);
+    return prefix || `API Key ${index + 1}`;
+  }
   const candidates = type === 'provider'
     ? [item.provider_name, item.provider, item.name, item.id]
     : [item.account_name, item.account, item.email, item.label, item.name];
@@ -259,12 +292,14 @@ function breakdownName(item: ApiRecord, type: 'provider' | 'account', index: num
   return value ? String(value) : `${type === 'provider' ? '供应商' : '账号'} ${index + 1}`;
 }
 
-function BreakdownTable({ title, icon, items, type }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: 'provider' | 'account' }) {
+function BreakdownTable({ title, icon, items, type }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: BreakdownType }) {
   const colors = useAppTheme();
   const visible = items.slice(0, 8);
   const account = type === 'account';
-  if (account) return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
-    <SectionHeader icon={icon} title={title} />
+  const accent = type === 'provider' ? colors.cyan : type === 'account' ? colors.accentText : colors.warning;
+  const accentBackground = type === 'provider' ? colors.cyanBg : type === 'account' ? colors.accentBg : colors.warningBg;
+  if (account) return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: accentBackground, backgroundColor: colors.card, padding: 14, gap: 10 }}>
+    <DimensionHeader title={title} icon={icon} count={items.length} accent={accent} background={accentBackground} />
     {visible.length ? visible.map((item, index) => {
       const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
       const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
@@ -272,42 +307,43 @@ function BreakdownTable({ title, icon, items, type }: { title: string; icon: Luc
       const suppliedRate = item.success_rate ?? item.successRate;
       const successRate = suppliedRate === undefined ? (requests ? (requests - failed) / requests * 100 : 0) : (toNumber(suppliedRate) <= 1 ? toNumber(suppliedRate) * 100 : toNumber(suppliedRate));
       const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-      return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 66, paddingVertical: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 7 }}>
+      return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 76, paddingVertical: 11, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 9 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 12, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
-          <View style={{ maxWidth: '34%', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 10, fontWeight: '700' }}>{String(item.provider_name ?? item.provider ?? '--')}</Text></View>
-          <Text style={{ minWidth: 62, color: colors.text, fontSize: 11, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 13, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
+          <View style={{ maxWidth: '34%', minHeight: 26, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.cyanBg, alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: colors.cyan, fontSize: 12, fontWeight: '800' }}>{String(item.provider_name ?? item.provider ?? '--')}</Text></View>
+          <Text style={{ minWidth: 70, color: colors.success, fontSize: 13, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>请求 <Text style={{ color: colors.text, fontWeight: '700' }}>{formatNumber(requests)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>Token <Text style={{ color: colors.text, fontWeight: '700' }}>{formatNumber(tokens)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>失败 <Text style={{ color: failed ? colors.danger : colors.text, fontWeight: '700' }}>{formatNumber(failed)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 10 }}>成功率 <Text style={{ color: failed ? colors.danger : colors.success, fontWeight: '700' }}>{successRate.toFixed(1)}%</Text></Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 7 }}>
+          <Text style={{ color: colors.subtext, fontSize: 12 }}>请求 <Text style={{ color: colors.cyan, fontWeight: '800' }}>{formatNumber(requests)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 12 }}>Token <Text style={{ color: colors.warning, fontWeight: '800' }}>{formatNumber(tokens)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 12 }}>失败 <Text style={{ color: failed ? colors.danger : colors.text, fontWeight: '800' }}>{formatNumber(failed)}</Text></Text>
+          <Text style={{ color: colors.subtext, fontSize: 12 }}>成功率 <Text style={{ color: failed ? colors.danger : colors.success, fontWeight: '800' }}>{successRate.toFixed(1)}%</Text></Text>
         </View>
       </View>;
     }) : <EmptyState embedded icon={icon} message="暂无账号数据" />}
   </View>;
-  return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 14, gap: 10 }}>
-    <SectionHeader icon={icon} title={title} />
+  const firstColumn = type === 'provider' ? '供应商' : 'API Key';
+  return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: accentBackground, backgroundColor: colors.card, padding: 14, gap: 10 }}>
+    <DimensionHeader title={title} icon={icon} count={items.length} accent={accent} background={accentBackground} />
     {visible.length ? <>
-      <View style={{ minHeight: 28, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Text style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 9 }}>供应商</Text>
-        <Text style={{ width: 42, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>次数</Text>
-        <Text style={{ width: 54, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>Token</Text>
-        <Text style={{ width: 66, color: colors.subtext, fontSize: 9, textAlign: 'right' }}>费用</Text>
+      <View style={{ minHeight: 34, paddingHorizontal: 7, borderRadius: 9, backgroundColor: accentBackground, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text style={{ flex: 1, minWidth: 0, color: accent, fontSize: 12, fontWeight: '800' }}>{firstColumn}</Text>
+        <Text style={{ width: 46, color: colors.cyan, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>请求</Text>
+        <Text style={{ width: 58, color: colors.warning, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>Token</Text>
+        <Text style={{ width: 68, color: colors.success, fontSize: 12, fontWeight: '800', textAlign: 'right' }}>费用</Text>
       </View>
       {visible.map((item, index) => {
         const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
         const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
         const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-        return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 36, paddingHorizontal: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: '700' }}>{breakdownName(item, type, index)}</Text>
-          <Text style={{ width: 42, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
-          <Text style={{ width: 54, color: colors.text, fontSize: 10, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
-          <Text style={{ width: 66, color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
+        return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 44, paddingHorizontal: 7, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 12, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
+          <Text style={{ width: 46, color: colors.cyan, fontSize: 12, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(requests)}</Text>
+          <Text style={{ width: 58, color: colors.warning, fontSize: 12, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatNumber(tokens)}</Text>
+          <Text style={{ width: 68, color: colors.success, fontSize: 12, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>;
       })}
-    </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : '账号'}数据`} />}
+    </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : 'API Key'}数据`} />}
   </View>;
 }
 
@@ -339,6 +375,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const dashboardScope = admin ? 'admin' : 'user';
   const wide = width >= 720;
   const metricBasis: `${number}%` = wide ? '31%' : width >= 350 ? '47%' : '100%';
+  const realtimeMetricBasis: `${number}%` = wide || width >= 360 ? '30%' : metricBasis;
   const rangeLabel = dashboardRanges.find((item) => item.value === range)?.label ?? '今日';
 
   const overview = useQuery({
@@ -415,6 +452,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     : models.data ?? []).map((item) => item as ModelItem & ApiRecord), [admin, analysis.data, models.data]);
   const userItems = useMemo(() => nestedRecords(analysis.data, ['users', 'by_user', 'user_usage']), [analysis.data]);
   const providerItems = useMemo(() => nestedRecords(analysis.data, ['by_provider', 'providers', 'provider_usage']), [analysis.data]);
+  const apiKeyItems = useMemo(() => nestedRecords(analysis.data, ['by_api_key', 'by_api_keys', 'by_key', 'api_key_usage', 'key_usage', 'api_keys']), [analysis.data]);
   const accountItems = useMemo(() => {
     const directory = new Map<string, ApiRecord>();
     for (const account of accountDirectory.data ?? []) {
@@ -469,23 +507,25 @@ function UsageDashboard({ admin }: { admin: boolean }) {
 
     {dashboardError ? <ErrorState message={dashboardError.message} retry={refresh} /> : null}
 
-    {!dashboardUnavailable ? <><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      <MetricCard label="请求数" value={formatNumber(requests)} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
-      <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
-      <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? `${rangeLabel}内发起过调用` : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
-      <MetricCard label="Token 数" value={formatNumber(totalTokens)} detail={`输入 ${formatNumber(inputTokens)} · 输出 ${formatNumber(outputTokens)}`} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
-      <MetricCard label="费用 (USD)" value={formatCost(cost)} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
-      <MetricCard label="平均延迟" value={`${formatNumber(latency)} ms`} icon={Timer} accent={colors.accentText} iconBackground={colors.accentBg} basis={metricBasis} />
-    </View>
-
-    {admin ? <View style={{ gap: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '600' }}>实时流量（近 15 分钟）</Text></View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <MetricCard label="请求数" value={formatNumber(firstNumber(live, ['request_count', 'total_requests', 'requests']))} icon={Activity} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
-        <MetricCard label="Token 数" value={formatNumber(firstNumber(live, ['total_tokens', 'tokens']))} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
-        <MetricCard label="费用 (USD)" value={formatCost(firstNumber(live, ['cost', 'cost_usd', 'total_cost']))} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
+    {!dashboardUnavailable ? <><View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        <MetricCard label="请求数" value={formatNumber(requests)} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
+        <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
+        <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? `${rangeLabel}内发起过调用` : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
+        <MetricCard label="Token 数" value={formatNumber(totalTokens)} detail={`输入 ${formatNumber(inputTokens)} · 输出 ${formatNumber(outputTokens)}`} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
+        <MetricCard label="费用 (USD)" value={formatCost(cost)} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
+        <MetricCard label="平均延迟" value={`${formatNumber(latency)} ms`} icon={Timer} accent={colors.accentText} iconBackground={colors.accentBg} basis={metricBasis} />
       </View>
-    </View> : null}
+
+      {admin ? <View style={{ gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 12, fontWeight: '600' }}>实时流量（近 15 分钟）</Text></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          <MetricCard label="请求数" value={formatNumber(firstNumber(live, ['request_count', 'total_requests', 'requests']))} icon={Activity} accent={colors.cyan} iconBackground={colors.cyanBg} basis={realtimeMetricBasis} />
+          <MetricCard label="Token 数" value={formatNumber(firstNumber(live, ['total_tokens', 'tokens']))} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={realtimeMetricBasis} />
+          <MetricCard label="费用 (USD)" value={formatCost(firstNumber(live, ['cost', 'cost_usd', 'total_cost']))} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={realtimeMetricBasis} />
+        </View>
+      </View> : null}
+    </View>
 
     <View style={{ gap: 8 }}>
       <SectionHeader icon={Gauge} title={`${rangeLabel}请求趋势`} />
@@ -499,6 +539,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     {admin ? <>
       <BreakdownTable title="按供应商" icon={Server} items={providerItems} type="provider" />
       <BreakdownTable title="按账号" icon={Waypoints} items={accountItems} type="account" />
+      <BreakdownTable title="按 API Key" icon={KeyRound} items={apiKeyItems} type="apiKey" />
     </> : null}
     </> : null}
   </Page>;

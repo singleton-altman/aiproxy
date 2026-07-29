@@ -1,7 +1,8 @@
 import { Plus, Trash2 } from "lucide-react-native";
 import { memo, useEffect, useRef, useState } from "react";
-import { Pressable, Switch, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
+import { AppSwitch } from "@/src/components/ui";
 import { useAppTheme } from "@/src/lib/theme";
 import type { ApiRecord } from "@/src/types/api";
 
@@ -187,10 +188,10 @@ const PrimitiveField = memo(function PrimitiveField({
         <Text style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: "600" }}>
           {fieldLabel(name)}
         </Text>
-        <Switch
+        <AppSwitch
+          accessibilityLabel={fieldLabel(name)}
           value={value}
           onValueChange={onChange}
-          trackColor={{ false: colors.disabled, true: colors.primary }}
         />
         {onRemove ? <Pressable accessibilityLabel={`删除${fieldLabel(name)}`} onPress={onRemove} style={{ width: 32, height: 32, borderRadius: 9, alignItems: "center", justifyContent: "center" }}><Trash2 color={colors.danger} size={14} /></Pressable> : null}
       </View>
