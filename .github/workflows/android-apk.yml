@@ -70,14 +70,25 @@ jobs:
           sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -XX:ReservedCodeCacheSize=512m/' android/gradle.properties
           sed -i 's/^org.gradle.parallel=.*/org.gradle.parallel=false/' android/gradle.properties
           sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=armeabi-v7a,arm64-v8a/' android/gradle.properties
-          printf '\norg.gradle.workers.max=2\n' >> android/gradle.properties
+          printf '\norg.gradle.workers.max=1\n' >> android/gradle.properties
           df -h /
 
       - name: Build release APK
         working-directory: android
         run: |
+          set -o pipefail
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          mkdir -p ../artifacts/diagnostics
+          LOG_FILE="../artifacts/diagnostics/android-gradle.log"
+          if ./gradlew assembleRelease --no-daemon --stacktrace --max-workers=1 2>&1 | tee "$LOG_FILE"; then
+            df -h /
+            exit 0
+          fi
+
+          echo "Initial Gradle build failed; stopping workers and retrying once." | tee -a "$LOG_FILE"
+          ./gradlew --stop || true
+          sleep 10
+          ./gradlew assembleRelease --no-daemon --stacktrace --max-workers=1 2>&1 | tee -a "$LOG_FILE"
           df -h /
 
       - name: Collect APK
@@ -94,6 +105,15 @@ jobs:
           path: "artifacts/AI-Proxy-${{ steps.app_version.outputs.version }}.apk"
           if-no-files-found: error
 
+      - name: Upload Android diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI Proxy Android diagnostics ${{ steps.app_version.outputs.version }}
+          path: artifacts/diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Publish build summary
         if: always()
         run: |
@@ -104,4 +124,13 @@ jobs:
             echo "- Build type: release APK signed with the generated debug key"
             echo "- GitHub artifact: AI Proxy Android ${APP_VERSION}"
             echo "- File: AI-Proxy-${APP_VERSION}.apk"
+            if [[ -f artifacts/diagnostics/android-gradle.log ]]; then
+              echo ""
+              echo "<details><summary>Gradle log tail</summary>"
+              echo ""
+              echo '```text'
+              tail -n 160 artifacts/diagnostics/android-gradle.log
+              echo '```'
+              echo "</details>"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
