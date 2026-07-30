@@ -65,5 +65,11 @@ target 'AIProxy' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_configuration|
+        build_configuration.build_settings['REACT_NATIVE_PATH'] = '${PODS_ROOT}/../../node_modules/react-native'
+      end
+    end
   end
 end
