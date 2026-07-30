@@ -86,3 +86,21 @@ if [ ! -f "$PODS_RELEASE_XCCONFIG" ]; then
   echo "Missing CocoaPods release xcconfig: $PODS_RELEASE_XCCONFIG"
   exit 1
 fi
+
+EXPO_MODULES_JSI_BUILD_SCRIPT="node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh"
+EXPO_MODULES_JSI_DEVICE_MODULE="node_modules/expo-modules-jsi/apple/Products/ExpoModulesJSI.xcframework/ios-arm64/ExpoModulesJSI.framework/Modules/ExpoModulesJSI.swiftmodule"
+
+if [ ! -f "$EXPO_MODULES_JSI_BUILD_SCRIPT" ]; then
+  echo "Missing ExpoModulesJSI build script: $EXPO_MODULES_JSI_BUILD_SCRIPT"
+  exit 1
+fi
+
+echo "Preparing the ExpoModulesJSI iPhoneOS framework before Xcode copies it..."
+PODS_ROOT="$REPO_ROOT/ios/Pods" \
+  PLATFORM_NAME=iphoneos \
+  /bin/bash "$EXPO_MODULES_JSI_BUILD_SCRIPT"
+
+if [ ! -d "$EXPO_MODULES_JSI_DEVICE_MODULE" ]; then
+  echo "ExpoModulesJSI did not produce its iPhoneOS Swift module."
+  exit 1
+fi
