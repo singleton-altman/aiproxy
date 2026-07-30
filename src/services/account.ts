@@ -38,6 +38,7 @@ export async function getApiKeys(signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/user/keys', { signal });
   return firstArray<ApiKeyItem>(payload, ['keys', 'items', 'data', 'list']).map((item) => {
     const record = item as ApiRecord;
+    const status = String(item.status ?? '').toLowerCase();
     const lastUsed = item.last_used_at
       ?? record.last_used
       ?? record.lastUsedAt
@@ -46,7 +47,7 @@ export async function getApiKeys(signal?: AbortSignal) {
     const usageCount = Number(record.usage_count ?? record.request_count ?? record.total_requests);
     return {
       ...item,
-      disabled: item.disabled ?? item.status === 'disabled',
+      disabled: item.disabled ?? ['disabled', 'inactive', 'revoked'].includes(status),
       last_used_at: lastUsed ? String(lastUsed) : null,
       usage_count: Number.isFinite(usageCount) ? usageCount : undefined,
     };

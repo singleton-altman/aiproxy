@@ -1,64 +1,202 @@
 import * as Clipboard from 'expo-clipboard';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Boxes, Copy, Eye, EyeOff, KeyRound, Plus, Trash2, X } from 'lucide-react-native';
-import { useState } from 'react';
-import { Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  Boxes,
+  CalendarDays,
+  Check,
+  CircleDollarSign,
+  Copy,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Plus,
+  Power,
+  PowerOff,
+  Trash2,
+  X,
+} from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, Panel, SectionHeader } from '@/src/components/ui';
+import { EmptyState, ErrorState, FullScreenSafeArea, IconTile, Page, Panel, SheetHandle } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
-import {
-  createApiKey,
-  deleteApiKey,
-  extractKeySecret,
-  getApiKeyUsage,
-  getApiKeys,
-  getModels,
-  setModelVisibility,
-  updateApiKey,
-} from '@/src/services/account';
+import { createApiKey, deleteApiKey, extractKeySecret, getApiKeys, getModels, updateApiKey } from '@/src/services/account';
 import { sessionState } from '@/src/store/session';
-import type { ApiKeyItem, ApiRecord } from '@/src/types/api';
+import type { ApiKeyItem, ApiRecord, ModelItem } from '@/src/types/api';
 
 const { useSnapshot } = require('valtio/react');
+
+const MODEL_FIELDS = ['allowed_models', 'model_ids', 'models'] as const;
 
 function keyId(item: ApiKeyItem) {
   return item.id !== undefined ? String(item.id) : '';
 }
 
-function keyUsageLabel(item: ApiKeyItem) {
-  if (item.last_used_at) {
-    const date = new Date(String(item.last_used_at));
-    const value = Number.isNaN(date.getTime())
-      ? String(item.last_used_at)
-      : date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-    return `最近使用 ${value}`;
-  }
-  const count = Number(item.usage_count ?? item.request_count ?? item.total_requests);
-  return Number.isFinite(count) && count > 0 ? `已使用 ${count} 次` : '未使用';
+function nestedRecord(value: unknown) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as ApiRecord : undefined;
 }
 
-function KeyRow({ item, onToggle, onCopy, onDelete, busy }: { item: ApiKeyItem; onToggle: (item: ApiKeyItem, disabled: boolean) => void; onCopy: (item: ApiKeyItem) => void; onDelete: (item: ApiKeyItem) => void; busy: boolean }) {
+function keySources(item: ApiKeyItem) {
+  const record = item as ApiRecord;
+  return [record, record.billing, record.plan, record.subscription, record.limits, record.restrictions]
+    .map(nestedRecord)
+    .filter((value): value is ApiRecord => Boolean(value));
+}
+
+function firstText(item: ApiKeyItem, keys: string[]) {
+  for (const source of keySources(item)) {
+    for (const key of keys) {
+      const value = source[key];
+      if ((typeof value === 'string' || typeof value === 'number') && String(value).trim()) return String(value).trim();
+    }
+  }
+  return '';
+}
+
+function firstNumber(item: ApiKeyItem, keys: string[]) {
+  const value = firstText(item, keys);
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function keyPlanLabel(item: ApiKeyItem) {
+  const value = firstText(item, ['plan_name', 'plan_label', 'billing_label', 'billing_mode', 'billing_type', 'charge_type', 'plan']);
+  if (!value) return '余额扣费';
+  if (/balance|wallet|pay.?as.?you.?go|on.?demand|余额|按量/i.test(value)) return '余额扣费';
+  if (/inherit|follow|subscription|套餐/i.test(value)) return value === '套餐' ? '跟随套餐' : value;
+  return value;
+}
+
+function modelIds(value: unknown) {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === 'string' ? value.split(/[\n,]/) : [];
+  return source.flatMap((entry) => {
+    if (typeof entry === 'string' || typeof entry === 'number') {
+      const id = String(entry).trim();
+      return id ? [id] : [];
+    }
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+    const record = entry as ApiRecord;
+    const id = record.id ?? record.model ?? record.model_id ?? record.name;
+    return id === undefined || id === null || !String(id).trim() ? [] : [String(id).trim()];
+  });
+}
+
+function keyModelConfig(item: ApiKeyItem) {
+  const sources = keySources(item);
+  for (const field of MODEL_FIELDS) {
+    for (const source of sources) {
+      if (!Object.prototype.hasOwnProperty.call(source, field)) continue;
+      const ids = modelIds(source[field]);
+      return { field, ids, followsPlan: !ids.length };
+    }
+  }
+  return { field: 'allowed_models' as const, ids: [], followsPlan: true };
+}
+
+function keyModelLabel(item: ApiKeyItem) {
+  const config = keyModelConfig(item);
+  if (config.ids.length) return `${config.ids.length} 个模型`;
+  const count = firstNumber(item, ['model_count', 'models_count', 'allowed_model_count', 'available_model_count']);
+  return count > 0 ? `${count} 个模型` : '跟随套餐';
+}
+
+function formatCreatedAt(value: unknown) {
+  if (!value) return '--';
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
+
+function keyPreview(item: ApiKeyItem) {
+  const raw = extractKeySecret(item)
+    || firstText(item, ['prefix', 'key_prefix', 'secret_prefix', 'masked_key', 'masked']);
+  if (!raw) return '未返回密钥前缀';
+  if (/[*•]/.test(raw) || raw.endsWith('…')) return raw;
+  return raw.length > 12 ? `${raw.slice(0, 12)}…` : `${raw}…`;
+}
+
+function DetailCell({ label, value, accent, icon: Icon }: { label: string; value: string; accent?: string; icon: typeof Boxes }) {
+  const colors = useAppTheme();
+  return <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Icon color={colors.subtext} size={12} /><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{label}</Text></View>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} style={{ color: accent ?? colors.text, fontSize: 11, lineHeight: 16, fontWeight: '800' }}>{value}</Text>
+  </View>;
+}
+
+function ActionButton({ label, icon: Icon, onPress, disabled, danger = false }: { label: string; icon: typeof Boxes; onPress: () => void; disabled?: boolean; danger?: boolean }) {
+  const colors = useAppTheme();
+  const color = danger ? colors.danger : colors.text;
+  return <Pressable
+    disabled={disabled}
+    onPress={onPress}
+    style={({ pressed }) => ({
+      flex: 1,
+      minWidth: 0,
+      minHeight: 38,
+      borderRadius: 11,
+      borderWidth: danger ? 0 : 1,
+      borderColor: colors.border,
+      backgroundColor: danger ? colors.dangerBg : colors.card,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      opacity: disabled ? 0.42 : pressed ? 0.65 : 1,
+    })}
+  >
+    <Icon color={color} size={13} />
+    <Text numberOfLines={1} style={{ color, fontSize: 11, fontWeight: '800' }}>{label}</Text>
+  </Pressable>;
+}
+
+function KeyCard({ item, copied, busy, onModels, onToggle, onCopy, onDelete }: {
+  item: ApiKeyItem;
+  copied: boolean;
+  busy: boolean;
+  onModels: (item: ApiKeyItem) => void;
+  onToggle: (item: ApiKeyItem, disabled: boolean) => void;
+  onCopy: (item: ApiKeyItem) => void;
+  onDelete: (item: ApiKeyItem) => void;
+}) {
   const colors = useAppTheme();
   const disabled = Boolean(item.disabled);
-  return <View style={{ minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.rowBorder }}>
-    <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: disabled ? colors.mutedCard : colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-      <KeyRound color={disabled ? colors.subtext : colors.primary} size={16} />
+  const statusColor = disabled ? colors.subtext : colors.success;
+  const statusBackground = disabled ? colors.mutedCard : colors.successBg;
+  const name = String(item.name ?? '未命名密钥');
+
+  return <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 12, gap: 10 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+      <IconTile icon={KeyRound} size={36} iconSize={17} color={disabled ? colors.subtext : colors.primary} background={disabled ? colors.mutedCard : colors.primarySoft} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: colors.text, fontSize: 14, fontWeight: '800' }}>{name}</Text>
+      </View>
+      <View style={{ minHeight: 24, borderRadius: 9, backgroundColor: statusBackground, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
+        <Text style={{ color: statusColor, fontSize: 11, fontWeight: '800' }}>{disabled ? '已禁用' : '已启用'}</Text>
+      </View>
     </View>
-    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-      <Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '700' }}>{String(item.name ?? '未命名 Key')}</Text>
-      <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontFamily: 'monospace' }}>
-        {String(item.prefix ?? '')}{item.prefix ? '…' : ''} · {keyUsageLabel(item)}
-      </Text>
-      {item.expires_at ? <Text numberOfLines={1} style={{ color: colors.warning, fontSize: 11 }}>到期：{String(item.expires_at)}</Text> : null}
+
+    <View style={{ minHeight: 38, borderRadius: 11, backgroundColor: colors.mutedCard, paddingLeft: 10, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+      <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.subtext, fontFamily: 'monospace', fontSize: 11 }}>{keyPreview(item)}</Text>
+      <Pressable accessibilityLabel={`复制${name}密钥`} onPress={() => onCopy(item)} style={({ pressed }) => ({ width: 38, height: 38, borderLeftWidth: 1, borderLeftColor: colors.border, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
+        {copied ? <Check color={colors.success} size={15} /> : <Copy color={colors.subtext} size={14} />}
+      </Pressable>
     </View>
-    <AppSwitch accessibilityLabel={`${String(item.name ?? '未命名 Key')} 启用状态`} value={!disabled} disabled={busy || !keyId(item)} onValueChange={(enabled) => onToggle(item, !enabled)} />
-    <Pressable accessibilityLabel="复制 Key" onPress={() => onCopy(item)} style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}>
-      <Copy color={colors.primary} size={15} />
-    </Pressable>
-    <Pressable accessibilityLabel="删除 Key" disabled={busy || !keyId(item)} onPress={() => onDelete(item)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.dangerBg, alignItems: 'center', justifyContent: 'center' }}>
-      <Trash2 color={colors.danger} size={15} />
-    </Pressable>
+
+    <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 2 }}>
+      <DetailCell icon={CircleDollarSign} label="套餐" value={keyPlanLabel(item)} />
+      <DetailCell icon={Boxes} label="可用模型" value={keyModelLabel(item)} accent={colors.primary} />
+      <DetailCell icon={CalendarDays} label="创建时间" value={formatCreatedAt(item.created_at)} />
+    </View>
+
+    <View style={{ flexDirection: 'row', gap: 7 }}>
+      <ActionButton label="模型" icon={Boxes} disabled={busy || !keyId(item)} onPress={() => onModels(item)} />
+      <ActionButton label={disabled ? '启用' : '禁用'} icon={disabled ? Power : PowerOff} disabled={busy || !keyId(item)} onPress={() => onToggle(item, !disabled)} />
+      <ActionButton label="删除" icon={Trash2} danger disabled={busy || !keyId(item)} onPress={() => onDelete(item)} />
+    </View>
   </View>;
 }
 
@@ -72,10 +210,14 @@ export default function KeysScreen() {
   const [secret, setSecret] = useState('');
   const [secretVisible, setSecretVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [copiedKey, setCopiedKey] = useState('');
+  const [modelKey, setModelKey] = useState<ApiKeyItem>();
+  const [modelMode, setModelMode] = useState<'follow' | 'custom'>('follow');
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
 
   const keys = useQuery({ queryKey: ['keys'], queryFn: ({ signal }) => getApiKeys(signal), enabled: !apiKeyMode });
-  const keyUsage = useQuery({ queryKey: ['keys', 'usage'], queryFn: ({ signal }) => getApiKeyUsage(signal), enabled: !apiKeyMode, retry: 0 });
-  const models = useQuery({ queryKey: ['models'], queryFn: ({ signal }) => getModels(signal) });
+  const models = useQuery({ queryKey: ['models'], queryFn: ({ signal }) => getModels(signal), enabled: !apiKeyMode });
+  const visibleModels = useMemo(() => (models.data ?? []).filter((model) => !model.hidden && model.id), [models.data]);
 
   const createMutation = useMutation({
     mutationFn: () => createApiKey({ name: newName, expires_at: newExpiry.trim() || undefined }),
@@ -101,18 +243,21 @@ export default function KeysScreen() {
     mutationFn: (item: ApiKeyItem) => deleteApiKey(keyId(item)),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['keys'] }),
   });
-  const visibilityMutation = useMutation({
-    mutationFn: (value: ApiRecord) => setModelVisibility(value),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['models'] });
-      queryClient.invalidateQueries({ queryKey: ['models', 'visibility'] });
+  const modelMutation = useMutation({
+    mutationFn: () => {
+      if (!modelKey) throw new Error('未选择密钥');
+      const field = keyModelConfig(modelKey).field;
+      return updateApiKey(keyId(modelKey), { [field]: modelMode === 'follow' ? [] : selectedModels });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['keys'] });
+      setModelKey(undefined);
     },
   });
 
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    void keyUsage.refetch();
     void Promise.allSettled([keys.refetch(), models.refetch()]).finally(() => setRefreshing(false));
   };
 
@@ -123,18 +268,28 @@ export default function KeysScreen() {
     ]);
   }
 
-  function toggleModelHidden(modelId: string, hidden: boolean) {
-    visibilityMutation.mutate({ id: modelId, hidden });
+  function openModels(item: ApiKeyItem) {
+    const config = keyModelConfig(item);
+    modelMutation.reset();
+    setModelKey(item);
+    setModelMode(config.followsPlan ? 'follow' : 'custom');
+    setSelectedModels(config.ids);
+  }
+
+  function toggleSelectedModel(id: string) {
+    setSelectedModels((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
   async function copyExistingKey(item: ApiKeyItem) {
     const value = extractKeySecret(item);
     if (!value) {
-      Alert.alert('无法复制完整 Key', '出于安全原因，服务器只在创建时返回一次完整 Key，当前列表仅包含展示前缀。请创建新 Key 并在弹窗中立即复制。');
+      Alert.alert('无法复制完整 Key', '服务器只在创建时返回一次完整 Key，当前列表仅包含展示前缀。请创建新 Key 并在弹窗中立即复制。');
       return;
     }
     await Clipboard.setStringAsync(value);
-    Alert.alert('已复制', '完整 Key 已复制到剪贴板。');
+    const marker = keyId(item) || keyPreview(item);
+    setCopiedKey(marker);
+    setTimeout(() => setCopiedKey((current) => current === marker ? '' : current), 1600);
   }
 
   async function copySecret() {
@@ -142,56 +297,77 @@ export default function KeysScreen() {
     Alert.alert('已复制', '完整 Key 已复制到剪贴板，请立即妥善保存。');
   }
 
-  return <Page title="密钥与模型" subtitle={apiKeyMode ? 'API Key 登录模式' : '网关 API Key 与可见模型'} icon={KeyRound} refreshing={refreshing || keys.isFetching} onRefresh={refresh}>
-    {apiKeyMode ? <Panel><Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 18 }}>API Key 登录模式下无法管理 Key 列表，请使用邮箱账号登录。</Text></Panel> : <>
-      {keys.error ? <ErrorState message={keys.error.message} retry={() => keys.refetch()} /> : null}
-      <Panel>
-        <SectionHeader icon={KeyRound} title="API Keys" meta={keys.data ? `${keys.data.length} 个` : undefined} />
-        {(keys.data ?? []).map((item, index) => {
-          const usage = keyUsage.data?.[keyId(item)];
-          const displayItem = item.last_used_at || !usage ? item : { ...item, last_used_at: usage };
-          return <KeyRow
-            key={keyId(item) || String(index)}
-            item={displayItem}
-            busy={toggleMutation.isPending || deleteMutation.isPending}
-            onToggle={(target, disabled) => toggleMutation.mutate({ item: target, disabled })}
-            onCopy={(target) => void copyExistingKey(target)}
-            onDelete={confirmDelete}
-          />;
-        })}
-        {!keys.data?.length && !keys.isFetching ? <EmptyState message="还没有 API Key，点击下方创建" embedded /> : null}
-        <Pressable onPress={() => setCreating(true)} style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-          <Plus color="#fff" size={16} /><Text style={{ color: '#fff', fontWeight: '800' }}>创建 API Key</Text>
+  const keyBusy = toggleMutation.isPending || deleteMutation.isPending || modelMutation.isPending;
+
+  return <Page title="API 密钥" subtitle={apiKeyMode ? 'API Key 登录模式' : '创建和管理用于访问代理服务的密钥。'} icon={KeyRound} contentMaxWidth={920} refreshing={refreshing || keys.isFetching} onRefresh={refresh}>
+    {apiKeyMode ? <Panel><Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 18 }}>API Key 登录模式下无法管理密钥列表，请使用邮箱账号登录。</Text></Panel> : <>
+      <View style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Text style={{ flex: 1, color: colors.subtext, fontSize: 11, fontWeight: '700' }}>{keys.data ? `${keys.data.length} 个密钥` : '密钥列表'}</Text>
+        <Pressable onPress={() => { createMutation.reset(); setCreating(true); }} style={({ pressed }) => ({ minHeight: 38, borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}>
+          <Plus color="#fff" size={15} /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>新建密钥</Text>
         </Pressable>
-      </Panel>
+      </View>
+
+      {keys.error ? <ErrorState message={keys.error.message} retry={() => keys.refetch()} /> : null}
+      {(keys.data ?? []).map((item, index) => {
+        const marker = keyId(item) || keyPreview(item);
+        return <KeyCard
+          key={marker || String(index)}
+          item={item}
+          copied={copiedKey === marker}
+          busy={keyBusy}
+          onModels={openModels}
+          onToggle={(target, disabled) => toggleMutation.mutate({ item: target, disabled })}
+          onCopy={(target) => void copyExistingKey(target)}
+          onDelete={confirmDelete}
+        />;
+      })}
+      {!keys.data?.length && !keys.isFetching ? <EmptyState message="还没有 API 密钥" icon={KeyRound} /> : null}
     </>}
 
-    <Panel>
-      <SectionHeader icon={Boxes} title="可见模型" meta={models.data ? `${models.data.length} 个` : undefined} />
-      {models.error ? <ErrorState message={models.error.message} retry={() => models.refetch()} /> : null}
-      {(models.data ?? []).map((model) => {
-        const id = String(model.id ?? '');
-        return <View key={id} style={{ minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: colors.rowBorder, paddingVertical: 6 }}>
-          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, fontFamily: 'monospace', fontWeight: '700' }}>{id}</Text>
-            <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>
-              {String(model.provider ?? model.owned_by ?? '')}{model.family ? ` · ${model.family}` : ''}
-              {typeof model.prompt_price_per_1m === 'number' ? ` · 输入 ${model.prompt_price_per_1m}/1M` : ''}
-              {typeof model.completion_price_per_1m === 'number' ? ` · 输出 ${model.completion_price_per_1m}/1M` : ''}
-              {model.free ? ' · 免费' : ''}
-            </Text>
+    <Modal visible={Boolean(modelKey)} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setModelKey(undefined)}>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
+        <View style={{ height: '72%', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.border, backgroundColor: colors.page, padding: 16, gap: 12 }}>
+          <SheetHandle />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+            <IconTile icon={Boxes} size={36} iconSize={17} />
+            <View style={{ flex: 1, minWidth: 0 }}><Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>可用模型</Text><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, marginTop: 2 }}>{String(modelKey?.name ?? '当前密钥')}</Text></View>
+            <Pressable accessibilityLabel="关闭" onPress={() => setModelKey(undefined)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
-          {!apiKeyMode ? <AppSwitch accessibilityLabel={`${id} 可见状态`} value={!model.hidden} disabled={visibilityMutation.isPending} onValueChange={(visible) => toggleModelHidden(id, !visible)} /> : null}
-        </View>;
-      })}
-      {!models.data?.length && !models.isFetching ? <EmptyState message="暂无模型" embedded /> : null}
-    </Panel>
+
+          <View style={{ minHeight: 42, padding: 3, borderRadius: 13, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
+            {([['follow', '跟随套餐'], ['custom', '自定义模型']] as const).map(([mode, label]) => {
+              const selected = modelMode === mode;
+              return <Pressable key={mode} onPress={() => setModelMode(mode)} style={{ flex: 1, minHeight: 36, borderRadius: 10, borderWidth: selected ? 1 : 0, borderColor: selected ? colors.border : 'transparent', backgroundColor: selected ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '800' }}>{label}</Text></Pressable>;
+            })}
+          </View>
+
+          {models.error ? <ErrorState message={models.error.message} retry={() => models.refetch()} /> : null}
+          {modelMode === 'follow' ? <View style={{ flex: 1, borderRadius: 13, backgroundColor: colors.primarySoft, padding: 12, alignItems: 'center', justifyContent: 'center', gap: 5 }}><Boxes color={colors.primary} size={24} /><Text style={{ color: colors.primary, fontSize: 13, fontWeight: '800' }}>套餐允许的全部模型</Text></View> : <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" style={{ flex: 1 }} contentContainerStyle={{ gap: 6 }}>
+            {models.isFetching ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: 18 }} /> : null}
+            {visibleModels.map((model: ModelItem) => {
+              const id = String(model.id ?? '');
+              const selected = selectedModels.includes(id);
+              return <Pressable key={id} onPress={() => toggleSelectedModel(id)} style={({ pressed }) => ({ minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primarySoft : colors.card, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9, opacity: pressed ? 0.68 : 1 })}>
+                <View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : colors.card, alignItems: 'center', justifyContent: 'center' }}>{selected ? <Check color="#fff" size={13} /> : null}</View>
+                <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: colors.text, fontSize: 11, fontFamily: 'monospace', fontWeight: '800' }}>{id}</Text><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, marginTop: 2 }}>{String(model.provider ?? model.owned_by ?? '未知供应商')}</Text></View>
+              </Pressable>;
+            })}
+            {!visibleModels.length && !models.isFetching ? <EmptyState message="暂无可选模型" embedded /> : null}
+          </ScrollView>}
+
+          {modelMutation.error ? <Text style={{ color: colors.danger, fontSize: 11, lineHeight: 17 }}>{modelMutation.error.message}</Text> : null}
+          <Pressable disabled={modelMutation.isPending || (modelMode === 'custom' && !selectedModels.length)} onPress={() => modelMutation.mutate()} style={{ minHeight: 46, borderRadius: 12, backgroundColor: !modelMutation.isPending && (modelMode === 'follow' || selectedModels.length) ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>{modelMutation.isPending ? '保存中...' : modelMode === 'follow' ? '保存并跟随套餐' : `保存 ${selectedModels.length} 个模型`}</Text></Pressable>
+        </View>
+      </FullScreenSafeArea>
+    </Modal>
 
     <Modal visible={creating} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setCreating(false)}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
-        <View style={{ borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.page, padding: 20, gap: 14 }}>
+        <View style={{ borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.border, backgroundColor: colors.page, padding: 20, gap: 14 }}>
+          <SheetHandle />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ flex: 1, color: colors.text, fontSize: 17, fontWeight: '800' }}>创建 API Key</Text>
+            <Text style={{ flex: 1, color: colors.text, fontSize: 17, fontWeight: '800' }}>新建密钥</Text>
             <Pressable accessibilityLabel="关闭" onPress={() => setCreating(false)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
           <View style={{ gap: 7 }}>
@@ -204,17 +380,18 @@ export default function KeysScreen() {
           </View>
           {createMutation.error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{createMutation.error.message}</Text> : null}
           <Pressable disabled={!newName.trim() || createMutation.isPending} onPress={() => createMutation.mutate()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: newName.trim() && !createMutation.isPending ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '800' }}>{createMutation.isPending ? '创建中…' : '创建'}</Text>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>{createMutation.isPending ? '创建中...' : '创建'}</Text>
           </Pressable>
         </View>
       </FullScreenSafeArea>
     </Modal>
 
-    <Modal visible={Boolean(secret)} transparent animationType="fade" onRequestClose={() => setSecret('')}>
-      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 22 }}>
-        <View style={{ borderRadius: 20, backgroundColor: colors.page, padding: 20, gap: 14 }}>
-          <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }}>Key 创建成功</Text>
-          <Text style={{ color: colors.warning, fontSize: 11, lineHeight: 18 }}>完整 Key 只显示这一次，请立即复制并妥善保存。</Text>
+    <Modal visible={Boolean(secret)} transparent animationType="slide" onRequestClose={() => setSecret('')}>
+      <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
+        <View style={{ borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.border, backgroundColor: colors.page, padding: 20, gap: 14 }}>
+          <SheetHandle />
+          <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }}>密钥创建成功</Text>
+          <Text style={{ color: colors.warning, fontSize: 11, lineHeight: 18 }}>完整密钥只显示这一次，请立即复制并妥善保存。</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, backgroundColor: colors.mutedCard }}>
             <Text selectable numberOfLines={3} style={{ flex: 1, color: colors.text, fontFamily: 'monospace', fontSize: 11 }}>{secretVisible ? secret : secret.replace(/./g, '•').slice(0, 40)}</Text>
             <Pressable accessibilityLabel={secretVisible ? '隐藏' : '显示'} onPress={() => setSecretVisible(!secretVisible)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>

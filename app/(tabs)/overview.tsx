@@ -127,13 +127,26 @@ type MetricCardProps = {
 
 function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, basis }: MetricCardProps) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 84, borderRadius: 14, borderWidth: 1, borderColor: iconBackground, backgroundColor: colors.card, paddingHorizontal: 9, paddingVertical: 8, justifyContent: 'space-between', gap: 2 }}>
+  return <View style={{ flexGrow: 1, flexBasis: basis, minWidth: 0, minHeight: 86, borderRadius: 14, borderWidth: 1, borderColor: iconBackground, backgroundColor: colors.card, paddingHorizontal: 10, paddingVertical: 8, gap: 3 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <IconTile icon={Icon} size={24} iconSize={13} color={accent} background={iconBackground} />
       <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11, lineHeight: 16, fontWeight: '700' }}>{label}</Text>
     </View>
-    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 20, lineHeight: 24, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-    {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 11, lineHeight: 16, fontWeight: '700' }}>{detail}</Text> : null}
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={{ color: colors.text, fontSize: 19, lineHeight: 23, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+    <View style={{ minHeight: 16, justifyContent: 'center' }}>
+      {detail ? <Text numberOfLines={1} style={{ color: accent, fontSize: 11, lineHeight: 16, fontWeight: '700' }}>{detail}</Text> : null}
+    </View>
+  </View>;
+}
+
+function RealtimeStat({ label, value, icon: Icon, accent, first }: { label: string; value: string; icon: LucideIcon; accent: string; first?: boolean }) {
+  const colors = useAppTheme();
+  return <View style={{ flex: 1, minWidth: 0, paddingLeft: first ? 0 : 10, borderLeftWidth: first ? 0 : 1, borderLeftColor: colors.rowBorder, gap: 4 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+      <Icon color={accent} size={13} strokeWidth={2.35} />
+      <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11, lineHeight: 15, fontWeight: '700' }}>{label}</Text>
+    </View>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ color: colors.text, fontSize: 16, lineHeight: 21, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
   </View>;
 }
 
@@ -154,7 +167,7 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const plotLeft = 34;
   const plotRight = 586;
   const plotTop = 18;
-  const plotBottom = 176;
+  const plotBottom = 154;
   const plotHeight = plotBottom - plotTop;
   const slot = (plotRight - plotLeft) / Math.max(1, chartItems.length);
   const barWidth = Math.min(30, slot * 0.46);
@@ -162,8 +175,8 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
 
   if (!chartItems.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
 
-  return <View style={{ height: 220, overflow: 'hidden' }}>
-    <Svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none">
+  return <View style={{ height: 196, overflow: 'hidden' }}>
+    <Svg width="100%" height="196" viewBox="0 0 600 196" preserveAspectRatio="none">
       {[0, 1, 2, 3, 4].map((index) => {
         const y = plotBottom - index * plotHeight / 4;
         const label = Math.round(top * index / 4);
@@ -180,7 +193,7 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
         const showLabel = index % labelStep === 0 || index === chartItems.length - 1;
         return <Fragment key={`${label}-${index}`}>
           <Rect x={x} y={plotBottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />
-          {showLabel ? <SvgText x={x + barWidth / 2} y="201" fill={colors.subtext} fontSize="11" textAnchor="middle">{label}</SvgText> : null}
+          {showLabel ? <SvgText x={x + barWidth / 2} y="181" fill={colors.subtext} fontSize="11" textAnchor="middle">{label}</SvgText> : null}
         </Fragment>;
       })}
     </Svg>
@@ -352,7 +365,6 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const dashboardScope = admin ? 'admin' : 'user';
   const wide = width >= 720;
   const metricBasis: `${number}%` = wide ? '31%' : width >= 350 ? '47%' : '100%';
-  const realtimeMetricBasis: `${number}%` = wide || width >= 360 ? '30%' : metricBasis;
   const rangeLabel = dashboardRanges.find((item) => item.value === range)?.label ?? '今日';
 
   const overview = useQuery({
@@ -478,34 +490,35 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const dashboardUnavailable = Boolean(overview.error && !overview.data);
 
   return <Page title="" showHeader={false} contentMaxWidth={960} refreshing={refreshing} onRefresh={refresh}>
-    <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: colors.text, fontSize: 24, lineHeight: 31, fontWeight: '800' }}>{admin ? '全站用量' : '用量概览'}</Text>
-        <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 18 }}>{admin ? `${rangeLabel}全站流量、成本与服务质量。` : `${rangeLabel}调用与消费情况。`}</Text>
+    <View style={{ gap: 9 }}>
+      <View style={{ minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ color: colors.text, fontSize: 23, lineHeight: 29, fontWeight: '800' }}>{admin ? '全站用量' : '用量概览'}</Text>
+          <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, lineHeight: 17 }}>{admin ? `${rangeLabel}全站流量、成本与服务质量` : `${rangeLabel}调用与消费情况`}</Text>
+        </View>
+        {admin ? <Pressable onPress={() => router.push('/admin-stats' as never)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 11, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.64 : 1 })}><BarChart3 color={colors.text} size={15} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>完整统计</Text></Pressable> : null}
+        <Pressable accessibilityLabel="刷新" disabled={refreshing} onPress={refresh} style={{ width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>{refreshing ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={16} />}</Pressable>
       </View>
-      {admin ? <Pressable onPress={() => router.push('/admin-stats' as never)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.64 : 1 })}><BarChart3 color={colors.text} size={15} /><Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>完整统计</Text></Pressable> : null}
-      <Pressable accessibilityLabel="刷新" disabled={refreshing} onPress={refresh} style={{ width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>{refreshing ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={16} />}</Pressable>
-    </View>
-
-    <View accessibilityRole="tablist" style={{ minHeight: 44, padding: 3, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
-      {dashboardRanges.map((option) => {
-        const selected = range === option.value;
-        return <Pressable
-          key={option.value}
-          accessibilityRole="tab"
-          accessibilityState={{ selected }}
-          onPress={() => setRange(option.value)}
-          style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 36, borderRadius: 11, backgroundColor: selected ? colors.card : 'transparent', borderWidth: selected ? 1 : 0, borderColor: selected ? colors.border : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}
-        >
-          <Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '800' }}>{option.label}</Text>
-        </Pressable>;
-      })}
+      <View accessibilityRole="tablist" style={{ width: wide ? 300 : '100%', minHeight: 42, padding: 3, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
+        {dashboardRanges.map((option) => {
+          const selected = range === option.value;
+          return <Pressable
+            key={option.value}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            onPress={() => setRange(option.value)}
+            style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 34, borderRadius: 11, backgroundColor: selected ? colors.card : 'transparent', borderWidth: selected ? 1 : 0, borderColor: selected ? colors.border : 'transparent', alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}
+          >
+            <Text style={{ color: selected ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '800' }}>{option.label}</Text>
+          </Pressable>;
+        })}
+      </View>
     </View>
 
     {dashboardError ? <ErrorState message={dashboardError.message} retry={refresh} /> : null}
 
-    {!dashboardUnavailable ? <><View style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+    {!dashboardUnavailable ? <><View style={{ gap: 9 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
         <MetricCard label="请求数" value={formatNumber(requests)} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
         <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
         <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? `${rangeLabel}内发起过调用` : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
@@ -514,19 +527,19 @@ function UsageDashboard({ admin }: { admin: boolean }) {
         <MetricCard label="平均延迟" value={`${formatNumber(latency)} ms`} icon={Timer} accent={colors.accentText} iconBackground={colors.accentBg} basis={metricBasis} />
       </View>
 
-      {admin ? <View style={{ gap: 6 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>实时流量（近 15 分钟）</Text></View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          <MetricCard label="请求数" value={formatNumber(firstNumber(live, ['request_count', 'total_requests', 'requests']))} icon={Activity} accent={colors.cyan} iconBackground={colors.cyanBg} basis={realtimeMetricBasis} />
-          <MetricCard label="Token 数" value={formatNumber(firstNumber(live, ['total_tokens', 'tokens']))} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={realtimeMetricBasis} />
-          <MetricCard label="费用 (USD)" value={formatCost(firstNumber(live, ['cost', 'cost_usd', 'total_cost']))} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={realtimeMetricBasis} />
+      {admin ? <View style={{ borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 11, paddingVertical: 9, gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 16, fontWeight: '700' }}>实时流量</Text><Text style={{ color: colors.placeholder, fontSize: 11, lineHeight: 16 }}>近 15 分钟</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 10 }}>
+          <RealtimeStat first label="请求数" value={formatNumber(firstNumber(live, ['request_count', 'total_requests', 'requests']))} icon={Activity} accent={colors.cyan} />
+          <RealtimeStat label="Token" value={formatNumber(firstNumber(live, ['total_tokens', 'tokens']))} icon={Coins} accent={colors.warning} />
+          <RealtimeStat label="费用" value={formatCost(firstNumber(live, ['cost', 'cost_usd', 'total_cost']))} icon={CircleDollarSign} accent={colors.success} />
         </View>
       </View> : null}
     </View>
 
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 7 }}>
       <SectionHeader icon={Gauge} title="近 7 天请求趋势" />
-      <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 8 }}><RequestTrendChart items={trend.data ?? []} /></View>
+      <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 5 }}><RequestTrendChart items={trend.data ?? []} /></View>
     </View>
 
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
