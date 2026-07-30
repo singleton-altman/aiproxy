@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`;
-const { localCalendarRange } = await import(moduleUrl);
+const { localCalendarRange, localRecentDaysRange } = await import(moduleUrl);
 
 function localParts(iso) {
   const value = new Date(iso);
@@ -69,6 +69,23 @@ test('month starts on the first day at local midnight', () => {
     seconds: 0,
     milliseconds: 0,
   });
+});
+
+test('recent seven days include today and six preceding local dates', () => {
+  const now = new Date(2026, 6, 30, 20, 32, 35, 400);
+  const range = localRecentDaysRange(7, now);
+
+  assert.deepEqual(localParts(range.from), {
+    year: 2026,
+    month: 6,
+    date: 24,
+    day: 5,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    milliseconds: 0,
+  });
+  assert.equal(range.to, now.toISOString());
 });
 
 test('day starts at local midnight across a daylight-saving transition', () => {

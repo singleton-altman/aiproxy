@@ -24,7 +24,7 @@ import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
-import { localCalendarRange, type CalendarRange } from '@/src/lib/calendar-range';
+import { localCalendarRange, localRecentDaysRange, type CalendarRange } from '@/src/lib/calendar-range';
 import { useAppTheme } from '@/src/lib/theme';
 import { getApiKeys, getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
@@ -137,23 +137,17 @@ function MetricCard({ label, value, detail, icon: Icon, accent, iconBackground, 
   </View>;
 }
 
-function dateLabel(item: UsageTrendItem, index: number, range: DashboardRange) {
+function dateLabel(item: UsageTrendItem, index: number) {
   const source = String(item.bucket_start ?? item.date ?? item.day ?? item.hour ?? item.time ?? '');
   if (!source) return String(index + 1);
-  if (range === 'day') {
-    const time = source.match(/(?:T|\s)(\d{1,2}):(\d{2})/);
-    if (time) return `${time[1].padStart(2, '0')}:${time[2]}`;
-    const hour = source.match(/^(\d{1,2})(?::\d{2})?$/);
-    if (hour) return `${hour[1].padStart(2, '0')}:00`;
-  }
   const date = source.slice(0, 10);
   const parts = date.split('-');
   return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : date.slice(0, 5);
 }
 
-function RequestTrendChart({ items, range }: { items: UsageTrendItem[]; range: DashboardRange }) {
+function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const colors = useAppTheme();
-  const chartItems = items.slice(-(range === 'day' ? 24 : range === 'week' ? 7 : 30));
+  const chartItems = items.slice(-7);
   const values = chartItems.map((item) => toNumber(item.request_count ?? item.count ?? item.requests));
   const maxValue = Math.max(1, ...values);
   const top = Math.max(4, Math.ceil(maxValue * 1.2));
@@ -182,7 +176,7 @@ function RequestTrendChart({ items, range }: { items: UsageTrendItem[]; range: D
         const value = values[index] ?? 0;
         const height = Math.max(value ? 3 : 0, value / top * plotHeight);
         const x = plotLeft + slot * index + (slot - barWidth) / 2;
-        const label = dateLabel(item, index, range);
+        const label = dateLabel(item, index);
         const showLabel = index % labelStep === 0 || index === chartItems.length - 1;
         return <Fragment key={`${label}-${index}`}>
           <Rect x={x} y={plotBottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />
@@ -371,9 +365,9 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     refetchInterval: screenFocused ? 10_000 : false,
   });
   const trend = useQuery({
-    queryKey: [dashboardScope, 'dashboard', 'trend', range],
+    queryKey: [dashboardScope, 'dashboard', 'trend', '7d'],
     queryFn: ({ signal }) => {
-      const params = localCalendarRange(range);
+      const params = localRecentDaysRange(7);
       return admin ? getAdminStatsTrend(params, signal) : getUsageTrend(params, signal);
     },
     ...dashboardQueryDefaults,
@@ -531,8 +525,8 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     </View>
 
     <View style={{ gap: 8 }}>
-      <SectionHeader icon={Gauge} title={`${rangeLabel}请求趋势`} />
-      <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 8 }}><RequestTrendChart items={trend.data ?? []} range={range} /></View>
+      <SectionHeader icon={Gauge} title="近 7 天请求趋势" />
+      <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 8 }}><RequestTrendChart items={trend.data ?? []} /></View>
     </View>
 
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
