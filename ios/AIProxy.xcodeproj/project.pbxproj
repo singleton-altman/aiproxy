@@ -21,7 +21,7 @@
 		13B07F961A680F5B00A75B9A /* AIProxy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AIProxy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = AIProxy/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = AIProxy/Info.plist; sourceTree = "<group>"; };
-		361B154DE25D4D7938C0D57A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = AIProxy/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		361B154DE25D4D7938C0D57A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = AIProxy/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		374D5483EEEA8C4C5D1AAB0C /* Pods-AIProxy.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AIProxy.release.xcconfig"; path = "Target Support Files/Pods-AIProxy/Pods-AIProxy.release.xcconfig"; sourceTree = "<group>"; };
 		63F971E5AA7F0553229F18A9 /* Pods-AIProxy.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AIProxy.debug.xcconfig"; path = "Target Support Files/Pods-AIProxy/Pods-AIProxy.debug.xcconfig"; sourceTree = "<group>"; };
 		8CFB4900142D4293297336D4 /* libPods-AIProxy.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-AIProxy.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -64,7 +64,6 @@
 				63F971E5AA7F0553229F18A9 /* Pods-AIProxy.debug.xcconfig */,
 				374D5483EEEA8C4C5D1AAB0C /* Pods-AIProxy.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -388,6 +387,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = AIProxy/AIProxy.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3EZ8YQY6LK;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -425,6 +425,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = AIProxy/AIProxy.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3EZ8YQY6LK;
 				INFOPLIST_FILE = AIProxy/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (

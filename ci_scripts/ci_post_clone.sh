@@ -9,6 +9,7 @@ cd "$REPO_ROOT"
 
 export CI=1
 export EXPO_NO_TELEMETRY=1
+export COCOAPODS_DISABLE_STATS=1
 export NPM_CONFIG_AUDIT=false
 export NPM_CONFIG_FUND=false
 
@@ -52,11 +53,18 @@ if [ -f ios/Podfile ]; then
   (
     cd ios
     if command -v bundle >/dev/null 2>&1 && [ -f Gemfile ]; then
-      bundle exec pod install
+      bundle exec pod install --repo-update
     else
-      pod install
+      pod install --repo-update
     fi
   )
+fi
+
+PODS_RELEASE_XCCONFIG="ios/Pods/Target Support Files/Pods-AIProxy/Pods-AIProxy.release.xcconfig"
+if [ ! -f "$PODS_RELEASE_XCCONFIG" ]; then
+  echo "Missing CocoaPods release xcconfig: $PODS_RELEASE_XCCONFIG"
+  echo "CocoaPods installation did not generate the files required by Xcode."
+  exit 1
 fi
 
 WORKSPACE="$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)"
