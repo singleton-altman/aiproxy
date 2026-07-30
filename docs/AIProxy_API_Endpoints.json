@@ -90,7 +90,7 @@
   { "path": "/admin/stats/trend", "methods": "GET", "module": "admin-stats", "auth": "session", "source": "前端确认", "notes": "统计趋势" },
   { "path": "/admin/stats/analysis", "methods": "GET", "module": "admin-stats", "auth": "session", "source": "前端确认", "notes": "统计分析" },
   { "path": "/admin/usage/overview/realtime", "methods": "GET", "module": "admin-stats", "auth": "session", "source": "前端确认", "notes": "实时用量概览" },
-  { "path": "/admin/usage/events", "methods": "GET", "module": "admin-stats", "auth": "session", "source": "前端确认", "notes": "用量事件列表" },
+  { "path": "/admin/usage/events", "methods": "GET", "module": "admin-stats", "auth": "session", "source": "前端确认", "notes": "请求日志，Query: range/page/page_size/model/provider/api_key_id/auth_index/failed" },
   { "path": "/admin/usage/events/export", "methods": "GET", "module": "admin-stats", "auth": "session", "source": "前端确认", "notes": "导出用量事件" },
   { "path": "/admin/logs/app", "methods": "GET", "module": "admin-logs", "auth": "session", "source": "前端确认", "notes": "应用日志，支持 ?stream=true" },
   { "path": "/admin/traces", "methods": "GET", "module": "admin-logs", "auth": "session", "source": "前端确认", "notes": "Trace 列表" },

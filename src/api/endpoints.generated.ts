@@ -1042,7 +1042,7 @@ export const API_ENDPOINTS = [
     "module": "admin-stats",
     "auth": "session",
     "source": "前端确认",
-    "notes": "用量事件列表",
+    "notes": "请求日志，Query: range/page/page_size/model/provider/api_key_id/auth_index/failed",
     "pathVariables": []
   },
   {
