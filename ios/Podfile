@@ -72,6 +72,18 @@ target 'AIProxy' do
         build_configuration.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
         build_configuration.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
       end
+
+      target.shell_script_build_phases.each do |build_phase|
+        next unless build_phase.shell_script.include?('REACT_NATIVE_PATH')
+        next if build_phase.shell_script.include?('XCODE_CLOUD_REACT_NATIVE_PATH_FALLBACK')
+
+        build_phase.shell_script = <<~SH
+          # XCODE_CLOUD_REACT_NATIVE_PATH_FALLBACK
+          export REACT_NATIVE_PATH="${REACT_NATIVE_PATH:-${PODS_ROOT}/../../node_modules/react-native}"
+
+          #{build_phase.shell_script}
+        SH
+      end
     end
   end
 end
