@@ -64,8 +64,7 @@ export default function ChatScreen() {
   const colors = useAppTheme();
   const session = useSnapshot(sessionState);
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-  const compact = width < 620;
+  const { height } = useWindowDimensions();
   const bottomClearance = Math.max(10, insets.bottom);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
@@ -301,21 +300,20 @@ export default function ChatScreen() {
           <Pressable accessibilityLabel="图像生成" onPress={() => router.push('/images' as never)} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}><ImagePlus color={colors.primary} size={19} /></Pressable>
         </View>
 
-        <View style={{ gap: 7 }}>
-          <GatewayKeyPicker value={apiKey} connected={keyConnected} onChange={(value) => { setApiKey(value); void saveGatewayApiKey(value); }} />
-
-          <View style={{ flexDirection: compact ? 'column' : 'row', gap: 7 }}>
-            <Pressable onPress={() => setModelPickerOpen(true)} style={{ flex: compact ? undefined : 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ gap: 5 }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <View style={{ flex: 0.9, minWidth: 0 }}><GatewayKeyPicker compact value={apiKey} connected={keyConnected} onChange={(value) => { setApiKey(value); void saveGatewayApiKey(value); }} /></View>
+            <Pressable onPress={() => setModelPickerOpen(true)} style={{ flex: 1.1, minWidth: 0, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text numberOfLines={1} style={{ flex: 1, color: model ? colors.text : colors.placeholder, fontSize: 11, fontFamily: 'monospace' }}>{model || '选择模型'}</Text>
               {(sessionModels.isFetching || gatewayModels.isFetching) ? <ActivityIndicator color={colors.primary} size="small" /> : <ChevronDown color={colors.subtext} size={16} />}
             </Pressable>
-            <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>
-              {([['auto', '自动'], ['openai', 'OpenAI'], ['anthropic', 'Claude']] as const).map(([key, label]) => <Pressable key={key} onPress={() => setProtocol(key)} style={{ flex: compact ? 1 : undefined, minWidth: compact ? 0 : 70, minHeight: 36, paddingHorizontal: 8, borderRadius: 9, backgroundColor: protocol === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: protocol === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
-            </View>
           </View>
 
-          <View style={{ minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-            {keyConnected ? <><CheckCircle2 color={colors.success} size={13} /><Text style={{ flex: 1, color: colors.success, fontSize: 11 }}>Key 已连接 · {gatewayModels.data?.length ?? 0} 个模型 · {effectiveProtocol === 'anthropic' ? 'Claude' : 'OpenAI'} 协议</Text></> : effectiveKey && gatewayModels.isFetching ? <><ActivityIndicator color={colors.primary} size="small" /><Text style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>正在验证 Key...</Text></> : <Text style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>{session.mode === 'session' ? '填写已有 Key，或创建聊天测试 Key' : '等待有效网关 Key'}</Text>}
+          <View style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+            <View style={{ width: 164, height: 32, flexDirection: 'row', gap: 2, padding: 3, borderRadius: 10, backgroundColor: colors.mutedCard }}>
+              {([['auto', '自动'], ['openai', 'OpenAI'], ['anthropic', 'Claude']] as const).map(([key, label]) => <Pressable key={key} onPress={() => setProtocol(key)} style={{ flex: 1, minWidth: 0, borderRadius: 7, backgroundColor: protocol === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: protocol === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
+            </View>
+            {keyConnected ? <><CheckCircle2 color={colors.success} size={13} /><Text numberOfLines={1} style={{ flex: 1, color: colors.success, fontSize: 11 }}>{gatewayModels.data?.length ?? 0} 个模型 · {effectiveProtocol === 'anthropic' ? 'Claude' : 'OpenAI'}</Text></> : effectiveKey && gatewayModels.isFetching ? <><ActivityIndicator color={colors.primary} size="small" /><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>正在验证 Key</Text></> : <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>{session.mode === 'session' ? '配置网关 Key' : '等待有效 Key'}</Text>}
             {session.mode === 'session' && !effectiveKey ? <Pressable disabled={createKey.isPending} onPress={() => createKey.mutate()} style={{ minHeight: 28, paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 5 }}>{createKey.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Plus color={colors.primary} size={12} />}<Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>创建 Key</Text></Pressable> : null}
           </View>
         </View>

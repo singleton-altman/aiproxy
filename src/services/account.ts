@@ -70,8 +70,18 @@ export async function getApiKeyUsage(signal?: AbortSignal) {
   return latestUseByKey;
 }
 
-export function createApiKey(input: { name: string; expires_at?: string | null; scopes?: string[] }) {
+export function createApiKey(input: {
+  name: string;
+  plan_id?: string | number;
+  key?: string;
+  allowed_models?: string[];
+  expires_at?: string | null;
+  scopes?: string[];
+}) {
   const body: ApiRecord = { name: input.name.trim() };
+  if (input.plan_id !== undefined && input.plan_id !== '') body.plan_id = input.plan_id;
+  if (input.key?.trim()) body.key = input.key.trim();
+  if (input.allowed_models !== undefined) body.allowed_models = input.allowed_models;
   if (input.expires_at) body.expires_at = input.expires_at;
   if (input.scopes?.length) body.scopes = input.scopes;
   return apiJson<ApiRecord>('/user/keys', { method: 'POST', body: JSON.stringify(body) });

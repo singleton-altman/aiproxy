@@ -37,6 +37,7 @@ export type ResourceScreenProps = {
   badgeOf?: (item: ApiRecord) => { text: string; tone: 'success' | 'danger' | 'warning' | 'muted' } | undefined;
   searchText?: (item: ApiRecord) => string;
   renderDetail?: (item: ApiRecord) => ReactNode;
+  renderIcon?: (item: ApiRecord) => ReactNode;
   toggle?: { label: string; value: (item: ApiRecord) => boolean; run: (item: ApiRecord, next: boolean) => Promise<unknown> };
   actions?: ResourceAction[];
   create?: ResourceFormExtension & { label: string; template: ApiRecord; run: (value: ApiRecord) => Promise<unknown>; note?: string };
@@ -205,7 +206,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
         const badge = props.badgeOf?.(item);
         const tone = badge ? badgeColors[badge.tone] : undefined;
         return <Pressable onPress={() => props.editOnPress ? openEdit(item) : setSelectedId(idOf(item))} style={({ pressed }) => ({ borderRadius: 16, borderWidth: 1, borderColor: pressed ? colors.primary : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 11, opacity: pressed ? 0.78 : 1 })}>
-          <IconTile icon={props.icon} size={38} iconSize={18} />
+          {props.renderIcon?.(item) ?? <IconTile icon={props.icon} size={38} iconSize={18} />}
           <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' }}>{props.titleOf(item)}</Text>

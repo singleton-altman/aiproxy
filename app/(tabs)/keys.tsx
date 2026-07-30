@@ -4,6 +4,7 @@ import {
   Boxes,
   CalendarDays,
   Check,
+  ChevronDown,
   CircleDollarSign,
   Copy,
   Eye,
@@ -12,6 +13,7 @@ import {
   Plus,
   Power,
   PowerOff,
+  Search,
   Trash2,
   X,
 } from 'lucide-react-native';
@@ -21,7 +23,7 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput
 import { EmptyState, ErrorState, FullScreenSafeArea, IconTile, Page, Panel, SheetHandle } from '@/src/components/ui';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
-import { createApiKey, deleteApiKey, extractKeySecret, getApiKeys, getModels, updateApiKey } from '@/src/services/account';
+import { createApiKey, deleteApiKey, extractKeySecret, getApiKeys, getModels, getPlans, updateApiKey } from '@/src/services/account';
 import { sessionState } from '@/src/store/session';
 import type { ApiKeyItem, ApiRecord, ModelItem } from '@/src/types/api';
 
@@ -206,7 +208,12 @@ export default function KeysScreen() {
   const apiKeyMode = session.mode === 'apikey';
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newExpiry, setNewExpiry] = useState('');
+  const [newPlanId, setNewPlanId] = useState('');
+  const [newCustomKey, setNewCustomKey] = useState('');
+  const [createModelMode, setCreateModelMode] = useState<'all' | 'restricted'>('all');
+  const [createSelectedModels, setCreateSelectedModels] = useState<string[]>([]);
+  const [createModelSearch, setCreateModelSearch] = useState('');
+  const [planPickerOpen, setPlanPickerOpen] = useState(false);
   const [secret, setSecret] = useState('');
   const [secretVisible, setSecretVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -217,16 +224,34 @@ export default function KeysScreen() {
 
   const keys = useQuery({ queryKey: ['keys'], queryFn: ({ signal }) => getApiKeys(signal), enabled: !apiKeyMode });
   const models = useQuery({ queryKey: ['models'], queryFn: ({ signal }) => getModels(signal), enabled: !apiKeyMode });
+  const plans = useQuery({ queryKey: ['user', 'plans'], queryFn: ({ signal }) => getPlans(signal), enabled: !apiKeyMode });
   const visibleModels = useMemo(() => (models.data ?? []).filter((model) => !model.hidden && model.id), [models.data]);
+  const selectedPlan = useMemo(() => (plans.data ?? []).find((plan) => String(plan.id ?? '') === newPlanId), [newPlanId, plans.data]);
+  const selectedPlanModelIds = useMemo(() => modelIds(selectedPlan?.allowed_models), [selectedPlan]);
+  const createAvailableModels = useMemo(() => {
+    if (!selectedPlanModelIds.length) return visibleModels;
+    const allowed = new Set(selectedPlanModelIds);
+    return visibleModels.filter((model) => allowed.has(String(model.id)));
+  }, [selectedPlanModelIds, visibleModels]);
+  const filteredCreateModels = useMemo(() => {
+    const keyword = createModelSearch.trim().toLowerCase();
+    if (!keyword) return createAvailableModels;
+    return createAvailableModels.filter((model) => `${model.id ?? ''} ${model.display_name ?? ''} ${model.provider ?? model.owned_by ?? ''}`.toLowerCase().includes(keyword));
+  }, [createAvailableModels, createModelSearch]);
+  const customKeyValid = !newCustomKey.trim() || /^[A-Za-z0-9._~+/=-]{16,200}$/.test(newCustomKey.trim());
 
   const createMutation = useMutation({
-    mutationFn: () => createApiKey({ name: newName, expires_at: newExpiry.trim() || undefined }),
+    mutationFn: () => createApiKey({
+      name: newName,
+      plan_id: newPlanId || undefined,
+      key: newCustomKey.trim() || undefined,
+      allowed_models: createModelMode === 'all' ? [] : createSelectedModels,
+    }),
     onSuccess: (payload) => {
       queryClient.invalidateQueries({ queryKey: ['keys'] });
       setCreating(false);
-      setNewName('');
-      setNewExpiry('');
-      const value = extractKeySecret(payload);
+      const value = extractKeySecret(payload) || newCustomKey.trim();
+      resetCreateForm();
       if (value) {
         setSecret(value);
         setSecretVisible(false);
@@ -258,8 +283,45 @@ export default function KeysScreen() {
   const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    void Promise.allSettled([keys.refetch(), models.refetch()]).finally(() => setRefreshing(false));
+    void Promise.allSettled([keys.refetch(), models.refetch(), plans.refetch()]).finally(() => setRefreshing(false));
   };
+
+  function resetCreateForm() {
+    setNewName('');
+    setNewPlanId('');
+    setNewCustomKey('');
+    setCreateModelMode('all');
+    setCreateSelectedModels([]);
+    setCreateModelSearch('');
+    setPlanPickerOpen(false);
+  }
+
+  function openCreate() {
+    createMutation.reset();
+    resetCreateForm();
+    setCreating(true);
+  }
+
+  function closeCreate() {
+    if (createMutation.isPending) return;
+    setCreating(false);
+    setPlanPickerOpen(false);
+  }
+
+  function chooseCreatePlan(id: string) {
+    setNewPlanId(id);
+    setPlanPickerOpen(false);
+    const plan = (plans.data ?? []).find((item) => String(item.id ?? '') === id);
+    const allowedIds = modelIds(plan?.allowed_models);
+    if (allowedIds.length) {
+      const allowed = new Set(allowedIds);
+      setCreateSelectedModels((current) => current.filter((model) => allowed.has(model)));
+    }
+  }
+
+  function toggleCreateModel(id: string) {
+    setCreateSelectedModels((current) => current.includes(id) ? current.filter((model) => model !== id) : [...current, id]);
+  }
 
   function confirmDelete(item: ApiKeyItem) {
     Alert.alert('删除 API Key', `确定删除「${String(item.name ?? keyId(item))}」吗？使用该 Key 的调用会立即失效。`, [
@@ -298,12 +360,13 @@ export default function KeysScreen() {
   }
 
   const keyBusy = toggleMutation.isPending || deleteMutation.isPending || modelMutation.isPending;
+  const canCreate = Boolean(newName.trim() && customKeyValid && !createMutation.isPending);
 
   return <Page title="API 密钥" subtitle={apiKeyMode ? 'API Key 登录模式' : '创建和管理用于访问代理服务的密钥。'} icon={KeyRound} contentMaxWidth={920} refreshing={refreshing || keys.isFetching} onRefresh={refresh}>
     {apiKeyMode ? <Panel><Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 18 }}>API Key 登录模式下无法管理密钥列表，请使用邮箱账号登录。</Text></Panel> : <>
       <View style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Text style={{ flex: 1, color: colors.subtext, fontSize: 11, fontWeight: '700' }}>{keys.data ? `${keys.data.length} 个密钥` : '密钥列表'}</Text>
-        <Pressable onPress={() => { createMutation.reset(); setCreating(true); }} style={({ pressed }) => ({ minHeight: 38, borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}>
+        <Pressable onPress={openCreate} style={({ pressed }) => ({ minHeight: 38, borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}>
           <Plus color="#fff" size={15} /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>新建密钥</Text>
         </Pressable>
       </View>
@@ -362,26 +425,85 @@ export default function KeysScreen() {
       </FullScreenSafeArea>
     </Modal>
 
-    <Modal visible={creating} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={() => setCreating(false)}>
+    <Modal visible={creating} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={closeCreate}>
       <FullScreenSafeArea style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.sheetBackdrop }}>
-        <View style={{ borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.border, backgroundColor: colors.page, padding: 20, gap: 14 }}>
+        <View style={{ width: '100%', maxWidth: 560, height: '90%', maxHeight: 760, alignSelf: 'center', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.border, backgroundColor: colors.page, padding: 16, gap: 12 }}>
           <SheetHandle />
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ flex: 1, color: colors.text, fontSize: 17, fontWeight: '800' }}>新建密钥</Text>
-            <Pressable accessibilityLabel="关闭" onPress={() => setCreating(false)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={16} /></Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ color: colors.text, fontSize: 17, lineHeight: 23, fontWeight: '800' }}>创建新密钥</Text>
+              <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 17, marginTop: 2 }}>留空密钥则自动生成。</Text>
+            </View>
+            <Pressable accessibilityLabel="关闭" disabled={createMutation.isPending} onPress={closeCreate} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center', opacity: createMutation.isPending ? 0.45 : 1 }}><X color={colors.subtext} size={16} /></Pressable>
           </View>
-          <View style={{ gap: 7 }}>
-            <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>名称</Text>
-            <TextInput value={newName} onChangeText={setNewName} placeholder="例如：手机端调试" placeholderTextColor={colors.placeholder} style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12 }} />
-          </View>
-          <View style={{ gap: 7 }}>
-            <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>过期时间（可选，ISO 格式）</Text>
-            <TextInput value={newExpiry} onChangeText={setNewExpiry} placeholder="2026-12-31T00:00:00Z" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, fontFamily: 'monospace', fontSize: 13 }} />
-          </View>
+
+          <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ gap: 13, paddingBottom: 4 }}>
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.text, fontSize: 12, lineHeight: 17, fontWeight: '700' }}>密钥名称</Text>
+              <TextInput value={newName} onChangeText={setNewName} placeholder="例如：生产环境" placeholderTextColor={colors.placeholder} autoFocus style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, fontSize: 13 }} />
+            </View>
+
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.text, fontSize: 12, lineHeight: 17, fontWeight: '700' }}>套餐</Text>
+              <Pressable onPress={() => setPlanPickerOpen((value) => !value)} style={({ pressed }) => ({ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: planPickerOpen ? colors.primary : colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.68 : 1 })}>
+                <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 12, fontWeight: '600' }}>{selectedPlan?.name ? String(selectedPlan.name) : '余额扣费（不绑定套餐）'}</Text>
+                {plans.isFetching && !plans.data ? <ActivityIndicator color={colors.primary} size="small" /> : <ChevronDown color={colors.subtext} size={16} style={{ transform: [{ rotate: planPickerOpen ? '180deg' : '0deg' }] }} />}
+              </Pressable>
+              {planPickerOpen ? <View style={{ maxHeight: 190, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
+                <ScrollView nestedScrollEnabled bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyboardShouldPersistTaps="handled">
+                  <Pressable onPress={() => chooseCreatePlan('')} style={{ minHeight: 44, paddingHorizontal: 11, borderBottomWidth: plans.data?.length ? 1 : 0, borderBottomColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 11, fontWeight: newPlanId ? '600' : '800' }}>余额扣费（不绑定套餐）</Text>{!newPlanId ? <Check color={colors.primary} size={15} /> : null}</Pressable>
+                  {(plans.data ?? []).map((plan, index) => {
+                    const id = String(plan.id ?? '');
+                    const selected = id === newPlanId;
+                    return <Pressable key={id || String(index)} onPress={() => chooseCreatePlan(id)} style={{ minHeight: 44, paddingHorizontal: 11, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, fontWeight: selected ? '800' : '600' }}>{String(plan.name ?? `套餐 ${index + 1}`)}</Text>{selected ? <Check color={colors.primary} size={15} /> : null}</Pressable>;
+                  })}
+                </ScrollView>
+              </View> : null}
+              {plans.error ? <Text style={{ color: colors.danger, fontSize: 11, lineHeight: 16 }}>套餐加载失败：{plans.error.message}</Text> : null}
+            </View>
+
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.text, fontSize: 12, lineHeight: 17, fontWeight: '700' }}>密钥</Text>
+              <TextInput value={newCustomKey} onChangeText={setNewCustomKey} placeholder="留空则自动生成" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} maxLength={200} style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: customKeyValid ? colors.border : colors.danger, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, fontFamily: 'monospace', fontSize: 12 }} />
+              <Text style={{ color: customKeyValid ? colors.subtext : colors.danger, fontSize: 11, lineHeight: 16 }}>16-200 个字符，可用字母、数字与 . _ ~ + / = -</Text>
+            </View>
+
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: colors.text, fontSize: 12, lineHeight: 17, fontWeight: '700' }}>可用模型</Text>
+              <View style={{ width: 224, minHeight: 40, padding: 3, borderRadius: 12, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
+                {([['all', '全部模型'], ['restricted', '仅限所选模型']] as const).map(([mode, label]) => {
+                  const selected = createModelMode === mode;
+                  return <Pressable key={mode} onPress={() => { setCreateModelMode(mode); if (mode === 'all') setCreateSelectedModels([]); }} style={{ flex: 1, minWidth: 0, minHeight: 34, borderRadius: 9, borderWidth: selected ? 1 : 0, borderColor: selected ? colors.border : 'transparent', backgroundColor: selected ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: selected ? colors.text : colors.subtext, fontSize: 11, fontWeight: selected ? '800' : '600' }}>{label}</Text></Pressable>;
+                })}
+              </View>
+              <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 17 }}>{selectedPlanModelIds.length ? `套餐「${String(selectedPlan?.name ?? '')}」已限制在 ${selectedPlanModelIds.length} 个模型内，密钥只能继续收窄。` : '把这一把 Key 限制在几个模型上，交给单个工具使用时更合适。'}</Text>
+
+              {createModelMode === 'all' ? <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 17 }}>{selectedPlanModelIds.length ? '套餐允许的全部模型都可以调用。' : '网关提供的所有模型都可以调用。'}</Text> : <View style={{ gap: 7 }}>
+                <View style={{ minHeight: 42, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 7 }}><Search color={colors.subtext} size={14} /><TextInput value={createModelSearch} onChangeText={setCreateModelSearch} placeholder="搜索模型" placeholderTextColor={colors.placeholder} autoCapitalize="none" autoCorrect={false} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 11, paddingVertical: 8 }} /></View>
+                <View style={{ maxHeight: 220, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
+                  <ScrollView nestedScrollEnabled bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyboardShouldPersistTaps="handled">
+                    {models.isFetching ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: 16 }} /> : null}
+                    {filteredCreateModels.map((model, index) => {
+                      const id = String(model.id ?? '');
+                      const selected = createSelectedModels.includes(id);
+                      return <Pressable key={id} onPress={() => toggleCreateModel(id)} style={({ pressed }) => ({ minHeight: 50, paddingHorizontal: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, backgroundColor: selected ? colors.primarySoft : colors.card, flexDirection: 'row', alignItems: 'center', gap: 9, opacity: pressed ? 0.68 : 1 })}>
+                        <View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : colors.card, alignItems: 'center', justifyContent: 'center' }}>{selected ? <Check color="#fff" size={13} /> : null}</View>
+                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text numberOfLines={1} style={{ color: colors.text, fontFamily: 'monospace', fontSize: 11, fontWeight: '800' }}>{id}</Text><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{String(model.display_name ?? model.provider ?? model.owned_by ?? '未知供应商')}</Text></View>
+                      </Pressable>;
+                    })}
+                    {!filteredCreateModels.length && !models.isFetching ? <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 18, textAlign: 'center', padding: 16 }}>{createModelSearch.trim() ? '没有匹配的模型' : '暂时没有可选的模型'}</Text> : null}
+                  </ScrollView>
+                </View>
+                <Text style={{ color: createSelectedModels.length ? colors.subtext : colors.warning, fontSize: 11, lineHeight: 16 }}>{createSelectedModels.length ? `已选 ${createSelectedModels.length} 个模型` : '还没有选择模型，按当前规则创建后等同于全部模型。'}</Text>
+              </View>}
+            </View>
+          </ScrollView>
+
           {createMutation.error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{createMutation.error.message}</Text> : null}
-          <Pressable disabled={!newName.trim() || createMutation.isPending} onPress={() => createMutation.mutate()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: newName.trim() && !createMutation.isPending ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '800' }}>{createMutation.isPending ? '创建中...' : '创建'}</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 9 }}>
+            <Pressable disabled={createMutation.isPending} onPress={closeCreate} style={({ pressed }) => ({ flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', opacity: createMutation.isPending ? 0.45 : pressed ? 0.65 : 1 })}><Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>取消</Text></Pressable>
+            <Pressable disabled={!canCreate} onPress={() => createMutation.mutate()} style={({ pressed }) => ({ flex: 1, minHeight: 46, borderRadius: 12, backgroundColor: canCreate ? colors.primary : colors.disabled, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{createMutation.isPending ? '创建中...' : '创建密钥'}</Text></Pressable>
+          </View>
         </View>
       </FullScreenSafeArea>
     </Modal>

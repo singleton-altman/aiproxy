@@ -29,7 +29,7 @@ function usableSecret(item: ApiKeyItem, currentValue: string) {
   return prefix && currentValue.trim().startsWith(prefix) ? currentValue.trim() : '';
 }
 
-export function GatewayKeyPicker({ value, onChange, connected = false }: { value: string; onChange: (value: string) => void; connected?: boolean }) {
+export function GatewayKeyPicker({ value, onChange, connected = false, compact = false }: { value: string; onChange: (value: string) => void; connected?: boolean; compact?: boolean }) {
   const colors = useAppTheme();
   const session = useSnapshot(sessionState);
   const { height } = useWindowDimensions();
@@ -62,9 +62,9 @@ export function GatewayKeyPicker({ value, onChange, connected = false }: { value
   const detail = selected ? (prefixOf(selected) ? `${prefixOf(selected)}...` : maskedPrefix(value)) : maskedPrefix(value);
 
   return <>
-    <Pressable onPress={openPicker} style={({ pressed }) => ({ minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: connected ? colors.success : colors.border, backgroundColor: colors.card, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.68 : 1 })}>
-      <IconTile icon={KeyRound} color={connected ? colors.success : colors.primary} background={connected ? colors.successBg : colors.primarySoft} size={32} iconSize={16} />
-      <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: value.trim() ? colors.text : colors.placeholder, fontSize: 11, fontWeight: '700' }}>{title}</Text>{detail ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontFamily: 'monospace', marginTop: 2 }}>{detail}</Text> : null}</View>
+    <Pressable onPress={openPicker} style={({ pressed }) => ({ minHeight: compact ? 42 : 46, borderRadius: compact ? 12 : 14, borderWidth: 1, borderColor: connected ? colors.success : colors.border, backgroundColor: colors.card, paddingHorizontal: compact ? 8 : 11, flexDirection: 'row', alignItems: 'center', gap: compact ? 7 : 10, opacity: pressed ? 0.68 : 1 })}>
+      <IconTile icon={KeyRound} color={connected ? colors.success : colors.primary} background={connected ? colors.successBg : colors.primarySoft} size={compact ? 28 : 32} iconSize={compact ? 14 : 16} />
+      <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ color: value.trim() ? colors.text : colors.placeholder, fontSize: 11, fontWeight: '700' }}>{title}</Text>{detail && !compact ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontFamily: 'monospace', marginTop: 2 }}>{detail}</Text> : null}</View>
       {keys.isFetching ? <ActivityIndicator color={colors.primary} size="small" /> : <ChevronDown color={colors.subtext} size={16} />}
     </Pressable>
 
