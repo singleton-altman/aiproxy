@@ -13,6 +13,10 @@ export COCOAPODS_DISABLE_STATS=1
 export NPM_CONFIG_AUDIT=false
 export NPM_CONFIG_FUND=false
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+export USE_HERMES=1
+
+unset SWIFT_DEBUG_INFORMATION_FORMAT
+unset SWIFT_DEBUG_INFORMATION_VERSION
 
 if ! command -v node >/dev/null 2>&1 && command -v brew >/dev/null 2>&1; then
   echo "Node.js was not found. Installing Node.js with Homebrew..."

@@ -9,6 +9,10 @@ cd "$REPO_ROOT"
 
 export COCOAPODS_DISABLE_STATS=1
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+export USE_HERMES=1
+
+unset SWIFT_DEBUG_INFORMATION_FORMAT
+unset SWIFT_DEBUG_INFORMATION_VERSION
 
 if ! command -v pod >/dev/null 2>&1 && command -v gem >/dev/null 2>&1; then
   echo "CocoaPods was not found. Installing CocoaPods with RubyGems..."
