@@ -1,0 +1,88 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+      timezone: "Asia/Shanghai"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_URL: https://github.com/xiaojun5270/aiproxy.git
+  UPSTREAM_BRANCH: main
+  TARGET_BRANCH: main
+
+jobs:
+  sync:
+    name: Merge upstream into fork
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Merge upstream changes
+        id: merge
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+
+          BEFORE_SHA="$(git rev-parse HEAD)"
+          UPSTREAM_SHA="$(git rev-parse "upstream/$UPSTREAM_BRANCH")"
+
+          if git merge-base --is-ancestor "$UPSTREAM_SHA" HEAD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Upstream sync"
+              echo
+              echo "No new upstream commits were found."
+              echo
+              echo "- Fork: \`$BEFORE_SHA\`"
+              echo "- Upstream: \`$UPSTREAM_SHA\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if ! git merge --no-edit "upstream/$UPSTREAM_BRANCH"; then
+            git merge --abort || true
+            {
+              echo "## Upstream sync failed"
+              echo
+              echo "The upstream branch conflicts with fork-specific changes."
+              echo "Resolve the conflict locally and push the merge manually."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          AFTER_SHA="$(git rev-parse HEAD)"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Upstream sync"
+            echo
+            echo "Merged new upstream commits into \`$TARGET_BRANCH\`."
+            echo
+            echo "- Before: \`$BEFORE_SHA\`"
+            echo "- Upstream: \`$UPSTREAM_SHA\`"
+            echo "- After: \`$AFTER_SHA\`"
+            echo
+            echo "Pushing this merge will trigger Xcode Cloud's branch-change workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push merged changes
+        if: steps.merge.outputs.changed == 'true'
+        run: git push origin "HEAD:$TARGET_BRANCH"
