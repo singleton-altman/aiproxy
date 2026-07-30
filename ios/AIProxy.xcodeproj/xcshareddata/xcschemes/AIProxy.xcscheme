@@ -5,6 +5,24 @@
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Install JavaScript and CocoaPods dependencies"
+               scriptText = "set -euo pipefail&#10;&#10;REPO_ROOT=&quot;$(cd &quot;${PROJECT_DIR}/..&quot; &amp;&amp; pwd)&quot;&#10;cd &quot;$REPO_ROOT&quot;&#10;&#10;export CI=1&#10;export EXPO_NO_TELEMETRY=1&#10;export COCOAPODS_DISABLE_STATS=1&#10;export NPM_CONFIG_AUDIT=false&#10;export NPM_CONFIG_FUND=false&#10;&#10;if [ ! -d node_modules ]; then&#10;  npm ci&#10;fi&#10;&#10;PODS_RELEASE_XCCONFIG=&quot;ios/Pods/Target Support Files/Pods-AIProxy/Pods-AIProxy.release.xcconfig&quot;&#10;if [ ! -f &quot;$PODS_RELEASE_XCCONFIG&quot; ]; then&#10;  cd ios&#10;  pod install --repo-update&#10;fi&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
+                     BuildableName = "AIProxy.app"
+                     BlueprintName = "AIProxy"
+                     ReferencedContainer = "container:AIProxy.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
