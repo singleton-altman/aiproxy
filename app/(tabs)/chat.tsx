@@ -24,6 +24,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, IconTile, PageHeader, SearchField, SheetHandle } from '@/src/components/ui';
 import { GatewayKeyPicker } from '@/src/components/gateway-key-picker';
+import { chatHistoryScope, loadChatHistory, saveChatHistory, type ChatHistorySnapshot } from '@/src/lib/chat-history';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import { createApiKey, extractKeySecret, getModels } from '@/src/services/account';
@@ -80,10 +81,60 @@ export default function ChatScreen() {
   const [streamEnabled, setStreamEnabled] = useState(true);
   const [input, setInput] = useState('');
   const [entries, setEntries] = useState<ChatEntry[]>([]);
+  const [historyReady, setHistoryReady] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const nextIdRef = useRef(0);
   const controllerRef = useRef<AbortController>(undefined);
   const listRef = useRef<FlatList<ChatEntry>>(null);
+  const historyReadyRef = useRef(false);
+  const latestHistoryRef = useRef<ChatHistorySnapshot>({ entries: [], model: '', protocol: 'auto', systemPrompt: '', temperature: 0.7, maxTokens: '2048', streamEnabled: true });
+  const historyScope = chatHistoryScope({ baseUrl: String(session.baseUrl), mode: String(session.mode), email: String(session.email), apiKey: String(session.apiKey) });
+
+  useEffect(() => {
+    latestHistoryRef.current = { entries, model, protocol, systemPrompt, temperature, maxTokens, streamEnabled };
+    historyReadyRef.current = historyReady;
+  }, [entries, historyReady, maxTokens, model, protocol, streamEnabled, systemPrompt, temperature]);
+
+  useEffect(() => {
+    let cancelled = false;
+    historyReadyRef.current = false;
+    setHistoryReady(false);
+    setEntries([]);
+    setModel('');
+    setProtocol('auto');
+    setSystemPrompt('');
+    setTemperature(0.7);
+    setMaxTokens('2048');
+    setStreamEnabled(true);
+    nextIdRef.current = 0;
+    void loadChatHistory(historyScope).then((saved) => {
+      if (cancelled) return;
+      const restored = (saved?.entries ?? []) as ChatEntry[];
+      setEntries(restored);
+      nextIdRef.current = restored.reduce((maximum, entry) => Math.max(maximum, entry.id), 0);
+      if (saved) {
+        setModel(saved.model);
+        setProtocol(saved.protocol);
+        setSystemPrompt(saved.systemPrompt);
+        setTemperature(saved.temperature);
+        setMaxTokens(saved.maxTokens);
+        setStreamEnabled(saved.streamEnabled);
+      }
+      historyReadyRef.current = true;
+      setHistoryReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [historyScope]);
+
+  useEffect(() => {
+    if (!historyReady) return;
+    const timer = setTimeout(() => { void saveChatHistory(historyScope, latestHistoryRef.current); }, 350);
+    return () => clearTimeout(timer);
+  }, [entries, historyReady, historyScope, maxTokens, model, protocol, streamEnabled, systemPrompt, temperature]);
+
+  useEffect(() => () => {
+    if (historyReadyRef.current) void saveChatHistory(historyScope, latestHistoryRef.current);
+  }, [historyScope]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -133,7 +184,7 @@ export default function ChatScreen() {
   const selectedModel = modelOptions.find((item) => modelId(item) === model);
   const effectiveProtocol: GatewayProtocol = protocol === 'auto' ? guessProtocol(selectedModel, model) : protocol;
   const parsedMaxTokens = Math.max(1, Math.min(128_000, Number(maxTokens) || 2048));
-  const canSend = Boolean(effectiveKey && model.trim() && input.trim() && !streaming);
+  const canSend = Boolean(historyReady && effectiveKey && model.trim() && input.trim() && !streaming);
   const filteredModels = useMemo(() => {
     const keyword = modelSearch.trim().toLowerCase();
     return modelOptions.filter((item) => !keyword || `${modelId(item)} ${item.provider ?? ''} ${item.family ?? ''}`.toLowerCase().includes(keyword));
@@ -222,6 +273,9 @@ export default function ChatScreen() {
   function clearChat() {
     stop();
     setEntries([]);
+    const cleared = { ...latestHistoryRef.current, entries: [] };
+    latestHistoryRef.current = cleared;
+    void saveChatHistory(historyScope, cleared);
   }
 
   async function copyMessage(content: string) {
@@ -284,7 +338,7 @@ export default function ChatScreen() {
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           contentContainerStyle={{ gap: 10, paddingVertical: 4, flexGrow: 1 }}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-          ListEmptyComponent={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 28 }}><Bot color={colors.disabled} size={34} /><Text style={{ color: colors.subtext, fontSize: 11, textAlign: 'center' }}>{!effectiveKey ? '配置网关 Key' : !model ? '选择可用模型' : '发送消息开始测试'}</Text></View>}
+          ListEmptyComponent={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 28 }}>{!historyReady ? <ActivityIndicator color={colors.primary} /> : <Bot color={colors.disabled} size={34} />}<Text style={{ color: colors.subtext, fontSize: 11, textAlign: 'center' }}>{!historyReady ? '正在恢复聊天记录...' : !effectiveKey ? '配置网关 Key' : !model ? '选择可用模型' : '发送消息开始测试'}</Text></View>}
           renderItem={({ item, index }) => {
             const mine = item.role === 'user';
             const lastAssistant = item.role === 'assistant' && index === entries.findLastIndex((entry) => entry.role === 'assistant');

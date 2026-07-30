@@ -42,7 +42,8 @@ export function Page({ title, subtitle, icon, children, refreshing, onRefresh, s
       {showHeader ? <PageHeader title={title} subtitle={subtitle} icon={icon} refreshing={refreshing} onRefresh={onRefresh} /> : null}
       {children}
     </View>;
-  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={safeTop ? ['top'] : []}>
+  const safeAreaEdges = safeTop ? Platform.OS === 'ios' ? ['top', 'bottom'] as const : ['top'] as const : [];
+  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={safeAreaEdges}>
     {scrollable ? <ScrollView
       style={{ flex: 1 }}
       bounces={false}

@@ -24,6 +24,7 @@ import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
+import { localCalendarRange, type CalendarRange } from '@/src/lib/calendar-range';
 import { useAppTheme } from '@/src/lib/theme';
 import { getApiKeys, getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
@@ -37,7 +38,7 @@ import type { ApiRecord, ModelItem, UsageTrendItem } from '@/src/types/api';
 
 const { useSnapshot } = require('valtio/react');
 
-type DashboardRange = 'day' | 'week' | 'month';
+type DashboardRange = CalendarRange;
 
 const dashboardRanges: Array<{ value: DashboardRange; label: string }> = [
   { value: 'day', label: '今日' },
@@ -362,13 +363,19 @@ function UsageDashboard({ admin }: { admin: boolean }) {
 
   const overview = useQuery({
     queryKey: [dashboardScope, 'dashboard', 'overview', range],
-    queryFn: ({ signal }) => admin ? getAdminStatsOverview({ range }, signal) : getUsageOverview({ range }, signal),
+    queryFn: ({ signal }) => {
+      const params = localCalendarRange(range);
+      return admin ? getAdminStatsOverview(params, signal) : getUsageOverview(params, signal);
+    },
     ...dashboardQueryDefaults,
     refetchInterval: screenFocused ? 10_000 : false,
   });
   const trend = useQuery({
     queryKey: [dashboardScope, 'dashboard', 'trend', range],
-    queryFn: ({ signal }) => admin ? getAdminStatsTrend({ range }, signal) : getUsageTrend({ range }, signal),
+    queryFn: ({ signal }) => {
+      const params = localCalendarRange(range);
+      return admin ? getAdminStatsTrend(params, signal) : getUsageTrend(params, signal);
+    },
     ...dashboardQueryDefaults,
     refetchInterval: screenFocused ? 30_000 : false,
   });
@@ -389,7 +396,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   });
   const analysis = useQuery({
     queryKey: ['admin', 'dashboard', 'analysis', range],
-    queryFn: ({ signal }) => getAdminStatsUsers({ range }, signal),
+    queryFn: ({ signal }) => getAdminStatsUsers(localCalendarRange(range), signal),
     enabled: admin,
     retry: 0,
     ...dashboardQueryDefaults,

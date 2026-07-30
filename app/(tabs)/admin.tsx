@@ -5,19 +5,13 @@ import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ErrorState, Page, Panel, SectionHeader, ServiceButton } from '@/src/components/ui';
+import { localCalendarRange } from '@/src/lib/calendar-range';
 import { useAppTheme } from '@/src/lib/theme';
 import { getAdminStatsOverview } from '@/src/services/admin';
 import { isAdmin, sessionState } from '@/src/store/session';
 
 const { useSnapshot } = require('valtio/react');
 const TODAY_STATS_QUERY_KEY = ['admin', 'stats', 'overview', 'today'] as const;
-
-function localTodayRange() {
-  const to = new Date();
-  const from = new Date(to);
-  from.setHours(0, 0, 0, 0);
-  return { from: from.toISOString(), to: to.toISOString() };
-}
 
 function formatNumber(value: unknown) {
   const number = typeof value === 'number' ? value : Number(value);
@@ -38,7 +32,7 @@ export default function AdminScreen() {
 
   const stats = useQuery({
     queryKey: TODAY_STATS_QUERY_KEY,
-    queryFn: ({ signal }) => getAdminStatsOverview(localTodayRange(), signal),
+    queryFn: ({ signal }) => getAdminStatsOverview(localCalendarRange('day'), signal),
     enabled: admin,
     retry: 0,
     staleTime: 0,
