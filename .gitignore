@@ -70,6 +70,11 @@ skills-lock.json
 *.tsbuildinfo
 
 # generated native folders
-/ios
 /android
 /artifacts/
+
+# iOS native dependencies/build products
+/ios/Pods/
+/ios/build/
+/ios/DerivedData/
+/ios/.xcode.env.local

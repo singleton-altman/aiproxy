@@ -1,0 +1,69 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+echo "Xcode Cloud post-clone setup started."
+
+REPO_ROOT="${CI_WORKSPACE:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$REPO_ROOT"
+
+export CI=1
+export EXPO_NO_TELEMETRY=1
+export NPM_CONFIG_AUDIT=false
+export NPM_CONFIG_FUND=false
+
+echo "Repository: $REPO_ROOT"
+echo "Xcode:"
+xcodebuild -version
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "Node.js is required but was not found on PATH."
+  exit 1
+fi
+
+NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])")"
+echo "Node.js: $(node --version)"
+echo "npm: $(npm --version)"
+
+if [ "$NODE_MAJOR" -lt 20 ]; then
+  echo "Node.js 20 or newer is required for this Expo project."
+  exit 1
+fi
+
+echo "Installing JavaScript dependencies..."
+npm ci
+
+echo "Running local verification before native generation..."
+npm run check:version
+npm run check:endpoints
+npm run typecheck
+npm run test
+
+if [ ! -d ios ] || [ ! -f ios/Podfile ]; then
+  echo "No committed iOS project found. Generating it with Expo prebuild..."
+  CI=1 npx expo prebuild --platform ios --clean
+else
+  echo "Using committed iOS project."
+fi
+
+WORKSPACE="$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)"
+if [ -f ios/Podfile ]; then
+  echo "Installing CocoaPods dependencies..."
+  (
+    cd ios
+    if command -v bundle >/dev/null 2>&1 && [ -f Gemfile ]; then
+      bundle exec pod install
+    else
+      pod install
+    fi
+  )
+fi
+
+WORKSPACE="$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)"
+if [ -z "$WORKSPACE" ]; then
+  echo "No Xcode workspace was found under ios/."
+  exit 1
+fi
+
+echo "Generated workspace: $WORKSPACE"
+echo "Xcode Cloud post-clone setup finished."
