@@ -8,6 +8,13 @@ REPO_ROOT="${CI_WORKSPACE:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$REPO_ROOT"
 
 export COCOAPODS_DISABLE_STATS=1
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+if ! command -v pod >/dev/null 2>&1 && command -v gem >/dev/null 2>&1; then
+  echo "CocoaPods was not found. Installing CocoaPods with RubyGems..."
+  gem install cocoapods --user-install
+  export PATH="$HOME/.gem/ruby/$(ruby -e 'print RUBY_VERSION[/^\d+\.\d+/]')/bin:$PATH"
+fi
 
 WORKSPACE="$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)"
 XCODEPROJ="$(find ios -maxdepth 1 -name "*.xcodeproj" -print -quit)"

@@ -12,6 +12,18 @@ export EXPO_NO_TELEMETRY=1
 export COCOAPODS_DISABLE_STATS=1
 export NPM_CONFIG_AUDIT=false
 export NPM_CONFIG_FUND=false
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+if ! command -v node >/dev/null 2>&1 && command -v brew >/dev/null 2>&1; then
+  echo "Node.js was not found. Installing Node.js with Homebrew..."
+  brew install node
+fi
+
+if ! command -v pod >/dev/null 2>&1 && command -v gem >/dev/null 2>&1; then
+  echo "CocoaPods was not found. Installing CocoaPods with RubyGems..."
+  gem install cocoapods --user-install
+  export PATH="$HOME/.gem/ruby/$(ruby -e 'print RUBY_VERSION[/^\d+\.\d+/]')/bin:$PATH"
+fi
 
 echo "Repository: $REPO_ROOT"
 echo "Xcode:"
