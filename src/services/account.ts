@@ -1,4 +1,5 @@
 import { apiJson, firstArray } from '@/src/lib/api';
+import { normalizeUsageTrend } from '@/src/lib/usage-trend';
 import type {
   ApiKeyItem,
   ApiRecord,
@@ -7,7 +8,6 @@ import type {
   PlanItem,
   RequestLogItem,
   UsageOverview,
-  UsageTrendItem,
   UserProfile,
 } from '@/src/types/api';
 
@@ -181,15 +181,6 @@ function normalizeUsageOverview(value: ApiRecord): UsageOverview {
   };
 }
 
-function normalizeTrendItem(value: UsageTrendItem): UsageTrendItem {
-  return {
-    ...value,
-    request_count: Number(value.request_count ?? value.requests ?? value.count) || 0,
-    total_tokens: Number(value.total_tokens ?? value.tokens) || 0,
-    cost: Number(value.cost ?? value.cost_usd) || 0,
-  };
-}
-
 function normalizeRequestItem(value: RequestLogItem): RequestLogItem {
   return {
     ...value,
@@ -211,7 +202,7 @@ export async function getUsageOverview(params?: { from?: string; to?: string; ra
 
 export async function getUsageTrend(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/user/usage/trend', { signal, cache: 'no-store', query: { ...params, range: normalizeRange(params?.range) } });
-  return firstArray<UsageTrendItem>(payload, ['trend', 'items', 'data', 'buckets', 'list']).map(normalizeTrendItem);
+  return normalizeUsageTrend(payload);
 }
 
 export function getUsageAnalysis(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {

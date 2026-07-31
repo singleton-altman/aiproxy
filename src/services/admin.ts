@@ -1,5 +1,6 @@
 import { apiJson, firstArray } from '@/src/lib/api';
-import type { ApiRecord, BalanceInfo, ModelItem, RequestLogItem, UsageOverview, UsageTrendItem, UserProfile } from '@/src/types/api';
+import { normalizeUsageTrend } from '@/src/lib/usage-trend';
+import type { ApiRecord, BalanceInfo, ModelItem, RequestLogItem, UsageOverview, UserProfile } from '@/src/types/api';
 
 export type AdminUserItem = UserProfile & {
   balance?: number;
@@ -111,12 +112,7 @@ export async function getAdminStatsOverview(params?: { from?: string; to?: strin
 
 export async function getAdminStatsTrend(params?: { from?: string; to?: string; range?: string }, signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/admin/stats/trend', { signal, cache: 'no-store', query: normalizeStatsParams(params) });
-  return firstArray<UsageTrendItem>(payload, ['trend', 'items', 'data', 'buckets', 'list']).map((value) => ({
-    ...value,
-    request_count: Number(value.request_count ?? value.requests ?? value.count) || 0,
-    total_tokens: Number(value.total_tokens ?? value.tokens) || 0,
-    cost: Number(value.cost ?? value.cost_usd) || 0,
-  }));
+  return normalizeUsageTrend(payload);
 }
 
 export function getAdminRealtimeUsage(signal?: AbortSignal) {

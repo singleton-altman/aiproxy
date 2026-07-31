@@ -24,7 +24,7 @@ import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { apiKeyDisplayName, enrichApiKeyUsage, filterNamedApiKeyUsage } from '@/src/lib/api-key-display';
-import { localCalendarRange, localRecentDaysRange, type CalendarRange } from '@/src/lib/calendar-range';
+import { localCalendarRange, type CalendarRange } from '@/src/lib/calendar-range';
 import { useAppTheme } from '@/src/lib/theme';
 import { getApiKeys, getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
@@ -150,18 +150,30 @@ function RealtimeStat({ label, value, icon: Icon, accent, first }: { label: stri
   </View>;
 }
 
-function dateLabel(item: UsageTrendItem, index: number) {
-  const source = String(item.bucket_start ?? item.date ?? item.day ?? item.hour ?? item.time ?? '');
-  if (!source) return String(index + 1);
-  const date = source.slice(0, 10);
-  const parts = date.split('-');
-  return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : date.slice(0, 5);
+function dateLabel(item: UsageTrendItem) {
+  const source = String(item.bucket_start ?? item.bucket ?? item.date ?? item.day ?? item.period ?? item.label ?? item.time ?? item.timestamp ?? '').trim();
+  if (!source) return '';
+  const parts = source.match(/\d{4}[-/](\d{1,2})[-/](\d{1,2})/);
+  if (parts) return `${Number(parts[1])}月${Number(parts[2])}日`;
+  const numeric = Number(source);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    const date = new Date(numeric < 1e12 ? numeric * 1000 : numeric);
+    if (!Number.isNaN(date.getTime())) return `${date.getMonth() + 1}月${date.getDate()}日`;
+  }
+  return source.slice(0, 8);
 }
 
 function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const colors = useAppTheme();
   const chartItems = items.slice(-7);
-  const values = chartItems.map((item) => toNumber(item.request_count ?? item.count ?? item.requests));
+  const counts = chartItems.map((item) => {
+    const failed = toNumber(item.failed_count ?? item.failure_count ?? item.failed_requests ?? item.error_count ?? item.errors);
+    const suppliedSuccess = item.success_count ?? item.successful_count ?? item.successful_requests ?? item.success_requests;
+    const suppliedTotal = toNumber(item.request_count ?? item.total_requests ?? item.count ?? item.requests);
+    const success = suppliedSuccess === undefined ? Math.max(0, suppliedTotal - failed) : toNumber(suppliedSuccess);
+    return { success, failed, total: Math.max(suppliedTotal, success + failed) };
+  });
+  const values = counts.map((item) => item.total);
   const maxValue = Math.max(1, ...values);
   const top = Math.max(4, Math.ceil(maxValue * 1.2));
   const plotLeft = 34;
@@ -175,8 +187,12 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
 
   if (!chartItems.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
 
-  return <View style={{ height: 196, overflow: 'hidden' }}>
-    <Svg width="100%" height="196" viewBox="0 0 600 196" preserveAspectRatio="none">
+  return <View style={{ gap: 2 }}>
+    <View style={{ height: 22, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>成功</Text></View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.danger }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>失败</Text></View>
+    </View>
+    <View style={{ height: 196, overflow: 'hidden' }}><Svg width="100%" height="196" viewBox="0 0 600 196" preserveAspectRatio="none">
       {[0, 1, 2, 3, 4].map((index) => {
         const y = plotBottom - index * plotHeight / 4;
         const label = Math.round(top * index / 4);
@@ -186,17 +202,20 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
         </Fragment>;
       })}
       {chartItems.map((item, index) => {
-        const value = values[index] ?? 0;
-        const height = Math.max(value ? 3 : 0, value / top * plotHeight);
+        const value = counts[index] ?? { success: 0, failed: 0, total: 0 };
+        const totalHeight = Math.max(value.total ? 3 : 0, value.total / top * plotHeight);
+        const failedHeight = value.total ? totalHeight * value.failed / value.total : 0;
+        const successHeight = Math.max(0, totalHeight - failedHeight);
         const x = plotLeft + slot * index + (slot - barWidth) / 2;
-        const label = dateLabel(item, index);
+        const label = dateLabel(item);
         const showLabel = index % labelStep === 0 || index === chartItems.length - 1;
         return <Fragment key={`${label}-${index}`}>
-          <Rect x={x} y={plotBottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />
+          {successHeight > 0 ? <Rect x={x} y={plotBottom - successHeight} width={barWidth} height={successHeight} rx="2" fill={colors.cyan} /> : null}
+          {failedHeight > 0 ? <Rect x={x} y={plotBottom - totalHeight} width={barWidth} height={failedHeight} rx="2" fill={colors.danger} /> : null}
           {showLabel ? <SvgText x={x + barWidth / 2} y="181" fill={colors.subtext} fontSize="11" textAnchor="middle">{label}</SvgText> : null}
         </Fragment>;
       })}
-    </Svg>
+    </Svg></View>
   </View>;
 }
 
@@ -353,10 +372,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   });
   const trend = useQuery({
     queryKey: [dashboardScope, 'dashboard', 'trend', '7d'],
-    queryFn: ({ signal }) => {
-      const params = localRecentDaysRange(7);
-      return admin ? getAdminStatsTrend(params, signal) : getUsageTrend(params, signal);
-    },
+    queryFn: ({ signal }) => admin ? getAdminStatsTrend({ range: '7d' }, signal) : getUsageTrend({ range: '7d' }, signal),
     ...dashboardQueryDefaults,
     refetchInterval: screenFocused ? 30_000 : false,
   });

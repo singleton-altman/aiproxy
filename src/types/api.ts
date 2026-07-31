@@ -88,6 +88,8 @@ export type UsageTrendItem = ApiRecord & {
   bucket_start?: string;
   count?: number;
   request_count?: number;
+  success_count?: number;
+  failed_count?: number;
   total_tokens?: number;
   cost?: number;
 };
