@@ -23,9 +23,11 @@ import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
+import { enrichAccountUsage, usageAccountName } from '@/src/lib/account-display';
 import { apiKeyDisplayName, enrichApiKeyUsage, filterNamedApiKeyUsage } from '@/src/lib/api-key-display';
 import { localCalendarRange, type CalendarRange } from '@/src/lib/calendar-range';
 import { useAppTheme } from '@/src/lib/theme';
+import { usageTrendDateLabel } from '@/src/lib/usage-trend';
 import { getApiKeys, getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
   getAdminRealtimeUsage,
@@ -150,19 +152,6 @@ function RealtimeStat({ label, value, icon: Icon, accent, first }: { label: stri
   </View>;
 }
 
-function dateLabel(item: UsageTrendItem) {
-  const source = String(item.bucket_start ?? item.bucket ?? item.date ?? item.day ?? item.period ?? item.label ?? item.time ?? item.timestamp ?? '').trim();
-  if (!source) return '';
-  const parts = source.match(/\d{4}[-/](\d{1,2})[-/](\d{1,2})/);
-  if (parts) return `${Number(parts[1])}月${Number(parts[2])}日`;
-  const numeric = Number(source);
-  if (Number.isFinite(numeric) && numeric > 0) {
-    const date = new Date(numeric < 1e12 ? numeric * 1000 : numeric);
-    if (!Number.isNaN(date.getTime())) return `${date.getMonth() + 1}月${date.getDate()}日`;
-  }
-  return source.slice(0, 8);
-}
-
 function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const colors = useAppTheme();
   const chartItems = items.slice(-7);
@@ -176,46 +165,49 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const values = counts.map((item) => item.total);
   const maxValue = Math.max(1, ...values);
   const top = Math.max(4, Math.ceil(maxValue * 1.2));
-  const plotLeft = 34;
-  const plotRight = 586;
-  const plotTop = 18;
-  const plotBottom = 154;
+  const plotLeft = 42;
+  const plotRight = 592;
+  const plotTop = 22;
+  const plotBottom = 160;
   const plotHeight = plotBottom - plotTop;
   const slot = (plotRight - plotLeft) / Math.max(1, chartItems.length);
-  const barWidth = Math.min(30, slot * 0.46);
-  const labelStep = Math.max(1, Math.ceil(chartItems.length / 7));
+  const barWidth = Math.min(38, slot * 0.56);
+  const labels = chartItems.map((item, index) => usageTrendDateLabel(item, index, chartItems.length));
 
   if (!chartItems.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
 
-  return <View style={{ gap: 2 }}>
+  return <View style={{ gap: 4, paddingBottom: 8 }}>
     <View style={{ height: 22, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>成功</Text></View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.danger }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>失败</Text></View>
     </View>
-    <View style={{ height: 196, overflow: 'hidden' }}><Svg width="100%" height="196" viewBox="0 0 600 196" preserveAspectRatio="none">
+    <View style={{ height: 170, overflow: 'hidden' }}><Svg width="100%" height="170" viewBox="0 0 600 170" preserveAspectRatio="none">
       {[0, 1, 2, 3, 4].map((index) => {
         const y = plotBottom - index * plotHeight / 4;
         const label = Math.round(top * index / 4);
         return <Fragment key={index}>
           <Line x1={plotLeft} x2={plotRight} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" />
-          <SvgText x="21" y={y + 4} fill={colors.subtext} fontSize="11" textAnchor="end">{label}</SvgText>
+          <SvgText x="34" y={y + 4} fill={colors.subtext} fontSize="11" fontWeight="600" textAnchor="end">{label}</SvgText>
         </Fragment>;
       })}
       {chartItems.map((item, index) => {
         const value = counts[index] ?? { success: 0, failed: 0, total: 0 };
-        const totalHeight = Math.max(value.total ? 3 : 0, value.total / top * plotHeight);
-        const failedHeight = value.total ? totalHeight * value.failed / value.total : 0;
-        const successHeight = Math.max(0, totalHeight - failedHeight);
+        const successHeight = value.success ? Math.max(5, value.success / top * plotHeight) : 0;
+        const failedHeight = value.failed ? Math.max(4, value.failed / top * plotHeight) : 0;
+        const totalHeight = successHeight + failedHeight;
         const x = plotLeft + slot * index + (slot - barWidth) / 2;
-        const label = dateLabel(item);
-        const showLabel = index % labelStep === 0 || index === chartItems.length - 1;
-        return <Fragment key={`${label}-${index}`}>
-          {successHeight > 0 ? <Rect x={x} y={plotBottom - successHeight} width={barWidth} height={successHeight} rx="2" fill={colors.cyan} /> : null}
-          {failedHeight > 0 ? <Rect x={x} y={plotBottom - totalHeight} width={barWidth} height={failedHeight} rx="2" fill={colors.danger} /> : null}
-          {showLabel ? <SvgText x={x + barWidth / 2} y="181" fill={colors.subtext} fontSize="11" textAnchor="middle">{label}</SvgText> : null}
+        const valueLabelY = Math.max(13, plotBottom - totalHeight - 7);
+        return <Fragment key={`${labels[index]}-${index}`}>
+          <Rect x={x} y={plotTop} width={barWidth} height={plotHeight} rx={barWidth / 2} fill={colors.mutedCard} />
+          {successHeight > 0 ? <Rect x={x} y={plotBottom - successHeight} width={barWidth} height={successHeight} rx={Math.min(6, barWidth / 2)} fill={colors.cyan} /> : null}
+          {failedHeight > 0 ? <Rect x={x} y={plotBottom - totalHeight} width={barWidth} height={failedHeight + Math.min(2, successHeight)} rx={Math.min(6, barWidth / 2)} fill={colors.danger} /> : null}
+          {value.total > 0 ? <SvgText x={x + barWidth / 2} y={valueLabelY} fill={colors.text} fontSize="11" fontWeight="700" textAnchor="middle">{formatNumber(value.total)}</SvgText> : null}
         </Fragment>;
       })}
     </Svg></View>
+    <View style={{ marginLeft: 28, marginRight: 0, minHeight: 20, flexDirection: 'row', alignItems: 'center' }}>
+      {labels.map((label, index) => <Text key={`${label}-${index}`} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 11, lineHeight: 16, fontWeight: '600', textAlign: 'center', fontVariant: ['tabular-nums'] }}>{label}</Text>)}
+    </View>
   </View>;
 }
 
@@ -290,15 +282,16 @@ type BreakdownType = 'provider' | 'account' | 'apiKey';
 
 function breakdownName(item: ApiRecord, type: BreakdownType, index: number) {
   if (type === 'apiKey') return apiKeyDisplayName(item);
+  if (type === 'account') return usageAccountName(item) || '未识别账号';
   const candidates = type === 'provider'
     ? [item.provider_name, item.provider, item.name, item.id]
-    : [item.account_name, item.account, item.email, item.label, item.name];
+    : [];
   const value = candidates.find((candidate) => {
     if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
     const text = String(candidate).trim();
     return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
   });
-  return value ? String(value) : `${type === 'provider' ? '供应商' : '账号'} ${index + 1}`;
+  return value ? String(value) : `供应商 ${index + 1}`;
 }
 
 function BreakdownTable({ title, icon, items, type }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: BreakdownType }) {
@@ -453,29 +446,10 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     nestedRecords(analysis.data, ['by_api_key', 'by_api_keys', 'by_key', 'api_key_usage', 'key_usage', 'api_keys']),
     (apiKeyDirectory.data ?? []).map((item) => item as ApiRecord),
   )), [analysis.data, apiKeyDirectory.data]);
-  const accountItems = useMemo(() => {
-    const directory = new Map<string, ApiRecord>();
-    for (const account of accountDirectory.data ?? []) {
-      for (const id of [account.id, account.account_id, account.auth_index]) {
-        if (id !== undefined && id !== null && String(id).trim()) directory.set(String(id), account);
-      }
-    }
-    return nestedRecords(analysis.data, ['by_account', 'accounts', 'account_usage']).map((item) => {
-      const id = [item.account_id, item.auth_index, item.id].find((value) => value !== undefined && value !== null && String(value).trim());
-      const account = id === undefined ? undefined : directory.get(String(id));
-      if (!account) return item;
-      const currentName = [item.account_name, item.account, item.email, item.label, item.name].find((value) => {
-        if (typeof value !== 'string' && typeof value !== 'number') return false;
-        const text = String(value).trim();
-        return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
-      });
-      return {
-        ...item,
-        account_name: currentName ?? account.label ?? account.name ?? account.email,
-        provider_name: item.provider_name ?? item.provider ?? account.provider,
-      };
-    });
-  }, [accountDirectory.data, analysis.data]);
+  const accountItems = useMemo(() => enrichAccountUsage(
+    nestedRecords(analysis.data, ['by_account', 'accounts', 'account_usage']),
+    accountDirectory.data ?? [],
+  ), [accountDirectory.data, analysis.data]);
   const activeUsers = reportedActiveUsers || userItems.length;
   const dashboardError = overview.error ?? trend.error;
   const dashboardUnavailable = Boolean(overview.error && !overview.data);

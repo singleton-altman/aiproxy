@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`;
-const { normalizeUsageTrend } = await import(moduleUrl);
+const { normalizeUsageTrend, usageTrendDateLabel } = await import(moduleUrl);
 
 test('normalizes nested daily trend and derives request totals', () => {
   const items = normalizeUsageTrend({
@@ -55,4 +55,15 @@ test('supports APIs that return parallel trend arrays', () => {
     { bucket_start: '2026-07-30', request_count: 420 },
     { bucket_start: '2026-07-31', request_count: 442 },
   ]);
+});
+
+test('formats alternate date fields for the chart axis', () => {
+  assert.equal(usageTrendDateLabel({ period_start: '2026-07-26T00:00:00Z' }, 0, 7), '7/26');
+  assert.equal(usageTrendDateLabel({ bucket_time: '20260731' }, 6, 7), '7/31');
+});
+
+test('fills missing dates with the latest local calendar days', () => {
+  const now = new Date(2026, 6, 31, 22, 58);
+  const labels = Array.from({ length: 7 }, (_, index) => usageTrendDateLabel({}, index, 7, now));
+  assert.deepEqual(labels, ['7/25', '7/26', '7/27', '7/28', '7/29', '7/30', '7/31']);
 });

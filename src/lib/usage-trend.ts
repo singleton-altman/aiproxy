@@ -1,7 +1,7 @@
 import type { ApiRecord, UsageTrendItem } from '@/src/types/api';
 
 const itemArrayKeys = ['trend', 'series', 'points', 'buckets', 'items', 'rows', 'list', 'data'];
-const dateKeys = ['bucket_start', 'bucket', 'date', 'day', 'period', 'label', 'time', 'timestamp'];
+const dateKeys = ['bucket_start', 'period_start', 'interval_start', 'bucket_time', 'time_bucket', 'start_time', 'bucket', 'date', 'day', 'period', 'label', 'time', 'timestamp', 'created_at'];
 const requestKeys = ['request_count', 'total_requests', 'requests', 'count', 'total'];
 const successKeys = ['success_count', 'successful_count', 'successful_requests', 'success_requests', 'succeeded', 'success'];
 const failedKeys = ['failed_count', 'failure_count', 'failed_requests', 'failure_requests', 'error_count', 'errors', 'failed', 'failure'];
@@ -29,7 +29,7 @@ function recordArray(value: unknown) {
 }
 
 function parallelSeries(record: ApiRecord): ApiRecord[] {
-  const dates = firstValue(record, ['dates', 'labels', 'bucket_starts', 'timestamps']);
+  const dates = firstValue(record, ['dates', 'labels', 'bucket_starts', 'period_starts', 'timestamps']);
   if (!Array.isArray(dates)) return [];
 
   const arrays = [...requestKeys, ...successKeys, ...failedKeys, 'total_tokens', 'tokens', 'cost', 'cost_usd']
@@ -88,4 +88,29 @@ export function normalizeUsageTrend(payload: unknown): UsageTrendItem[] {
       cost: firstNumber(value, ['cost', 'cost_usd', 'total_cost']) ?? 0,
     };
   });
+}
+
+export function usageTrendDateLabel(item: UsageTrendItem, index: number, total: number, now = new Date()) {
+  const raw = firstValue(item, dateKeys);
+  const source = raw === undefined ? '' : String(raw).trim();
+  const compactDate = source.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compactDate) return `${Number(compactDate[2])}/${Number(compactDate[3])}`;
+
+  const fullDate = source.match(/\d{4}[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (fullDate) return `${Number(fullDate[1])}/${Number(fullDate[2])}`;
+
+  const shortDate = source.match(/^(\d{1,2})[-/.](\d{1,2})$/);
+  if (shortDate) return `${Number(shortDate[1])}/${Number(shortDate[2])}`;
+
+  const timestamp = Number(source);
+  if (Number.isFinite(timestamp) && timestamp >= 1e9) {
+    const date = new Date(timestamp < 1e12 ? timestamp * 1000 : timestamp);
+    if (!Number.isNaN(date.getTime())) return `${date.getMonth() + 1}/${date.getDate()}`;
+  }
+  if (source && !/^\d+$/.test(source)) return source.slice(0, 8);
+
+  const fallback = new Date(now);
+  fallback.setHours(12, 0, 0, 0);
+  fallback.setDate(fallback.getDate() - Math.max(0, total - index - 1));
+  return `${fallback.getMonth() + 1}/${fallback.getDate()}`;
 }
