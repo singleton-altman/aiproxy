@@ -17,7 +17,6 @@ import {
   FileUp,
   Filter,
   LogIn,
-  MoreHorizontal,
   Network,
   Pencil,
   Play,
@@ -33,7 +32,7 @@ import {
   Wifi,
   X,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -67,6 +66,7 @@ import { apiFetch, apiJson, firstArray, type ApiResult } from '@/src/lib/api';
 import { documentMultipartBody } from '@/src/lib/file-transfer';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
+import { useScreenFocus } from '@/src/lib/use-screen-focus';
 import { setAdminAccountEnabled } from '@/src/services/admin';
 import type { ApiRecord } from '@/src/types/api';
 
@@ -328,7 +328,7 @@ function AccountCard({ item, proxies, proxiesLoaded, now, toggling, toggleLocked
   const priority = Number(item.priority ?? 0);
   const warmupTimes = Array.isArray(item.warmup_times) ? item.warmup_times.map(String).filter(Boolean) : [];
   const egressText = egress.missing ? `出口缺失 · ${egress.label}` : egress.direct ? '直连' : `经 ${egress.label}`;
-  return <Pressable onPress={onPress} style={({ pressed }) => ({ minHeight: 88, borderRadius: 16, borderWidth: 1, borderColor: egress.missing ? colors.warning : pressed ? colors.primary : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, paddingHorizontal: 10, paddingVertical: 8, gap: 4, opacity: pressed ? 0.76 : 1 })}>
+  return <Pressable accessibilityLabel={`编辑账号 ${identity.primary}`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => ({ minHeight: 88, borderRadius: 16, borderWidth: 1, borderColor: egress.missing ? colors.warning : pressed ? colors.primary : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, paddingHorizontal: 10, paddingVertical: 8, gap: 4, opacity: pressed ? 0.76 : 1 })}>
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 9 }}>
       <ProviderIcon provider={item} size={36} />
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
@@ -336,7 +336,6 @@ function AccountCard({ item, proxies, proxiesLoaded, now, toggling, toggleLocked
         {identity.secondary ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{identity.secondary}</Text> : null}
         <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{provider.label}{plan ? ` / ${plan}` : ''}</Text>
       </View>
-      <MoreHorizontal color={colors.subtext} size={18} />
     </View>
     <View style={{ marginLeft: 45, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Network color={egress.missing ? colors.warning : colors.subtext} size={13} /><Text numberOfLines={1} style={{ flex: 1, color: egress.missing ? colors.warning : colors.subtext, fontSize: 11, fontWeight: egress.missing ? '700' : '500' }}>{egressText}</Text></View>
@@ -440,7 +439,7 @@ function stickyProxyOwners(accounts: ApiRecord[], proxies: ApiRecord[]) {
   return owners;
 }
 
-function AccountEditSheet({ account, accounts, proxies, proxiesLoaded, onClose, onSaved }: { account?: ApiRecord; accounts: ApiRecord[]; proxies: ApiRecord[]; proxiesLoaded: boolean; onClose: () => void; onSaved: () => void }) {
+function AccountEditSheet({ account, accounts, proxies, proxiesLoaded, onClose, onSaved, onActions }: { account?: ApiRecord; accounts: ApiRecord[]; proxies: ApiRecord[]; proxiesLoaded: boolean; onClose: () => void; onSaved: () => void; onActions: () => void }) {
   const colors = useAppTheme();
   const [draft, setDraft] = useState<AccountDraft>(emptyAccountDraft());
   const [saving, setSaving] = useState(false);
@@ -497,7 +496,10 @@ function AccountEditSheet({ account, accounts, proxies, proxiesLoaded, onClose, 
       {fields.length ? <Text style={{ color: colors.subtext, fontSize: 11, lineHeight: 14 }}>凭据留空时保持现有值不变。</Text> : null}
     </ScrollView>
     {error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{error}</Text> : null}
-    <Pressable disabled={!priorityValid || saving} onPress={() => void save()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: priorityValid && !saving ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{saving ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={16} />}<Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{saving ? '保存中...' : '保存账号'}</Text></Pressable>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      <CompactButton icon={SlidersHorizontal} label="账号操作" disabled={saving} onPress={onActions} />
+      <Pressable disabled={!priorityValid || saving} onPress={() => void save()} style={{ flexGrow: 2, flexBasis: 160, minWidth: 0, minHeight: 48, borderRadius: 13, backgroundColor: priorityValid && !saving ? colors.primary : colors.disabled, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>{saving ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={16} />}<Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{saving ? '保存中...' : '保存账号'}</Text></Pressable>
+    </View>
   </SheetFrame>;
 }
 
@@ -802,11 +804,13 @@ function FilterSheet({ mode, options, selected, onSelect, onClose }: { mode: Fil
 export default function AdminAccountsScreen() {
   const colors = useAppTheme();
   const router = useRouter();
+  const screenFocused = useScreenFocus();
   const { width } = useWindowDimensions();
   const wide = width >= 720;
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [providerFilter, setProviderFilter] = useState('all');
   const [filterMode, setFilterMode] = useState<FilterMode>('');
@@ -822,7 +826,7 @@ export default function AdminAccountsScreen() {
   const accounts = useQuery({
     queryKey: ['admin', 'accounts'],
     queryFn: async ({ signal }) => firstArray<ApiRecord>(await apiJson<unknown>('/admin/accounts', { signal }), ['accounts', 'items', 'data', 'list']),
-    refetchInterval: autoRefresh ? 30_000 : false,
+    refetchInterval: autoRefresh && screenFocused ? 30_000 : false,
   });
   const proxies = useQuery({
     queryKey: ['admin', 'proxies', 'account-options'],
@@ -831,9 +835,11 @@ export default function AdminAccountsScreen() {
   });
 
   useEffect(() => {
+    if (!screenFocused) return;
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [screenFocused]);
 
   const allAccounts = accounts.data ?? [];
   const proxyItems = proxies.data ?? [];
@@ -866,13 +872,13 @@ export default function AdminAccountsScreen() {
   ], [allAccounts.length, counts.statuses]);
 
   const filtered = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+    const keyword = deferredSearch.trim().toLowerCase();
     return allAccounts.filter((item) => {
       if (statusFilter !== 'all' && accountStatus(item, now) !== statusFilter) return false;
       if (providerFilter !== 'all' && accountProvider(item).key !== providerFilter) return false;
       return !keyword || accountSearchText(item, proxyItems, proxiesLoaded).includes(keyword);
     });
-  }, [allAccounts, now, providerFilter, proxiesLoaded, proxyItems, search, statusFilter]);
+  }, [allAccounts, deferredSearch, now, providerFilter, proxiesLoaded, proxyItems, statusFilter]);
 
   const selectedStatusLabel = statusFilter === 'all' ? '全部状态' : accountStatusLabels[statusFilter];
   const selectedProviderLabel = providerOptions.find((option) => option.key === providerFilter)?.label ?? '全部供应商';
@@ -1001,7 +1007,7 @@ export default function AdminAccountsScreen() {
           {accounts.data ? <Text style={{ color: colors.subtext, fontSize: 11 }}>显示 {filtered.length} / {allAccounts.length}</Text> : null}
         </View>}
         ListEmptyComponent={accounts.isLoading ? <View style={{ flex: 1, minHeight: 180, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View> : <EmptyState icon={filtersActive || search.trim() ? SearchX : CloudCog} message={filtersActive || search.trim() ? '没有匹配的账号' : '暂无上游账号'} />}
-        renderItem={({ item }) => <AccountCard item={item} proxies={proxyItems} proxiesLoaded={proxiesLoaded} now={now} toggling={togglingId === accountId(item)} toggleLocked={Boolean(togglingId || busyAction)} onPress={() => setSelectedId(accountId(item))} onToggle={() => void toggleAccount(item)} />}
+        renderItem={({ item }) => <AccountCard item={item} proxies={proxyItems} proxiesLoaded={proxiesLoaded} now={now} toggling={togglingId === accountId(item)} toggleLocked={Boolean(togglingId || busyAction)} onPress={() => setEditingAccount(item)} onToggle={() => void toggleAccount(item)} />}
       />
     </Page>
 
@@ -1018,7 +1024,7 @@ export default function AdminAccountsScreen() {
       onExport={() => { if (selectedAccount) confirmExport([accountId(selectedAccount)], 1); }}
       onDelete={deleteSelected}
     />
-    <AccountEditSheet account={editingAccount} accounts={allAccounts} proxies={proxyItems} proxiesLoaded={proxiesLoaded} onClose={() => setEditingAccount(undefined)} onSaved={invalidate} />
+    <AccountEditSheet account={editingAccount} accounts={allAccounts} proxies={proxyItems} proxiesLoaded={proxiesLoaded} onClose={() => setEditingAccount(undefined)} onSaved={invalidate} onActions={() => { if (!editingAccount) return; setSelectedId(accountId(editingAccount)); setEditingAccount(undefined); }} />
     <AccountModelsSheet account={modelsAccount} onClose={() => setModelsAccount(undefined)} />
     <WarmupSheet account={warmupAccount} onClose={() => setWarmupAccount(undefined)} onSaved={invalidate} />
     <ImportSheet visible={importVisible} onClose={() => setImportVisible(false)} onImported={invalidate} />

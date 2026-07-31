@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CircleDollarSign, Eye, EyeOff, Save, ShieldCheck, Trash2, UsersRound, X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField } from '@/src/components/ui';
@@ -69,6 +69,7 @@ export default function AdminUsersScreen() {
   const wide = width >= 720;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const deferredSearch = useDeferredValue(search);
   const [selected, setSelected] = useState<AdminUserItem>();
   const [draft, setDraft] = useState<UserDraft>({ nickname: '', email: '', role: 'user', password: '', enabled: true });
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -116,13 +117,13 @@ export default function AdminUsersScreen() {
   }, [users.data]);
 
   const items = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+    const keyword = deferredSearch.trim().toLowerCase();
     return (users.data?.items ?? []).filter((item) => {
       if (statusFilter === 'enabled' && item.disabled) return false;
       if (statusFilter === 'disabled' && !item.disabled) return false;
       return !keyword || `${item.email ?? ''} ${nickname(item)} ${item.role ?? ''}`.toLowerCase().includes(keyword);
     });
-  }, [search, statusFilter, users.data]);
+  }, [deferredSearch, statusFilter, users.data]);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim());
   const passwordValid = !draft.password || draft.password.length >= 8;
@@ -163,6 +164,10 @@ export default function AdminUsersScreen() {
       keyExtractor={(item, index) => userId(item) || String(index)}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={false}
+      initialNumToRender={12}
+      maxToRenderPerBatch={10}
+      updateCellsBatchingPeriod={40}
+      windowSize={7}
       style={{ flex: 1, width: '100%' }}
       contentContainerStyle={{ gap: 8, paddingBottom: 12, flexGrow: items.length ? 0 : 1 }}
       ListHeaderComponent={users.data ? <Text style={{ color: colors.subtext, fontSize: 11, paddingBottom: 2 }}>显示 {items.length} / {users.data.items.length}</Text> : null}

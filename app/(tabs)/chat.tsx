@@ -18,7 +18,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -73,6 +73,7 @@ export default function ChatScreen() {
   const [protocol, setProtocol] = useState<GatewayProtocol | 'auto'>('auto');
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState('');
+  const deferredModelSearch = useDeferredValue(modelSearch);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
@@ -135,6 +136,8 @@ export default function ChatScreen() {
     if (historyReadyRef.current) void saveChatHistory(historyScope, latestHistoryRef.current);
   }, [historyScope]);
 
+  useEffect(() => () => controllerRef.current?.abort(), []);
+
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -185,9 +188,10 @@ export default function ChatScreen() {
   const parsedMaxTokens = Math.max(1, Math.min(128_000, Number(maxTokens) || 2048));
   const canSend = Boolean(historyReady && effectiveKey && model.trim() && input.trim() && !streaming);
   const filteredModels = useMemo(() => {
-    const keyword = modelSearch.trim().toLowerCase();
+    const keyword = deferredModelSearch.trim().toLowerCase();
     return modelOptions.filter((item) => !keyword || `${modelId(item)} ${item.provider ?? ''} ${item.family ?? ''}`.toLowerCase().includes(keyword));
-  }, [modelOptions, modelSearch]);
+  }, [deferredModelSearch, modelOptions]);
+  const lastAssistantIndex = useMemo(() => entries.findLastIndex((entry) => entry.role === 'assistant'), [entries]);
 
   const createKey = useMutation({
     mutationFn: () => createApiKey({ name: '聊天测试' }),
@@ -221,6 +225,18 @@ export default function ChatScreen() {
     const controller = new AbortController();
     controllerRef.current = controller;
     setStreaming(true);
+    let pendingDelta = '';
+    let flushTimer: ReturnType<typeof setTimeout> | undefined;
+    const flushDeltas = () => {
+      const delta = pendingDelta;
+      pendingDelta = '';
+      flushTimer = undefined;
+      if (delta) patchEntry(assistantId, (entry) => ({ content: entry.content + delta }));
+    };
+    const finishPendingDeltas = () => {
+      if (flushTimer) clearTimeout(flushTimer);
+      flushDeltas();
+    };
     try {
       const result = await runChat(effectiveKey, effectiveProtocol, model.trim(), history, {
         signal: controller.signal,
@@ -228,18 +244,21 @@ export default function ChatScreen() {
         temperature,
         maxTokens: parsedMaxTokens,
         onDelta: (delta) => {
-          patchEntry(assistantId, (entry) => ({ content: entry.content + delta }));
-          listRef.current?.scrollToEnd({ animated: false });
+          pendingDelta += delta;
+          if (!flushTimer) flushTimer = setTimeout(flushDeltas, 50);
         },
       });
+      finishPendingDeltas();
       if (!result.text.trim()) throw new Error('模型返回了空内容，请检查模型协议或请求参数');
       patchEntry(assistantId, { pending: false, content: result.text, usage: result.usage });
     } catch (caught) {
+      finishPendingDeltas();
       const message = caught instanceof Error
         ? (caught.name === 'AbortError' ? '已停止生成' : caught.message)
         : '请求失败';
       patchEntry(assistantId, (entry) => ({ pending: false, error: message, content: entry.content }));
     } finally {
+      if (flushTimer) clearTimeout(flushTimer);
       setStreaming(false);
       void queryClient.invalidateQueries({ queryKey: ['keys'] });
       if (controllerRef.current === controller) controllerRef.current = undefined;
@@ -332,6 +351,10 @@ export default function ChatScreen() {
           keyExtractor={(entry) => String(entry.id)}
           style={{ flex: 1 }}
           removeClippedSubviews={false}
+          initialNumToRender={12}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={40}
+          windowSize={7}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           contentContainerStyle={{ gap: 10, paddingVertical: 4, flexGrow: 1 }}
@@ -339,7 +362,7 @@ export default function ChatScreen() {
           ListEmptyComponent={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 28 }}>{!historyReady ? <ActivityIndicator color={colors.primary} /> : <Bot color={colors.disabled} size={34} />}<Text style={{ color: colors.subtext, fontSize: 11, textAlign: 'center' }}>{!historyReady ? '正在恢复聊天记录...' : !effectiveKey ? '配置网关 Key' : !model ? '选择可用模型' : '发送消息开始测试'}</Text></View>}
           renderItem={({ item, index }) => {
             const mine = item.role === 'user';
-            const lastAssistant = item.role === 'assistant' && index === entries.findLastIndex((entry) => entry.role === 'assistant');
+            const lastAssistant = item.role === 'assistant' && index === lastAssistantIndex;
             const usage = usageLabel(item.usage);
             return <View style={{ flexDirection: 'row', justifyContent: mine ? 'flex-end' : 'flex-start', gap: 7 }}>
               {!mine ? <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}><Bot color={colors.primary} size={14} /></View> : null}
@@ -375,7 +398,7 @@ export default function ChatScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Text style={{ flex: 1, color: colors.text, fontSize: 16, fontWeight: '800' }}>选择模型</Text><Pressable accessibilityLabel="刷新模型" onPress={refreshModels} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><RefreshCw color={colors.primary} size={16} /></Pressable><Pressable accessibilityLabel="关闭" onPress={() => setModelPickerOpen(false)} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={17} /></Pressable></View>
           <SearchField value={modelSearch} onChangeText={setModelSearch} placeholder="搜索模型或供应商" />
           {(sessionModels.isFetching || gatewayModels.isFetching) ? <ActivityIndicator color={colors.primary} /> : null}
-          <FlatList data={filteredModels} bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyExtractor={(item, index) => modelId(item) || String(index)} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 6, paddingBottom: 8 }} ListEmptyComponent={<EmptyState embedded icon={Bot} message="没有匹配的模型，可在下方手动输入" />} renderItem={({ item }) => {
+          <FlatList data={filteredModels} bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyExtractor={(item, index) => modelId(item) || String(index)} keyboardShouldPersistTaps="handled" initialNumToRender={12} maxToRenderPerBatch={10} windowSize={7} contentContainerStyle={{ gap: 6, paddingBottom: 8 }} ListEmptyComponent={<EmptyState embedded icon={Bot} message="没有匹配的模型，可在下方手动输入" />} renderItem={({ item }) => {
             const id = modelId(item);
             const selected = id === model;
             return <Pressable onPress={() => { setModel(id); setModelPickerOpen(false); }} style={({ pressed }) => ({ minHeight: 58, borderRadius: 14, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primarySoft : colors.card, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.65 : 1 })}><IconTile icon={Bot} color={selected ? colors.primary : colors.subtext} background={selected ? colors.card : colors.mutedCard} size={34} iconSize={16} /><View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text numberOfLines={1} style={{ color: selected ? colors.primary : colors.text, fontSize: 11, fontFamily: 'monospace', fontWeight: '700' }}>{id}</Text><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{String(item.provider ?? item.owned_by ?? '')}{item.family ? ` · ${String(item.family)}` : ''}</Text></View></Pressable>;

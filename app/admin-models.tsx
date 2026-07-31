@@ -10,7 +10,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField } from '@/src/components/ui';
@@ -224,6 +224,7 @@ export default function AdminModelsScreen() {
   const [formMode, setFormMode] = useState<FormMode>('');
   const [editing, setEditing] = useState<ApiRecord>();
   const [draft, setDraft] = useState<ModelDraft>(emptyDraft());
+  const deferredSearch = useDeferredValue(search);
 
   const query = useQuery({ queryKey: ['admin', 'models', 'catalog'], queryFn: ({ signal }) => getAdminModels(signal) });
   const groups = useMemo(() => {
@@ -246,19 +247,19 @@ export default function AdminModelsScreen() {
 
   const providers = useMemo(() => ['全部供应商', ...groups.map((group) => group.provider)], [groups]);
   const visibleGroups = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+    const keyword = deferredSearch.trim().toLowerCase();
     return groups.flatMap((group) => {
       if (providerFilter !== '全部供应商' && group.provider !== providerFilter) return [];
       if (!keyword) return [group];
       const items = group.items.filter((item) => `${modelId(item)} ${displayName(item)} ${upstreamModel(item)} ${group.provider}`.toLowerCase().includes(keyword));
       return items.length ? [{ ...group, items }] : [];
     });
-  }, [groups, providerFilter, search]);
+  }, [deferredSearch, groups, providerFilter]);
 
   const listData = useMemo<ListEntry[]>(() => visibleGroups.flatMap((group) => {
-    const open = Boolean(search.trim()) || expanded.has(group.provider);
+    const open = Boolean(deferredSearch.trim()) || expanded.has(group.provider);
     return [{ kind: 'provider' as const, group }, ...(open ? group.items.map((item) => ({ kind: 'model' as const, provider: group.provider, item })) : [])];
-  }), [expanded, search, visibleGroups]);
+  }), [deferredSearch, expanded, visibleGroups]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'models', 'catalog'] });
   const toggleMutation = useMutation({

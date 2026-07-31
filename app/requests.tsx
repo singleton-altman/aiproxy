@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ScrollText, Search } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 
 import { EmptyState, ErrorState, Page, SearchField } from '@/src/components/ui';
@@ -16,7 +16,7 @@ function formatTokens(item: RequestLogItem) {
   return `${total} tok`;
 }
 
-function RequestCard({ item }: { item: RequestLogItem }) {
+const RequestCard = memo(function RequestCard({ item }: { item: RequestLogItem }) {
   const colors = useAppTheme();
   const [expanded, setExpanded] = useState(false);
   const failed = Boolean(item.error) || (typeof item.status_code === 'number' && item.status_code >= 400);
@@ -43,7 +43,7 @@ function RequestCard({ item }: { item: RequestLogItem }) {
       {item.error ? <Text selectable style={{ color: colors.danger, fontSize: 11, lineHeight: 16 }}>{String(item.error)}</Text> : null}
     </View> : null}
   </Pressable>;
-}
+});
 
 export default function RequestsScreen() {
   const colors = useAppTheme();

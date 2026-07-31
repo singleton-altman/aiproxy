@@ -13,7 +13,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { ProviderIcon } from '@/src/components/provider-icon';
@@ -21,6 +21,7 @@ import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, SheetHandle } fr
 import { accountIdentity, accountProvider } from '@/src/lib/account-display';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { useAppTheme } from '@/src/lib/theme';
+import { useScreenFocus } from '@/src/lib/use-screen-focus';
 import { getAdminLogsRequests } from '@/src/services/admin';
 import type { ApiRecord } from '@/src/types/api';
 
@@ -183,7 +184,7 @@ function FilterInput({ icon: Icon, value, onChangeText, placeholder, basis }: { 
   </View>;
 }
 
-function RequestCard({ item, visibleColumns }: { item: ApiRecord; visibleColumns: Set<LogColumnId> }) {
+const RequestCard = memo(function RequestCard({ item, visibleColumns }: { item: ApiRecord; visibleColumns: Set<LogColumnId> }) {
   const colors = useAppTheme();
   const [expanded, setExpanded] = useState(false);
   const failed = eventFailed(item);
@@ -217,10 +218,11 @@ function RequestCard({ item, visibleColumns }: { item: ApiRecord; visibleColumns
       {detailColumns.map(([id, label]) => <View key={id} style={{ flexDirection: 'row', gap: 10 }}><Text style={{ width: 78, color: colors.subtext, fontSize: 11 }}>{label}</Text><Text selectable numberOfLines={id === 'error' ? 5 : 2} style={{ flex: 1, color: id === 'error' && failed ? colors.danger : colors.text, fontSize: 11, lineHeight: 16, fontFamily: ['apiKey', 'modelAlias', 'endpoint', 'error'].includes(id) ? 'monospace' : undefined }}>{columnValue(item, id)}</Text></View>)}
     </View> : null}
   </Pressable>;
-}
+});
 
 export function AdminRequestLogs() {
   const colors = useAppTheme();
+  const screenFocused = useScreenFocus();
   const { width } = useWindowDimensions();
   const wide = width >= 720;
   const inputBasis: `${number}%` = wide ? '31%' : '47%';
@@ -268,7 +270,7 @@ export function AdminRequestLogs() {
     retry: 0,
     staleTime: 0,
     placeholderData: (previous: unknown) => previous,
-    refetchInterval: autoRefresh ? 15_000 : false,
+    refetchInterval: autoRefresh && screenFocused ? 15_000 : false,
     refetchIntervalInBackground: false,
   });
   const data = requestPage(query.data);

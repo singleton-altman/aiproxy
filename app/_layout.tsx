@@ -68,7 +68,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin-accounts" options={{ title: '上游账号', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-account-import" options={{ title: '账号导入', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-providers" options={{ title: 'Providers', headerBackTitle: '返回' }} />
-          <Stack.Screen name="admin-proxies" options={{ title: '代理管理', headerBackTitle: '返回' }} />
+          <Stack.Screen name="admin-proxies" options={{ title: '网络与出口', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-proxy-system" options={{ title: '系统代理', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-tokens" options={{ title: '管理令牌', headerBackTitle: '返回' }} />
           <Stack.Screen name="admin-traces" options={{ title: 'Traces', headerBackTitle: '返回' }} />

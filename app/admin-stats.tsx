@@ -28,6 +28,7 @@ import { AdminRequestLogs } from '@/src/components/admin-request-logs';
 import { EmptyState, ErrorState, IconTile, Page, SectionHeader } from '@/src/components/ui';
 import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
 import { useAppTheme } from '@/src/lib/theme';
+import { useScreenFocus } from '@/src/lib/use-screen-focus';
 import { getApiKeys } from '@/src/services/account';
 import {
   getAdminRealtimeUsage,
@@ -430,6 +431,7 @@ function DimensionContent({ value, dimension }: { value: unknown; dimension: 'mo
 }
 
 export default function AdminStatsScreen() {
+  const screenFocused = useScreenFocus();
   const [tab, setTab] = useState<Tab>('overview');
   const [range, setRange] = useState<Range>('7d');
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('requests');
@@ -465,7 +467,7 @@ export default function AdminStatsScreen() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: heatmapEnabled ? 30_000 : false,
+    refetchInterval: heatmapEnabled && screenFocused ? 30_000 : false,
     refetchIntervalInBackground: false,
   });
   const heatmapEvents = useQuery<unknown, Error>({
@@ -477,7 +479,7 @@ export default function AdminStatsScreen() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: heatmapEnabled ? 15_000 : false,
+    refetchInterval: heatmapEnabled && screenFocused ? 15_000 : false,
     refetchIntervalInBackground: false,
   });
   const apiKeyDirectory = useQuery({
@@ -489,7 +491,7 @@ export default function AdminStatsScreen() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: heatmapEnabled ? 60_000 : false,
+    refetchInterval: heatmapEnabled && screenFocused ? 60_000 : false,
     refetchIntervalInBackground: false,
   });
 
