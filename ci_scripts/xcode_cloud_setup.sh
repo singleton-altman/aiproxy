@@ -31,7 +31,21 @@ fi
 
 if [ "$NEEDS_NODE" -eq 1 ] && ! command -v node >/dev/null 2>&1 && command -v brew >/dev/null 2>&1; then
   echo "Node.js was not found. Installing Node.js with Homebrew..."
-  brew install node
+  NODE_INSTALL_ATTEMPTS=4
+  for ATTEMPT in $(seq 1 "$NODE_INSTALL_ATTEMPTS"); do
+    if brew install node; then
+      break
+    fi
+
+    if [ "$ATTEMPT" -eq "$NODE_INSTALL_ATTEMPTS" ]; then
+      echo "Node.js installation failed after $NODE_INSTALL_ATTEMPTS attempts."
+      exit 1
+    fi
+
+    WAIT_SECONDS=$((ATTEMPT * 10))
+    echo "Node.js installation attempt $ATTEMPT failed; retrying in ${WAIT_SECONDS}s..."
+    sleep "$WAIT_SECONDS"
+  done
 fi
 
 if [ "$NEEDS_POD" -eq 1 ] && ! command -v pod >/dev/null 2>&1 && command -v gem >/dev/null 2>&1; then
