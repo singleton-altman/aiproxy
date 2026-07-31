@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { StructuredDataView } from '@/src/components/structured-form';
+import { ProviderIcon } from '@/src/components/provider-icon';
 import { EmptyState, ErrorState, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { documentMultipartBody } from '@/src/lib/file-transfer';
@@ -122,7 +123,7 @@ function nestedRecords(value: unknown, keys: string[]): ApiRecord[] {
 }
 
 function ProviderMark({ provider, size = 42 }: { provider: Provider; size?: number }) {
-  return <View style={{ width: size, height: size, borderRadius: 12, backgroundColor: provider.color, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: size * 0.4, fontWeight: '900' }}>{provider.mark}</Text></View>;
+  return <ProviderIcon provider={{ provider: provider.key, provider_display_name: provider.label }} size={size} />;
 }
 
 function ProviderCard({ provider, basis, onPress }: { provider: Provider; basis: `${number}%`; onPress: () => void }) {

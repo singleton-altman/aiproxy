@@ -24,6 +24,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, IconTile, PageHeader, SearchField, SheetHandle } from '@/src/components/ui';
 import { GatewayKeyPicker } from '@/src/components/gateway-key-picker';
+import { chatHistoryScope, loadChatHistory, saveChatHistory, type ChatHistorySnapshot } from '@/src/lib/chat-history';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import { createApiKey, extractKeySecret, getModels } from '@/src/services/account';
@@ -63,8 +64,7 @@ export default function ChatScreen() {
   const colors = useAppTheme();
   const session = useSnapshot(sessionState);
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-  const compact = width < 620;
+  const { height } = useWindowDimensions();
   const bottomClearance = Math.max(10, insets.bottom);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
@@ -80,10 +80,60 @@ export default function ChatScreen() {
   const [streamEnabled, setStreamEnabled] = useState(true);
   const [input, setInput] = useState('');
   const [entries, setEntries] = useState<ChatEntry[]>([]);
+  const [historyReady, setHistoryReady] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const nextIdRef = useRef(0);
   const controllerRef = useRef<AbortController>(undefined);
   const listRef = useRef<FlatList<ChatEntry>>(null);
+  const historyReadyRef = useRef(false);
+  const latestHistoryRef = useRef<ChatHistorySnapshot>({ entries: [], model: '', protocol: 'auto', systemPrompt: '', temperature: 0.7, maxTokens: '2048', streamEnabled: true });
+  const historyScope = chatHistoryScope({ baseUrl: String(session.baseUrl), mode: String(session.mode), email: String(session.email), apiKey: String(session.apiKey) });
+
+  useEffect(() => {
+    latestHistoryRef.current = { entries, model, protocol, systemPrompt, temperature, maxTokens, streamEnabled };
+    historyReadyRef.current = historyReady;
+  }, [entries, historyReady, maxTokens, model, protocol, streamEnabled, systemPrompt, temperature]);
+
+  useEffect(() => {
+    let cancelled = false;
+    historyReadyRef.current = false;
+    setHistoryReady(false);
+    setEntries([]);
+    setModel('');
+    setProtocol('auto');
+    setSystemPrompt('');
+    setTemperature(0.7);
+    setMaxTokens('2048');
+    setStreamEnabled(true);
+    nextIdRef.current = 0;
+    void loadChatHistory(historyScope).then((saved) => {
+      if (cancelled) return;
+      const restored = (saved?.entries ?? []) as ChatEntry[];
+      setEntries(restored);
+      nextIdRef.current = restored.reduce((maximum, entry) => Math.max(maximum, entry.id), 0);
+      if (saved) {
+        setModel(saved.model);
+        setProtocol(saved.protocol);
+        setSystemPrompt(saved.systemPrompt);
+        setTemperature(saved.temperature);
+        setMaxTokens(saved.maxTokens);
+        setStreamEnabled(saved.streamEnabled);
+      }
+      historyReadyRef.current = true;
+      setHistoryReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [historyScope]);
+
+  useEffect(() => {
+    if (!historyReady) return;
+    const timer = setTimeout(() => { void saveChatHistory(historyScope, latestHistoryRef.current); }, 350);
+    return () => clearTimeout(timer);
+  }, [entries, historyReady, historyScope, maxTokens, model, protocol, streamEnabled, systemPrompt, temperature]);
+
+  useEffect(() => () => {
+    if (historyReadyRef.current) void saveChatHistory(historyScope, latestHistoryRef.current);
+  }, [historyScope]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -133,7 +183,7 @@ export default function ChatScreen() {
   const selectedModel = modelOptions.find((item) => modelId(item) === model);
   const effectiveProtocol: GatewayProtocol = protocol === 'auto' ? guessProtocol(selectedModel, model) : protocol;
   const parsedMaxTokens = Math.max(1, Math.min(128_000, Number(maxTokens) || 2048));
-  const canSend = Boolean(effectiveKey && model.trim() && input.trim() && !streaming);
+  const canSend = Boolean(historyReady && effectiveKey && model.trim() && input.trim() && !streaming);
   const filteredModels = useMemo(() => {
     const keyword = modelSearch.trim().toLowerCase();
     return modelOptions.filter((item) => !keyword || `${modelId(item)} ${item.provider ?? ''} ${item.family ?? ''}`.toLowerCase().includes(keyword));
@@ -222,6 +272,9 @@ export default function ChatScreen() {
   function clearChat() {
     stop();
     setEntries([]);
+    const cleared = { ...latestHistoryRef.current, entries: [] };
+    latestHistoryRef.current = cleared;
+    void saveChatHistory(historyScope, cleared);
   }
 
   async function copyMessage(content: string) {
@@ -247,21 +300,20 @@ export default function ChatScreen() {
           <Pressable accessibilityLabel="图像生成" onPress={() => router.push('/images' as never)} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.62 : 1 })}><ImagePlus color={colors.primary} size={19} /></Pressable>
         </View>
 
-        <View style={{ gap: 7 }}>
-          <GatewayKeyPicker value={apiKey} connected={keyConnected} onChange={(value) => { setApiKey(value); void saveGatewayApiKey(value); }} />
-
-          <View style={{ flexDirection: compact ? 'column' : 'row', gap: 7 }}>
-            <Pressable onPress={() => setModelPickerOpen(true)} style={{ flex: compact ? undefined : 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ gap: 5 }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <View style={{ flex: 0.9, minWidth: 0 }}><GatewayKeyPicker compact value={apiKey} connected={keyConnected} onChange={(value) => { setApiKey(value); void saveGatewayApiKey(value); }} /></View>
+            <Pressable onPress={() => setModelPickerOpen(true)} style={{ flex: 1.1, minWidth: 0, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text numberOfLines={1} style={{ flex: 1, color: model ? colors.text : colors.placeholder, fontSize: 11, fontFamily: 'monospace' }}>{model || '选择模型'}</Text>
               {(sessionModels.isFetching || gatewayModels.isFetching) ? <ActivityIndicator color={colors.primary} size="small" /> : <ChevronDown color={colors.subtext} size={16} />}
             </Pressable>
-            <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.mutedCard }}>
-              {([['auto', '自动'], ['openai', 'OpenAI'], ['anthropic', 'Claude']] as const).map(([key, label]) => <Pressable key={key} onPress={() => setProtocol(key)} style={{ flex: compact ? 1 : undefined, minWidth: compact ? 0 : 70, minHeight: 36, paddingHorizontal: 8, borderRadius: 9, backgroundColor: protocol === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: protocol === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
-            </View>
           </View>
 
-          <View style={{ minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-            {keyConnected ? <><CheckCircle2 color={colors.success} size={13} /><Text style={{ flex: 1, color: colors.success, fontSize: 11 }}>Key 已连接 · {gatewayModels.data?.length ?? 0} 个模型 · {effectiveProtocol === 'anthropic' ? 'Claude' : 'OpenAI'} 协议</Text></> : effectiveKey && gatewayModels.isFetching ? <><ActivityIndicator color={colors.primary} size="small" /><Text style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>正在验证 Key...</Text></> : <Text style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>{session.mode === 'session' ? '填写已有 Key，或创建聊天测试 Key' : '等待有效网关 Key'}</Text>}
+          <View style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+            <View style={{ width: 164, height: 32, flexDirection: 'row', gap: 2, padding: 3, borderRadius: 10, backgroundColor: colors.mutedCard }}>
+              {([['auto', '自动'], ['openai', 'OpenAI'], ['anthropic', 'Claude']] as const).map(([key, label]) => <Pressable key={key} onPress={() => setProtocol(key)} style={{ flex: 1, minWidth: 0, borderRadius: 7, backgroundColor: protocol === key ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: protocol === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
+            </View>
+            {keyConnected ? <><CheckCircle2 color={colors.success} size={13} /><Text numberOfLines={1} style={{ flex: 1, color: colors.success, fontSize: 11 }}>{gatewayModels.data?.length ?? 0} 个模型 · {effectiveProtocol === 'anthropic' ? 'Claude' : 'OpenAI'}</Text></> : effectiveKey && gatewayModels.isFetching ? <><ActivityIndicator color={colors.primary} size="small" /><Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>正在验证 Key</Text></> : <Text numberOfLines={1} style={{ flex: 1, color: colors.subtext, fontSize: 11 }}>{session.mode === 'session' ? '配置网关 Key' : '等待有效 Key'}</Text>}
             {session.mode === 'session' && !effectiveKey ? <Pressable disabled={createKey.isPending} onPress={() => createKey.mutate()} style={{ minHeight: 28, paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 5 }}>{createKey.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Plus color={colors.primary} size={12} />}<Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>创建 Key</Text></Pressable> : null}
           </View>
         </View>
@@ -284,7 +336,7 @@ export default function ChatScreen() {
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           contentContainerStyle={{ gap: 10, paddingVertical: 4, flexGrow: 1 }}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-          ListEmptyComponent={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 28 }}><Bot color={colors.disabled} size={34} /><Text style={{ color: colors.subtext, fontSize: 11, textAlign: 'center' }}>{!effectiveKey ? '配置网关 Key' : !model ? '选择可用模型' : '发送消息开始测试'}</Text></View>}
+          ListEmptyComponent={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 28 }}>{!historyReady ? <ActivityIndicator color={colors.primary} /> : <Bot color={colors.disabled} size={34} />}<Text style={{ color: colors.subtext, fontSize: 11, textAlign: 'center' }}>{!historyReady ? '正在恢复聊天记录...' : !effectiveKey ? '配置网关 Key' : !model ? '选择可用模型' : '发送消息开始测试'}</Text></View>}
           renderItem={({ item, index }) => {
             const mine = item.role === 'user';
             const lastAssistant = item.role === 'assistant' && index === entries.findLastIndex((entry) => entry.role === 'assistant');

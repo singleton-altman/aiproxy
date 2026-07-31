@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { ResourceScreen } from '@/src/components/resource-screen';
+import { ProviderIcon } from '@/src/components/provider-icon';
 import { AppSwitch } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { useAppTheme } from '@/src/lib/theme';
@@ -207,10 +208,8 @@ export default function AdminProvidersScreen() {
     titleOf={(item) => String(item.display_name ?? item.name ?? providerId(item) ?? 'Provider')}
     subtitleOf={(item) => `${providerProtocols(item).join(' / ')}${item.base_url ? ` · ${item.base_url}` : ''}${item.route_prefix ? ` · 前缀 ${item.route_prefix}` : ''}`}
     badgeOf={(item) => item.enabled === false ? { text: '停用', tone: 'muted' } : { text: '启用', tone: 'success' }}
+    renderIcon={(item) => <ProviderIcon provider={providerProtocols(item)[0] ?? String(item.name ?? '')} size={38} />}
     editOnPress
-    headerActions={[
-      { key: 'builtin', label: '内置 Providers', run: () => apiJson('/admin/providers/builtin') },
-    ]}
     actions={[
       { key: 'builtin-models', label: '内置模型', run: (item) => apiJson(`/admin/providers/builtin/${encodeURIComponent(String(item.name ?? providerId(item)))}/models`) },
       { key: 'route-prefix', label: '保存路由前缀', run: (item) => apiJson(`/admin/providers/builtin/${encodeURIComponent(String(item.name ?? providerId(item)))}/route-prefix`, { method: 'PUT', body: JSON.stringify({ route_prefix: item.route_prefix ?? '' }) }) },

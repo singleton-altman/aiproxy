@@ -13,7 +13,6 @@ import {
   Layers3,
   ListFilter,
   Radio,
-  ScrollText,
   Server,
   Timer,
   UsersRound,
@@ -22,15 +21,15 @@ import {
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { Fragment, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
 
-import { EmptyState, ErrorState, IconTile, Page, SearchField, SectionHeader } from '@/src/components/ui';
+import { AdminRequestLogs } from '@/src/components/admin-request-logs';
+import { EmptyState, ErrorState, IconTile, Page, SectionHeader } from '@/src/components/ui';
 import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
 import { useAppTheme } from '@/src/lib/theme';
 import { getApiKeys } from '@/src/services/account';
 import {
-  getAdminLogsRequests,
   getAdminRealtimeUsage,
   getAdminStatsAnalysis,
   getAdminStatsModels,
@@ -50,8 +49,7 @@ const tabs = [
   ['models', '模型', Boxes],
   ['users', '用户', UsersRound],
   ['realtime', '实时', Radio],
-  ['events', '事件', ListFilter],
-  ['logs', '请求日志', ScrollText],
+  ['logs', '请求日志', ListFilter],
 ] as const;
 
 type Tab = typeof tabs[number][0];
@@ -389,26 +387,6 @@ function BreakdownSection({ title, icon, rows, dimension, full = false }: { titl
   </View>;
 }
 
-function eventFailed(item: ApiRecord) {
-  const statusCode = firstNumber(item, ['status_code', 'http_status']);
-  return Boolean(item.error ?? item.failed) || statusCode >= 400 || String(item.status ?? '').toLowerCase() === 'failed';
-}
-
-function EventRow({ item, index }: { item: ApiRecord; index: number }) {
-  const colors = useAppTheme();
-  const failed = eventFailed(item);
-  return <View style={{ minHeight: 68, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 7 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: failed ? colors.danger : colors.success }} /><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '700', fontFamily: 'monospace' }}>{firstText(item, ['model', 'model_id'], '未知模型')}</Text><View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: failed ? colors.dangerBg : colors.successBg }}><Text style={{ color: failed ? colors.danger : colors.success, fontSize: 11, fontWeight: '800' }}>{failed ? '失败' : '正常'}</Text></View></View>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}><Text style={{ flexGrow: 1, color: colors.subtext, fontSize: 11 }}>{firstText(item, ['created_at', 'timestamp', 'time'], '--')}</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>Token {formatNumber(firstNumber(item, ['total_tokens', 'tokens']))}</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>{formatNumber(firstNumber(item, ['latency_ms', 'duration_ms', 'latency']))} ms</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>{formatCost(firstNumber(item, ['cost', 'cost_usd']))}</Text></View>
-  </View>;
-}
-
-function EventsPanel({ value, title = '最近事件', limit = 8 }: { value: unknown; title?: string; limit?: number }) {
-  const colors = useAppTheme();
-  const rows = records(value, ['events', 'requests', 'logs', 'items', 'rows', 'data']).slice(0, limit);
-  return <View style={{ gap: 8 }}><SectionHeader icon={Activity} title={title} /><View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>{rows.map((item, index) => <EventRow key={firstText(item, ['id', 'request_id'], String(index))} item={item} index={index} />)}{!rows.length ? <EmptyState embedded icon={Activity} message="暂无事件" /> : null}</View></View>;
-}
-
 function OverviewContent({ bundle, apiKeys, trendMetric, onTrendMetricChange }: { bundle: DashboardBundle; apiKeys: ApiRecord[]; trendMetric: TrendMetric; onTrendMetricChange: (value: TrendMetric) => void }) {
   const analysis = unwrapRecord(bundle.analysis);
   const modelRows = dimensionRows(bundle.models, 'model').length ? dimensionRows(bundle.models, 'model') : dimensionRows(analysis, 'model');
@@ -436,7 +414,6 @@ function OverviewContent({ bundle, apiKeys, trendMetric, onTrendMetricChange }: 
       <BreakdownSection title="按账号" icon={Cpu} rows={accountRows} dimension="account" full />
       <BreakdownSection title="按 API Key" icon={KeyRound} rows={apiKeyRows} dimension="apiKey" full />
     </View></View>
-    <EventsPanel value={bundle.events} />
   </>;
 }
 
@@ -452,25 +429,12 @@ function DimensionContent({ value, dimension }: { value: unknown; dimension: 'mo
   return <><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}><DonutCard title={dimension === 'model' ? '模型费用占比' : '用户费用占比'} icon={dimension === 'model' ? Boxes : UsersRound} rows={rows} dimension={dimension} /></View><BreakdownSection title={dimension === 'model' ? '模型用量明细' : '用户用量明细'} icon={dimension === 'model' ? Boxes : UsersRound} rows={rows} dimension={dimension} full /></>;
 }
 
-function RequestList({ value, search, loading, title }: { value: unknown; search: string; loading: boolean; title: string }) {
-  const colors = useAppTheme();
-  const rows = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return records(value, ['events', 'requests', 'logs', 'items', 'rows', 'data']).filter((item) => !keyword || JSON.stringify(item).toLowerCase().includes(keyword));
-  }, [search, value]);
-  return <View style={{ flex: 1, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
-    <View style={{ minHeight: 44, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.mutedCard, flexDirection: 'row', alignItems: 'center' }}><ScrollText color={colors.subtext} size={16} /><Text style={{ flex: 1, marginLeft: 8, color: colors.text, fontSize: 13, fontWeight: '700' }}>{title}</Text><Text style={{ color: colors.subtext, fontSize: 11 }}>{rows.length} 条</Text></View>
-    <FlatList data={rows} bounces={false} alwaysBounceVertical={false} overScrollMode="never" scrollToOverflowEnabled={false} automaticallyAdjustContentInsets={false} contentInsetAdjustmentBehavior="never" keyExtractor={(item, index) => firstText(item, ['id', 'request_id', 'trace_id'], String(index))} keyboardShouldPersistTaps="handled" removeClippedSubviews={false} initialNumToRender={20} maxToRenderPerBatch={20} windowSize={9} style={{ flex: 1 }} contentContainerStyle={{ flexGrow: rows.length ? 0 : 1, paddingBottom: rows.length ? 12 : 0 }} ListEmptyComponent={!loading ? <EmptyState embedded icon={ScrollText} message={search ? '没有匹配的记录' : '暂无记录'} /> : null} ListFooterComponent={loading ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: 16 }} /> : null} renderItem={({ item, index }) => <EventRow item={item} index={index} />} />
-  </View>;
-}
-
 export default function AdminStatsScreen() {
   const [tab, setTab] = useState<Tab>('overview');
   const [range, setRange] = useState<Range>('7d');
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('requests');
-  const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const listMode = tab === 'events' || tab === 'logs';
+  const listMode = tab === 'logs';
   const heatmapEnabled = tab === 'overview' || tab === 'analysis';
 
   const query = useQuery<unknown, Error>({
@@ -493,9 +457,9 @@ export default function AdminStatsScreen() {
       if (tab === 'models') return getAdminStatsModels(rangeParams(range), signal);
       if (tab === 'users') return getAdminStatsUsers(rangeParams(range), signal);
       if (tab === 'realtime') return getAdminRealtimeUsage(signal);
-      if (tab === 'events') return getAdminUsageEvents({ range, page: 1, page_size: 300 }, signal);
-      return getAdminLogsRequests({ page: 1, page_size: 300 }, signal);
+      return {};
     },
+    enabled: tab !== 'logs',
     retry: 0,
     staleTime: 0,
     refetchOnMount: 'always',
@@ -552,12 +516,12 @@ export default function AdminStatsScreen() {
     void Promise.allSettled(requests).finally(() => setRefreshing(false));
   };
 
-  return <Page title="统计与日志" subtitle="全站请求、用量与运行分析" icon={BarChart3} safeTop={false} contentMaxWidth={1180} scrollable={!listMode} refreshing={refreshing} onRefresh={refresh}>
+  return <Page title="统计与日志" subtitle="全站请求、用量与运行分析" icon={BarChart3} safeTop={false} contentMaxWidth={1180} scrollable={!listMode} refreshing={tab === 'logs' ? false : refreshing} onRefresh={tab === 'logs' ? undefined : refresh}>
     <View style={{ gap: 6 }}>
-      <StatsTabs value={tab} onChange={(next) => { setTab(next); setSearch(''); }} />
+      <StatsTabs value={tab} onChange={setTab} />
       {showRange ? <RangePicker value={range} onChange={setRange} /> : null}
     </View>
-    {query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
-    {listMode ? <><SearchField value={search} onChangeText={setSearch} placeholder="搜索模型、用户、请求 ID 或状态" /><RequestList value={query.data} search={search} loading={query.isFetching} title={tab === 'events' ? '用量事件' : '请求日志'} /></> : content()}
+    {tab !== 'logs' && query.error ? <ErrorState message={query.error.message} retry={() => query.refetch()} /> : null}
+    {listMode ? <AdminRequestLogs /> : content()}
   </Page>;
 }

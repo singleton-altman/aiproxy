@@ -38,6 +38,7 @@ export async function getApiKeys(signal?: AbortSignal) {
   const payload = await apiJson<unknown>('/user/keys', { signal });
   return firstArray<ApiKeyItem>(payload, ['keys', 'items', 'data', 'list']).map((item) => {
     const record = item as ApiRecord;
+    const status = String(item.status ?? '').toLowerCase();
     const lastUsed = item.last_used_at
       ?? record.last_used
       ?? record.lastUsedAt
@@ -46,7 +47,7 @@ export async function getApiKeys(signal?: AbortSignal) {
     const usageCount = Number(record.usage_count ?? record.request_count ?? record.total_requests);
     return {
       ...item,
-      disabled: item.disabled ?? item.status === 'disabled',
+      disabled: item.disabled ?? ['disabled', 'inactive', 'revoked'].includes(status),
       last_used_at: lastUsed ? String(lastUsed) : null,
       usage_count: Number.isFinite(usageCount) ? usageCount : undefined,
     };
@@ -69,8 +70,18 @@ export async function getApiKeyUsage(signal?: AbortSignal) {
   return latestUseByKey;
 }
 
-export function createApiKey(input: { name: string; expires_at?: string | null; scopes?: string[] }) {
+export function createApiKey(input: {
+  name: string;
+  plan_id?: string | number;
+  key?: string;
+  allowed_models?: string[];
+  expires_at?: string | null;
+  scopes?: string[];
+}) {
   const body: ApiRecord = { name: input.name.trim() };
+  if (input.plan_id !== undefined && input.plan_id !== '') body.plan_id = input.plan_id;
+  if (input.key?.trim()) body.key = input.key.trim();
+  if (input.allowed_models !== undefined) body.allowed_models = input.allowed_models;
   if (input.expires_at) body.expires_at = input.expires_at;
   if (input.scopes?.length) body.scopes = input.scopes;
   return apiJson<ApiRecord>('/user/keys', { method: 'POST', body: JSON.stringify(body) });

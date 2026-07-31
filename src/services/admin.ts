@@ -202,8 +202,17 @@ export function getAdminUsageEvents(params?: { range?: string; page?: number; pa
   return apiJson<ApiRecord>('/admin/usage/events', { signal, cache: 'no-store', query: params });
 }
 
-export function getAdminLogsRequests(params?: { page?: number; page_size?: number }, signal?: AbortSignal) {
-  return apiJson<ApiRecord>('/admin/usage/events', { signal, query: { range: '7d', ...params } });
+export function getAdminLogsRequests(params?: {
+  range?: string;
+  page?: number;
+  page_size?: number;
+  model?: string;
+  provider?: string;
+  api_key_id?: string;
+  auth_index?: string;
+  failed?: boolean;
+}, signal?: AbortSignal) {
+  return apiJson<ApiRecord>('/admin/usage/events', { signal, cache: 'no-store', query: { range: '7d', ...params } });
 }
 
 // ---- Models ----
