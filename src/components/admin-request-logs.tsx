@@ -128,7 +128,11 @@ function columnValue(item: ApiRecord, id: LogColumnId) {
   const estimated = item.tokens_estimated === true;
   switch (id) {
     case 'time': return formatTimestamp(item);
-    case 'source': return [firstText(item, ['nickname', 'user_name', 'user_id'], '--'), firstText(item, ['provider'])].filter(Boolean).join(' · ');
+    case 'source': {
+      const user = firstText(item, ['nickname', 'user_name', 'user_id']);
+      const provider = firstText(item, ['provider']);
+      return [user, provider].filter(Boolean).join(' · ') || '--';
+    }
     case 'account': return accountLabel(item);
     case 'apiKey': return firstText(item, ['api_key_name', 'key_name', 'api_key_id'], '--');
     case 'model': return firstText(item, ['model', 'model_id'], '--');
@@ -190,32 +194,55 @@ const RequestCard = memo(function RequestCard({ item, visibleColumns }: { item: 
   const failed = eventFailed(item);
   const model = columnValue(item, 'model');
   const requestId = firstText(item, ['id', 'request_id', 'trace_id'], '请求记录');
-  const coreIds = new Set<LogColumnId>(['time', 'source', 'account', 'model', 'result']);
-  const metricIds = (['type', 'endpoint', 'latency', 'genSpeed', 'inputTokens', 'outputTokens', 'cost'] as LogColumnId[]).filter((id) => visibleColumns.has(id)).slice(0, 4);
-  const shown = new Set<LogColumnId>([...coreIds, ...metricIds]);
-  const detailColumns = logColumns.filter(([id]) => visibleColumns.has(id) && !shown.has(id));
+  const shown = new Set<LogColumnId>(['time', 'source', 'account', 'model', 'result', 'type', 'endpoint', 'ttft', 'latency', 'genSpeed', 'inputTokens', 'outputTokens', 'cost']);
+  const detailColumns = logColumns.filter(([id]) => visibleColumns.has(id) && !shown.has(id) && columnValue(item, id) !== '--');
   const primary = visibleColumns.has('model') ? model : visibleColumns.has('endpoint') ? columnValue(item, 'endpoint') : requestId;
+  const source = visibleColumns.has('source') ? columnValue(item, 'source') : '';
+  const account = visibleColumns.has('account') ? columnValue(item, 'account') : '';
+  const type = visibleColumns.has('type') ? columnValue(item, 'type') : '';
+  const endpoint = visibleColumns.has('endpoint') ? columnValue(item, 'endpoint') : '';
+  const speed = visibleColumns.has('genSpeed') ? columnValue(item, 'genSpeed') : '';
+  const tokenValue = visibleColumns.has('inputTokens') || visibleColumns.has('outputTokens')
+    ? `${visibleColumns.has('inputTokens') ? columnValue(item, 'inputTokens') : '--'} / ${visibleColumns.has('outputTokens') ? columnValue(item, 'outputTokens') : '--'}`
+    : '';
+  const metrics = [
+    visibleColumns.has('latency') ? { key: 'latency', label: '总延迟', value: columnValue(item, 'latency'), color: colors.text } : undefined,
+    visibleColumns.has('ttft') ? { key: 'ttft', label: '首包延迟', value: columnValue(item, 'ttft'), color: colors.cyan } : undefined,
+    tokenValue ? { key: 'tokens', label: 'Token 入 / 出', value: tokenValue, color: colors.warning } : undefined,
+    visibleColumns.has('cost') ? { key: 'cost', label: '费用', value: columnValue(item, 'cost'), color: colors.success } : undefined,
+  ].filter((metric): metric is { key: string; label: string; value: string; color: string } => Boolean(metric && metric.value !== '--'));
+  const errorText = visibleColumns.has('error') ? columnValue(item, 'error') : '';
 
-  return <Pressable onPress={() => detailColumns.length && setExpanded((value) => !value)} style={({ pressed }) => ({ borderRadius: 16, borderWidth: 1, borderColor: failed ? colors.dangerBg : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, padding: 10, gap: 7, opacity: pressed ? 0.75 : 1 })}>
+  return <Pressable onPress={() => detailColumns.length && setExpanded((value) => !value)} style={({ pressed }) => ({ borderRadius: 16, borderWidth: 1, borderColor: failed ? colors.danger : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, padding: 11, gap: 8, opacity: pressed ? 0.78 : 1 })}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
       <ProviderIcon provider={firstText(item, ['provider'])} size={34} />
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <Text numberOfLines={1} style={{ color: colors.text, fontSize: 13, fontWeight: '800', fontFamily: visibleColumns.has('model') ? 'monospace' : undefined }}>{primary}</Text>
         {visibleColumns.has('time') ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{columnValue(item, 'time')}</Text> : null}
       </View>
-      {visibleColumns.has('result') ? <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: failed ? colors.dangerBg : colors.successBg }}><Text style={{ color: failed ? colors.danger : colors.success, fontSize: 11, fontWeight: '800' }}>{failed ? '失败' : '正常'}</Text></View> : null}
-      {detailColumns.length ? <ChevronDown color={colors.subtext} size={15} style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }} /> : null}
+      {visibleColumns.has('result') ? <View style={{ minHeight: 26, paddingHorizontal: 8, borderRadius: 8, backgroundColor: failed ? colors.dangerBg : colors.successBg, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: failed ? colors.danger : colors.success, fontSize: 11, fontWeight: '800' }}>{failed ? '失败' : '正常'}</Text></View> : null}
+      {detailColumns.length ? <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><ChevronDown color={colors.subtext} size={14} style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }} /></View> : null}
     </View>
 
-    {(visibleColumns.has('source') || visibleColumns.has('account')) ? <View style={{ marginLeft: 43, flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-      {visibleColumns.has('source') ? <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 11 }}>{columnValue(item, 'source')}</Text> : <View style={{ flex: 1 }} />}
-      {visibleColumns.has('account') ? <Text numberOfLines={1} style={{ maxWidth: '45%', color: colors.subtext, fontSize: 11 }}>{columnValue(item, 'account')}</Text> : null}
+    {(source && source !== '--') || (account && account !== '--') ? <View style={{ marginLeft: 43, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      {source && source !== '--' ? <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Server color={colors.subtext} size={12} /><Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 11 }}>{source}</Text></View> : <View style={{ flex: 1 }} />}
+      {account && account !== '--' ? <View style={{ maxWidth: '48%', flexDirection: 'row', alignItems: 'center', gap: 5 }}><UsersRound color={colors.subtext} size={12} /><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{account}</Text></View> : null}
     </View> : null}
 
-    {metricIds.length ? <View style={{ marginLeft: 43, flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 5 }}>{metricIds.map((id) => <Text key={id} style={{ color: colors.subtext, fontSize: 11 }}><Text style={{ color: id === 'cost' ? colors.success : colors.text, fontWeight: '700' }}>{logColumns.find(([key]) => key === id)?.[1]}</Text> {columnValue(item, id)}</Text>)}</View> : null}
+    {(type && type !== '--') || (endpoint && endpoint !== '--') || (speed && speed !== '--') ? <View style={{ marginLeft: 43, minHeight: 24, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 5 }}>
+      {type && type !== '--' ? <View style={{ minHeight: 22, paddingHorizontal: 7, borderRadius: 7, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>{type}</Text></View> : null}
+      {endpoint && endpoint !== '--' ? <Text numberOfLines={1} style={{ flexGrow: 1, flexShrink: 1, minWidth: 100, color: colors.text, fontSize: 11, fontFamily: 'monospace' }}>{endpoint}</Text> : null}
+      {speed && speed !== '--' ? <Text style={{ color: colors.cyan, fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{speed}</Text> : null}
+    </View> : null}
 
-    {expanded && detailColumns.length ? <View style={{ marginLeft: 43, paddingTop: 7, borderTopWidth: 1, borderTopColor: colors.rowBorder, gap: 6 }}>
-      {detailColumns.map(([id, label]) => <View key={id} style={{ flexDirection: 'row', gap: 10 }}><Text style={{ width: 78, color: colors.subtext, fontSize: 11 }}>{label}</Text><Text selectable numberOfLines={id === 'error' ? 5 : 2} style={{ flex: 1, color: id === 'error' && failed ? colors.danger : colors.text, fontSize: 11, lineHeight: 16, fontFamily: ['apiKey', 'modelAlias', 'endpoint', 'error'].includes(id) ? 'monospace' : undefined }}>{columnValue(item, id)}</Text></View>)}
+    {metrics.length ? <View style={{ borderRadius: 10, backgroundColor: colors.mutedCard, paddingHorizontal: 9, paddingVertical: 7, flexDirection: 'row', flexWrap: 'wrap', columnGap: 8, rowGap: 8 }}>
+      {metrics.map((metric) => <View key={metric.key} style={{ flexGrow: 1, flexBasis: metrics.length > 2 ? '21%' : '45%', minWidth: 64, gap: 2 }}><Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{metric.label}</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={{ color: metric.color, fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{metric.value}</Text></View>)}
+    </View> : null}
+
+    {failed && errorText && errorText !== '--' && !expanded ? <View style={{ borderRadius: 9, backgroundColor: colors.dangerBg, paddingHorizontal: 9, paddingVertical: 7 }}><Text numberOfLines={2} style={{ color: colors.danger, fontSize: 11, lineHeight: 16 }}>{errorText}</Text></View> : null}
+
+    {expanded && detailColumns.length ? <View style={{ paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.rowBorder, flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 10 }}>
+      {detailColumns.map(([id, label]) => <View key={id} style={{ flexGrow: 1, flexBasis: id === 'apiKey' || id === 'error' ? '100%' : '45%', minWidth: id === 'apiKey' || id === 'error' ? '100%' : 120, gap: 3 }}><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{label}</Text><Text selectable numberOfLines={id === 'error' ? 5 : 2} style={{ color: id === 'error' && failed ? colors.danger : colors.text, fontSize: 11, lineHeight: 16, fontWeight: '700', fontFamily: ['apiKey', 'modelAlias', 'error'].includes(id) ? 'monospace' : undefined }}>{columnValue(item, id)}</Text></View>)}
     </View> : null}
   </Pressable>;
 });
@@ -225,7 +252,7 @@ export function AdminRequestLogs() {
   const screenFocused = useScreenFocus();
   const { width } = useWindowDimensions();
   const wide = width >= 720;
-  const inputBasis: `${number}%` = wide ? '31%' : '47%';
+  const inputBasis: `${number}%` = wide ? '23%' : '47%';
   const [range, setRange] = useState<Range>('7d');
   const [model, setModel] = useState('');
   const [provider, setProvider] = useState('');
@@ -304,17 +331,15 @@ export function AdminRequestLogs() {
       <FilterInput icon={Boxes} value={model} onChangeText={setModel} placeholder="模型" basis={inputBasis} />
       <FilterInput icon={Server} value={provider} onChangeText={setProvider} placeholder="供应商" basis={inputBasis} />
       <FilterInput icon={KeyRound} value={apiKey} onChangeText={setApiKey} placeholder="API 密钥" basis={inputBasis} />
-    </View>
-
-    <View style={{ flexDirection: wide ? 'row' : 'column', gap: 7 }}>
-      <Pressable onPress={() => setPickerMode('account')} style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: accountId ? colors.primary : colors.border, backgroundColor: colors.card, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.68 : 1 })}>
+      <Pressable onPress={() => setPickerMode('account')} style={({ pressed }) => ({ flexGrow: 1, flexBasis: inputBasis, minWidth: 0, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: accountId ? colors.primary : colors.border, backgroundColor: colors.card, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.68 : 1 })}>
         {selectedAccount ? <ProviderIcon provider={selectedAccount} size={27} /> : <UsersRound color={colors.subtext} size={15} />}
         <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: accountId ? colors.text : colors.subtext, fontSize: 11, fontWeight: '700' }}>{selectedAccount ? accountIdentity(selectedAccount).primary : accountId || '全部账号'}</Text>
         {accounts.isFetching ? <ActivityIndicator color={colors.primary} size="small" /> : <ChevronDown color={colors.subtext} size={15} />}
       </Pressable>
-      <View style={{ flex: wide ? undefined : 1, width: wide ? 220 : undefined, minHeight: 42, padding: 3, borderRadius: 12, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
-        {resultOptions.map(([id, label]) => <Pressable key={id} onPress={() => setResult(id)} style={{ flex: 1, minWidth: 0, borderRadius: 9, backgroundColor: result === id ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: result === id ? id === 'failed' ? colors.danger : colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
-      </View>
+    </View>
+
+    <View style={{ width: '100%', minHeight: 42, padding: 3, borderRadius: 12, backgroundColor: colors.mutedCard, flexDirection: 'row', gap: 3 }}>
+      {resultOptions.map(([id, label]) => <Pressable key={id} onPress={() => setResult(id)} style={{ flex: 1, minWidth: 0, borderRadius: 9, backgroundColor: result === id ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: result === id ? id === 'failed' ? colors.danger : colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
     </View>
 
     <View style={{ minHeight: 38, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7 }}>

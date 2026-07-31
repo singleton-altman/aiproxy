@@ -23,7 +23,7 @@ import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
-import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
+import { apiKeyDisplayName, enrichApiKeyUsage, filterNamedApiKeyUsage } from '@/src/lib/api-key-display';
 import { localCalendarRange, localRecentDaysRange, type CalendarRange } from '@/src/lib/calendar-range';
 import { useAppTheme } from '@/src/lib/theme';
 import { getApiKeys, getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
@@ -285,34 +285,9 @@ function breakdownName(item: ApiRecord, type: BreakdownType, index: number) {
 function BreakdownTable({ title, icon, items, type }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: BreakdownType }) {
   const colors = useAppTheme();
   const visible = items.slice(0, 8);
-  const account = type === 'account';
   const accent = type === 'provider' ? colors.cyan : type === 'account' ? colors.accentText : colors.warning;
   const accentBackground = type === 'provider' ? colors.cyanBg : type === 'account' ? colors.accentBg : colors.warningBg;
-  if (account) return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: accentBackground, backgroundColor: colors.card, padding: 14, gap: 10 }}>
-    <DimensionHeader title={title} icon={icon} count={items.length} accent={accent} background={accentBackground} />
-    {visible.length ? visible.map((item, index) => {
-      const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
-      const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
-      const failed = firstNumber(item, ['failed_count', 'failed_requests', 'errors', 'error_count']);
-      const suppliedRate = item.success_rate ?? item.successRate;
-      const successRate = suppliedRate === undefined ? (requests ? (requests - failed) / requests * 100 : 0) : (toNumber(suppliedRate) <= 1 ? toNumber(suppliedRate) * 100 : toNumber(suppliedRate));
-      const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-      return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 76, paddingVertical: 11, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 9 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 13, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
-          <View style={{ maxWidth: '34%', minHeight: 26, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.cyanBg, alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: colors.cyan, fontSize: 11, fontWeight: '800' }}>{String(item.provider_name ?? item.provider ?? '--')}</Text></View>
-          <Text style={{ minWidth: 70, color: colors.success, fontSize: 13, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 7 }}>
-          <Text style={{ color: colors.subtext, fontSize: 11 }}>请求 <Text style={{ color: colors.cyan, fontWeight: '800' }}>{formatNumber(requests)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 11 }}>Token <Text style={{ color: colors.warning, fontWeight: '800' }}>{formatNumber(tokens)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 11 }}>失败 <Text style={{ color: failed ? colors.danger : colors.text, fontWeight: '800' }}>{formatNumber(failed)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 11 }}>成功率 <Text style={{ color: failed ? colors.danger : colors.success, fontWeight: '800' }}>{successRate.toFixed(1)}%</Text></Text>
-        </View>
-      </View>;
-    }) : <EmptyState embedded icon={icon} message="暂无账号数据" />}
-  </View>;
-  const firstColumn = type === 'provider' ? '供应商' : 'API Key';
+  const firstColumn = type === 'provider' ? '供应商' : type === 'account' ? '账号' : 'API Key';
   return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: accentBackground, backgroundColor: colors.card, padding: 14, gap: 10 }}>
     <DimensionHeader title={title} icon={icon} count={items.length} accent={accent} background={accentBackground} />
     {visible.length ? <>
@@ -333,7 +308,7 @@ function BreakdownTable({ title, icon, items, type }: { title: string; icon: Luc
           <Text style={{ width: 68, color: colors.success, fontSize: 11, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>;
       })}
-    </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : 'API Key'}数据`} />}
+    </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : type === 'account' ? '账号' : 'API Key'}数据`} />}
   </View>;
 }
 
@@ -458,10 +433,10 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     : models.data ?? []).map((item) => item as ModelItem & ApiRecord), [admin, analysis.data, models.data]);
   const userItems = useMemo(() => nestedRecords(analysis.data, ['users', 'by_user', 'user_usage']), [analysis.data]);
   const providerItems = useMemo(() => nestedRecords(analysis.data, ['by_provider', 'providers', 'provider_usage']), [analysis.data]);
-  const apiKeyItems = useMemo(() => enrichApiKeyUsage(
+  const apiKeyItems = useMemo(() => filterNamedApiKeyUsage(enrichApiKeyUsage(
     nestedRecords(analysis.data, ['by_api_key', 'by_api_keys', 'by_key', 'api_key_usage', 'key_usage', 'api_keys']),
     (apiKeyDirectory.data ?? []).map((item) => item as ApiRecord),
-  ), [analysis.data, apiKeyDirectory.data]);
+  )), [analysis.data, apiKeyDirectory.data]);
   const accountItems = useMemo(() => {
     const directory = new Map<string, ApiRecord>();
     for (const account of accountDirectory.data ?? []) {
