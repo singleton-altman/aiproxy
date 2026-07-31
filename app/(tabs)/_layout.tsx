@@ -1,6 +1,6 @@
 import { Redirect, Slot } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 
 import { useAppTheme } from '@/src/lib/theme';
 import { isAdmin, sessionState } from '@/src/store/session';
@@ -25,36 +25,36 @@ export default function TabLayout() {
     blurEffect="systemDefault"
     minimizeBehavior="never"
   >
-    <NativeTabs.Trigger name="index" hidden />
-    <NativeTabs.Trigger name="overview">
+    <NativeTabs.Trigger name="index" hidden disableAutomaticContentInsets={Platform.OS === 'ios'} />
+    <NativeTabs.Trigger name="overview" disableAutomaticContentInsets={Platform.OS === 'ios'}>
       <NativeTabs.Trigger.Icon
         sf={{ default: 'gauge', selected: 'gauge' }}
         md={{ default: 'speed', selected: 'speed' }}
       />
       <NativeTabs.Trigger.Label>总览</NativeTabs.Trigger.Label>
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="keys" hidden={managementMode}>
+    <NativeTabs.Trigger name="keys" hidden={managementMode} disableAutomaticContentInsets={Platform.OS === 'ios'}>
       <NativeTabs.Trigger.Icon
         sf={{ default: 'key', selected: 'key.fill' }}
         md={{ default: 'key', selected: 'key' }}
       />
       <NativeTabs.Trigger.Label>密钥</NativeTabs.Trigger.Label>
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="chat" hidden={managementMode}>
+    <NativeTabs.Trigger name="chat" hidden={managementMode} disableAutomaticContentInsets={Platform.OS === 'ios'}>
       <NativeTabs.Trigger.Icon
         sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }}
         md={{ default: 'chat', selected: 'chat' }}
       />
       <NativeTabs.Trigger.Label>聊天</NativeTabs.Trigger.Label>
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="admin" hidden={!isAdmin()}>
+    <NativeTabs.Trigger name="admin" hidden={!isAdmin()} disableAutomaticContentInsets={Platform.OS === 'ios'}>
       <NativeTabs.Trigger.Icon
         sf={{ default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }}
         md={{ default: 'grid_view', selected: 'grid_view' }}
       />
       <NativeTabs.Trigger.Label>管理</NativeTabs.Trigger.Label>
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="settings">
+    <NativeTabs.Trigger name="settings" disableAutomaticContentInsets={Platform.OS === 'ios'}>
       <NativeTabs.Trigger.Icon
         sf={{ default: 'gearshape', selected: 'gearshape.fill' }}
         md={{ default: 'settings', selected: 'settings' }}

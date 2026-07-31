@@ -1,8 +1,9 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { Inbox, RefreshCw, Search, TriangleAlert } from 'lucide-react-native';
 import type { ComponentProps, ReactNode } from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/src/lib/theme';
@@ -38,23 +39,70 @@ export function PageHeader({ title, subtitle, icon: Icon, refreshing, onRefresh 
 
 export function Page({ title, subtitle, icon, children, refreshing, onRefresh, safeTop = true, contentMaxWidth = 820, scrollable = true, showHeader = true }: PageHeaderProps & { children: ReactNode; safeTop?: boolean; contentMaxWidth?: number; scrollable?: boolean; showHeader?: boolean }) {
   const colors = useAppTheme();
+  const scrollRef = useRef<ScrollView>(null);
+  const contentHeightRef = useRef(0);
+  const viewportHeightRef = useRef(0);
+  const offsetRef = useRef(0);
+  const clampScrollOffset = useCallback(() => {
+    const maximum = Math.max(0, contentHeightRef.current - viewportHeightRef.current);
+    const next = Math.max(0, Math.min(offsetRef.current, maximum));
+    if (Math.abs(next - offsetRef.current) < 1) return;
+    offsetRef.current = next;
+    scrollRef.current?.scrollTo({ y: next, animated: false });
+  }, []);
+
+  useEffect(() => {
+    if (!scrollable) return;
+    const subscription = Keyboard.addListener('keyboardDidHide', () => requestAnimationFrame(clampScrollOffset));
+    return () => subscription.remove();
+  }, [clampScrollOffset, scrollable]);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    offsetRef.current = contentOffset.y;
+    contentHeightRef.current = contentSize.height;
+    viewportHeightRef.current = layoutMeasurement.height;
+    if (!Keyboard.isVisible()) clampScrollOffset();
+  }, [clampScrollOffset]);
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    viewportHeightRef.current = event.nativeEvent.layout.height;
+    requestAnimationFrame(clampScrollOffset);
+  }, [clampScrollOffset]);
+
+  const handleContentSizeChange = useCallback((_width: number, height: number) => {
+    contentHeightRef.current = height;
+    requestAnimationFrame(clampScrollOffset);
+  }, [clampScrollOffset]);
+
   const content = <View style={{ width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: scrollable ? 12 : 10, gap: 12, flex: scrollable ? undefined : 1 }}>
       {showHeader ? <PageHeader title={title} subtitle={subtitle} icon={icon} refreshing={refreshing} onRefresh={onRefresh} /> : null}
       {children}
     </View>;
-  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={safeTop ? ['top'] : []}>
+  const safeAreaEdges = safeTop ? Platform.OS === 'ios' ? ['top', 'bottom'] as const : ['top'] as const : [];
+  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.page }} edges={safeAreaEdges}>
     {scrollable ? <ScrollView
+      ref={scrollRef}
       style={{ flex: 1 }}
       bounces={false}
       alwaysBounceVertical={false}
       overScrollMode="never"
       scrollToOverflowEnabled={false}
       automaticallyAdjustContentInsets={false}
+      automaticallyAdjustsScrollIndicatorInsets={false}
       automaticallyAdjustKeyboardInsets
+      contentInset={{ top: 0, right: 0, bottom: 0, left: 0 }}
       contentInsetAdjustmentBehavior="never"
+      scrollIndicatorInsets={{ top: 0, right: 0, bottom: 0, left: 0 }}
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={false}
+      scrollEventThrottle={16}
+      onContentSizeChange={handleContentSizeChange}
+      onLayout={handleLayout}
+      onMomentumScrollEnd={clampScrollOffset}
+      onScroll={handleScroll}
+      onScrollEndDrag={clampScrollOffset}
       contentContainerStyle={{ width: '100%', flexGrow: 1 }}
     >{content}</ScrollView> : content}
   </SafeAreaView>;

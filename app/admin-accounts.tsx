@@ -49,7 +49,8 @@ import {
 } from 'react-native';
 
 import { StructuredDataView } from '@/src/components/structured-form';
-import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, SearchField, SheetHandle } from '@/src/components/ui';
+import { ProviderIcon } from '@/src/components/provider-icon';
+import { AppSwitch, EmptyState, ErrorState, FullScreenSafeArea, Page, PageHeader, SearchField, SheetHandle } from '@/src/components/ui';
 import {
   accountEgress,
   accountIdentity,
@@ -327,22 +328,22 @@ function AccountCard({ item, proxies, proxiesLoaded, now, toggling, toggleLocked
   const priority = Number(item.priority ?? 0);
   const warmupTimes = Array.isArray(item.warmup_times) ? item.warmup_times.map(String).filter(Boolean) : [];
   const egressText = egress.missing ? `出口缺失 · ${egress.label}` : egress.direct ? '直连' : `经 ${egress.label}`;
-  return <Pressable onPress={onPress} style={({ pressed }) => ({ minHeight: 112, borderRadius: 16, borderWidth: 1, borderColor: egress.missing ? colors.warning : pressed ? colors.primary : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, padding: 12, gap: 8, opacity: pressed ? 0.76 : 1 })}>
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-      <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: provider.color, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 15, fontWeight: '900' }}>{provider.mark}</Text></View>
-      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+  return <Pressable onPress={onPress} style={({ pressed }) => ({ minHeight: 88, borderRadius: 16, borderWidth: 1, borderColor: egress.missing ? colors.warning : pressed ? colors.primary : colors.border, backgroundColor: pressed ? colors.mutedCard : colors.card, paddingHorizontal: 10, paddingVertical: 8, gap: 4, opacity: pressed ? 0.76 : 1 })}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 9 }}>
+      <ProviderIcon provider={item} size={36} />
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, fontWeight: '800' }}>{identity.primary}</Text><AccountToggleButton account={item} busy={toggling} locked={toggleLocked} onPress={onToggle} /></View>
         {identity.secondary ? <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11 }}>{identity.secondary}</Text> : null}
         <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>{provider.label}{plan ? ` / ${plan}` : ''}</Text>
       </View>
       <MoreHorizontal color={colors.subtext} size={18} />
     </View>
-    <View style={{ marginLeft: 48, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+    <View style={{ marginLeft: 45, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Network color={egress.missing ? colors.warning : colors.subtext} size={13} /><Text numberOfLines={1} style={{ flex: 1, color: egress.missing ? colors.warning : colors.subtext, fontSize: 11, fontWeight: egress.missing ? '700' : '500' }}>{egressText}</Text></View>
       <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 5 }}><Clock3 color={colors.subtext} size={13} /><Text style={{ color: colors.subtext, fontSize: 11 }}>{accountLastUsed(item.last_used_at, now)}</Text></View>
     </View>
-    {reason ? <Text numberOfLines={2} style={{ marginLeft: 48, color: statusTone(status, colors).foreground, fontSize: 11, lineHeight: 14 }}>{reason}</Text> : null}
-    {item.ws_enabled || priority !== 0 || item.warmup_enabled || item.models_probe_error ? <View style={{ marginLeft: 48, flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+    {reason ? <Text numberOfLines={2} style={{ marginLeft: 45, color: statusTone(status, colors).foreground, fontSize: 11, lineHeight: 14 }}>{reason}</Text> : null}
+    {item.ws_enabled || priority !== 0 || item.warmup_enabled || item.models_probe_error ? <View style={{ marginLeft: 45, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
       {item.ws_enabled ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>WS</Text></View> : null}
       {priority !== 0 ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mutedCard }}><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>优先级 {priority}</Text></View> : null}
       {item.warmup_enabled ? <View style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: item.warmup_last_error ? colors.warningBg : colors.mutedCard }}><Text numberOfLines={1} style={{ color: item.warmup_last_error ? colors.warning : colors.subtext, fontSize: 11, fontWeight: '700' }}>预热{warmupTimes.length ? ` ${warmupTimes.join(' ')}` : ''}</Text></View> : null}
@@ -959,25 +960,7 @@ export default function AdminAccountsScreen() {
   }
 
   return <>
-    <Page title="上游账号" subtitle="账号状态、网络出口与运行维护" icon={CloudCog} safeTop={false} contentMaxWidth={1180} scrollable={false} refreshing={accounts.isFetching} onRefresh={() => { void accounts.refetch(); void proxies.refetch(); }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <CompactButton icon={FileUp} label="导入文件" onPress={() => setImportVisible(true)} />
-        <CompactButton icon={Download} label="导出全部" busy={exportingAll} disabled={!allAccounts.length} onPress={() => confirmExport([], allAccounts.length, true)} />
-        <CompactButton icon={Plus} label="添加账号" primary onPress={() => router.push('/admin-account-import' as never)} />
-      </View>
-      <View style={{ minHeight: 44, borderBottomWidth: 1, borderBottomColor: colors.rowBorder, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
-        <SummaryMetric label="全部" value={allAccounts.length} />
-        <SummaryMetric label="启用" value={counts.statuses.active} tone="success" />
-        <SummaryMetric label="需处理" value={counts.needsAttention} tone={counts.needsAttention ? 'danger' : undefined} />
-        <SummaryMetric label="禁用" value={counts.statuses.disabled} tone={counts.statuses.disabled ? 'danger' : undefined} />
-        <View style={{ marginLeft: wide ? 'auto' : 0, minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 }}><RefreshCw color={autoRefresh ? colors.primary : colors.subtext} size={14} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>自动刷新</Text><AppSwitch accessibilityLabel="自动刷新" value={autoRefresh} onValueChange={setAutoRefresh} /></View>
-      </View>
-      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
-        <View style={{ flex: wide ? 1 : undefined, minHeight: 44 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索账号、邮箱、供应商或出口" /></View>
-        <View style={{ minWidth: wide ? 360 : undefined, flexDirection: 'row', gap: 8 }}><FilterButton icon={Filter} label={selectedStatusLabel} active={statusFilter !== 'all'} onPress={() => setFilterMode('status')} /><FilterButton icon={SlidersHorizontal} label={selectedProviderLabel} active={providerFilter !== 'all'} onPress={() => setFilterMode('provider')} />{filtersActive ? <Pressable accessibilityLabel="清除筛选" onPress={() => { setStatusFilter('all'); setProviderFilter('all'); }} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={15} /></Pressable> : null}</View>
-      </View>
-      {proxies.error ? <Text style={{ color: colors.warning, fontSize: 11 }}>出口配置暂时无法核对：{proxies.error.message}</Text> : null}
-      {accounts.error ? <ErrorState message={accounts.error.message} retry={() => accounts.refetch()} /> : null}
+    <Page title="上游账号" subtitle="账号状态、网络出口与运行维护" icon={CloudCog} safeTop={false} contentMaxWidth={1180} scrollable={false} showHeader={false}>
       <FlatList
         data={filtered}
         extraData={`${now}:${togglingId}:${busyAction}`}
@@ -994,8 +977,29 @@ export default function AdminAccountsScreen() {
         maxToRenderPerBatch={12}
         windowSize={7}
         style={{ flex: 1, width: '100%' }}
-        contentContainerStyle={{ gap: 8, paddingBottom: 12, flexGrow: filtered.length ? 0 : 1 }}
-        ListHeaderComponent={accounts.data ? <Text style={{ color: colors.subtext, fontSize: 11, paddingBottom: 2 }}>显示 {filtered.length} / {allAccounts.length}</Text> : null}
+        contentContainerStyle={{ gap: 6, paddingBottom: 10, flexGrow: filtered.length ? 0 : 1 }}
+        ListHeaderComponent={<View style={{ gap: 8, paddingBottom: 2 }}>
+          <PageHeader title="上游账号" subtitle="账号状态、网络出口与运行维护" icon={CloudCog} refreshing={accounts.isFetching} onRefresh={() => { void accounts.refetch(); void proxies.refetch(); }} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+            <CompactButton icon={FileUp} label="导入文件" onPress={() => setImportVisible(true)} />
+            <CompactButton icon={Download} label="导出全部" busy={exportingAll} disabled={!allAccounts.length} onPress={() => confirmExport([], allAccounts.length, true)} />
+            <CompactButton icon={Plus} label="添加账号" primary onPress={() => router.push('/admin-account-import' as never)} />
+          </View>
+          <View style={{ minHeight: 40, borderBottomWidth: 1, borderBottomColor: colors.rowBorder, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+            <SummaryMetric label="全部" value={allAccounts.length} />
+            <SummaryMetric label="启用" value={counts.statuses.active} tone="success" />
+            <SummaryMetric label="需处理" value={counts.needsAttention} tone={counts.needsAttention ? 'danger' : undefined} />
+            <SummaryMetric label="禁用" value={counts.statuses.disabled} tone={counts.statuses.disabled ? 'danger' : undefined} />
+            <View style={{ marginLeft: wide ? 'auto' : 0, minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6 }}><RefreshCw color={autoRefresh ? colors.primary : colors.subtext} size={14} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '600' }}>自动刷新</Text><AppSwitch accessibilityLabel="自动刷新" value={autoRefresh} onValueChange={setAutoRefresh} /></View>
+          </View>
+          <View style={{ flexDirection: wide ? 'row' : 'column', gap: 7 }}>
+            <View style={{ flex: wide ? 1 : undefined, minHeight: 44 }}><SearchField value={search} onChangeText={setSearch} placeholder="搜索账号、邮箱、供应商或出口" /></View>
+            <View style={{ minWidth: wide ? 360 : undefined, flexDirection: 'row', gap: 7 }}><FilterButton icon={Filter} label={selectedStatusLabel} active={statusFilter !== 'all'} onPress={() => setFilterMode('status')} /><FilterButton icon={SlidersHorizontal} label={selectedProviderLabel} active={providerFilter !== 'all'} onPress={() => setFilterMode('provider')} />{filtersActive ? <Pressable accessibilityLabel="清除筛选" onPress={() => { setStatusFilter('all'); setProviderFilter('all'); }} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}><X color={colors.subtext} size={15} /></Pressable> : null}</View>
+          </View>
+          {proxies.error ? <Text style={{ color: colors.warning, fontSize: 11 }}>出口配置暂时无法核对：{proxies.error.message}</Text> : null}
+          {accounts.error ? <ErrorState message={accounts.error.message} retry={() => accounts.refetch()} /> : null}
+          {accounts.data ? <Text style={{ color: colors.subtext, fontSize: 11 }}>显示 {filtered.length} / {allAccounts.length}</Text> : null}
+        </View>}
         ListEmptyComponent={accounts.isLoading ? <View style={{ flex: 1, minHeight: 180, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View> : <EmptyState icon={filtersActive || search.trim() ? SearchX : CloudCog} message={filtersActive || search.trim() ? '没有匹配的账号' : '暂无上游账号'} />}
         renderItem={({ item }) => <AccountCard item={item} proxies={proxyItems} proxiesLoaded={proxiesLoaded} now={now} toggling={togglingId === accountId(item)} toggleLocked={Boolean(togglingId || busyAction)} onPress={() => setSelectedId(accountId(item))} onToggle={() => void toggleAccount(item)} />}
       />

@@ -161,7 +161,7 @@ AI Proxy Mobile 是 AI Proxy Service 的 iOS 与 Android 管理客户端，目�
 
 ### 发布流程
 
-GitHub Actions 提供 Android APK、iOS 无证书 IPA 和 EAS Build 三类工作流。构建使用锁定依赖，产物文件名包含应用版本，并与对应 Git 提交关联，便于安装验证和问题追踪。
+GitHub Actions 提供 Android APK 和 iOS 无证书 IPA 两类本地原生构建工作流。正式包不集成 Expo Dev Client 或 Expo OTA Updates；构建使用锁定依赖，产物文件名包含应用版本，并与对应 Git 提交关联，便于安装验证和问题追踪。
 
 ## 4. 质量基线
 
