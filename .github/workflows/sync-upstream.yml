@@ -1,8 +1,10 @@
 name: Sync Upstream
+run-name: Upstream sync (${{ github.event_name }})
 
 on:
   schedule:
-    - cron: "0 11 * * *"
+    # Avoid the top-of-hour scheduling peak, where GitHub may delay or drop jobs.
+    - cron: "17 11 * * *"
       timezone: "Asia/Shanghai"
   workflow_dispatch:
 
