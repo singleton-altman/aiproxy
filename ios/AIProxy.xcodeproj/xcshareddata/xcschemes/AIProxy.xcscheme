@@ -10,7 +10,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Install JavaScript and CocoaPods dependencies"
-               scriptText = "set -euo pipefail&#10;&#10;REPO_ROOT=&quot;$(cd &quot;${PROJECT_DIR}/..&quot; &amp;&amp; pwd)&quot;&#10;&#10;env -i \&#10;  HOME=&quot;$HOME&quot; \&#10;  USER=&quot;${USER:-local}&quot; \&#10;  TMPDIR=&quot;${TMPDIR:-/tmp}&quot; \&#10;  REPO_ROOT=&quot;$REPO_ROOT&quot; \&#10;  PATH=&quot;/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin&quot; \&#10;  /bin/zsh &quot;$REPO_ROOT/ci_scripts/xcode_cloud_setup.sh&quot;&#10;">
+               scriptText = "set -euo pipefail&#10;&#10;REPO_ROOT=&quot;$(cd &quot;${PROJECT_DIR}/..&quot; &amp;&amp; pwd)&quot;&#10;&#10;env -i \&#10;  HOME=&quot;$HOME&quot; \&#10;  USER=&quot;${USER:-local}&quot; \&#10;  TMPDIR=&quot;${TMPDIR:-/tmp}&quot; \&#10;  REPO_ROOT=&quot;$REPO_ROOT&quot; \&#10;  PATH=&quot;${PATH:-/usr/bin:/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin&quot; \&#10;  /bin/zsh &quot;$REPO_ROOT/ci_scripts/xcode_cloud_setup.sh&quot;&#10;">
                <EnvironmentBuildable>
                   <BuildableReference
                      BuildableIdentifier = "primary"

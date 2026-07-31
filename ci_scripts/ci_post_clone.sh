@@ -12,7 +12,7 @@ env -i \
   USER="${USER:-local}" \
   TMPDIR="${TMPDIR:-/tmp}" \
   REPO_ROOT="$REPO_ROOT" \
-  PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+  PATH="${PATH:-/usr/bin:/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
   /bin/zsh "$REPO_ROOT/ci_scripts/xcode_cloud_setup.sh"
 
 echo "Repository: $REPO_ROOT"

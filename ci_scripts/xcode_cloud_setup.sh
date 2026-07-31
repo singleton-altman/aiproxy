@@ -24,6 +24,10 @@ if [ ! -d node_modules ]; then
   NEEDS_NODE=1
 fi
 
+if ! command -v node >/dev/null 2>&1; then
+  NEEDS_NODE=1
+fi
+
 if [ ! -f "$PODS_RELEASE_XCCONFIG" ]; then
   NEEDS_NODE=1
   NEEDS_POD=1
@@ -81,6 +85,19 @@ if [ ! -d node_modules ]; then
 else
   echo "Using existing node_modules."
 fi
+
+APP_VERSION="$(node -p "require('./app.json').expo.version")"
+IOS_BUILD_NUMBER="$(node -p "require('./app.json').expo.ios.buildNumber")"
+IOS_INFO_PLIST="ios/AIProxy/Info.plist"
+
+if [ ! -f "$IOS_INFO_PLIST" ]; then
+  echo "Missing iOS Info.plist: $IOS_INFO_PLIST"
+  exit 1
+fi
+
+echo "Synchronizing iOS bundle version to ${APP_VERSION} (${IOS_BUILD_NUMBER})..."
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$IOS_INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $IOS_BUILD_NUMBER" "$IOS_INFO_PLIST"
 
 if [ ! -f "$PODS_RELEASE_XCCONFIG" ]; then
   echo "Installing CocoaPods dependencies..."
