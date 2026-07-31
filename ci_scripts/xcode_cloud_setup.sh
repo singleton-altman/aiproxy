@@ -101,14 +101,28 @@ echo "Synchronizing iOS bundle version to ${APP_VERSION} (${IOS_BUILD_NUMBER})..
 
 if [ ! -f "$PODS_RELEASE_XCCONFIG" ]; then
   echo "Installing CocoaPods dependencies..."
-  (
-    cd ios
-    if command -v bundle >/dev/null 2>&1 && [ -f Gemfile ]; then
-      bundle exec pod install --repo-update
-    else
-      pod install --repo-update
+  POD_INSTALL_ATTEMPTS=4
+  for ATTEMPT in $(seq 1 "$POD_INSTALL_ATTEMPTS"); do
+    if (
+      cd ios
+      if command -v bundle >/dev/null 2>&1 && [ -f Gemfile ]; then
+        bundle exec pod install
+      else
+        pod install
+      fi
+    ); then
+      break
     fi
-  )
+
+    if [ "$ATTEMPT" -eq "$POD_INSTALL_ATTEMPTS" ]; then
+      echo "CocoaPods installation failed after $POD_INSTALL_ATTEMPTS attempts."
+      exit 1
+    fi
+
+    WAIT_SECONDS=$((ATTEMPT * 10))
+    echo "CocoaPods installation attempt $ATTEMPT failed; retrying in ${WAIT_SECONDS}s..."
+    sleep "$WAIT_SECONDS"
+  done
 else
   echo "Using existing CocoaPods dependencies."
 fi
