@@ -152,11 +152,11 @@ function RealtimeStat({ label, value, icon: Icon, accent, first }: { label: stri
   </View>;
 }
 
-function TrendDetailStat({ label, value, color }: { label: string; value: string; color?: string }) {
+function TrendDetailStat({ label, value, color, first }: { label: string; value: string; color?: string; first?: boolean }) {
   const colors = useAppTheme();
-  return <View style={{ flexGrow: 1, flexBasis: '29%', minWidth: 82, gap: 2 }}>
-    <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, lineHeight: 15, fontWeight: '600' }}>{label}</Text>
-    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={{ color: color ?? colors.text, fontSize: 14, lineHeight: 18, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+  return <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 5, borderLeftWidth: first ? 0 : 1, borderLeftColor: colors.rowBorder, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+    <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, lineHeight: 15, fontWeight: '600', textAlign: 'center' }}>{label}</Text>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ width: '100%', color: color ?? colors.text, fontSize: 14, lineHeight: 18, fontWeight: '800', textAlign: 'center', fontVariant: ['tabular-nums'] }}>{value}</Text>
   </View>;
 }
 
@@ -246,19 +246,19 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
     <View style={{ marginLeft: 28, marginRight: 0, minHeight: 20, flexDirection: 'row', alignItems: 'center' }}>
       {labels.map((label, index) => <Text key={`${label}-${index}`} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 11, lineHeight: 16, fontWeight: '600', textAlign: 'center', fontVariant: ['tabular-nums'] }}>{label}</Text>)}
     </View>
-    <View style={{ marginHorizontal: 8, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.rowBorder, gap: 8 }}>
+    <View style={{ marginHorizontal: 8, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.rowBorder, gap: 9 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{selectedDateLabel}</Text>
         <View style={{ minHeight: 24, paddingHorizontal: 8, borderRadius: 8, backgroundColor: selectedCount.total ? colors.successBg : colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: selectedCount.total ? colors.success : colors.subtext, fontSize: 11, lineHeight: 15, fontWeight: '800' }}>成功率 {selectedRate}</Text>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 8 }}>
-        <TrendDetailStat label="请求" value={formatNumber(selectedCount.total)} />
+      <View style={{ minHeight: 48, flexDirection: 'row', alignItems: 'stretch' }}>
+        <TrendDetailStat first label="请求" value={formatNumber(selectedCount.total)} />
         <TrendDetailStat label="成功" value={formatNumber(selectedCount.success)} color={colors.success} />
         <TrendDetailStat label="失败" value={formatNumber(selectedCount.failed)} color={selectedCount.failed ? colors.danger : colors.subtext} />
         <TrendDetailStat label="Token" value={formatNumber(selectedCount.tokens)} color={colors.warning} />
-        <TrendDetailStat label="费用 (USD)" value={formatCost(selectedCount.cost)} color={colors.success} />
+        <TrendDetailStat label="费用" value={formatCost(selectedCount.cost)} color={colors.success} />
       </View>
     </View>
   </View>;
