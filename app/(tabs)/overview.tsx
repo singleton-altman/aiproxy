@@ -23,9 +23,11 @@ import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 import { StructuredDataView } from '@/src/components/structured-form';
 import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/src/components/ui';
 import { apiJson, firstArray } from '@/src/lib/api';
-import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
+import { enrichAccountUsage, usageAccountName } from '@/src/lib/account-display';
+import { apiKeyDisplayName, enrichApiKeyUsage, filterNamedApiKeyUsage } from '@/src/lib/api-key-display';
 import { localCalendarRange, localRecentDaysRange, type CalendarRange } from '@/src/lib/calendar-range';
 import { useAppTheme } from '@/src/lib/theme';
+import { buildRecentUsageTrend, usageTrendDateLabel } from '@/src/lib/usage-trend';
 import { getApiKeys, getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
   getAdminRealtimeUsage,
@@ -150,53 +152,115 @@ function RealtimeStat({ label, value, icon: Icon, accent, first }: { label: stri
   </View>;
 }
 
-function dateLabel(item: UsageTrendItem, index: number) {
-  const source = String(item.bucket_start ?? item.date ?? item.day ?? item.hour ?? item.time ?? '');
-  if (!source) return String(index + 1);
-  const date = source.slice(0, 10);
-  const parts = date.split('-');
-  return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : date.slice(0, 5);
+function TrendDetailStat({ label, value, color, first }: { label: string; value: string; color?: string; first?: boolean }) {
+  const colors = useAppTheme();
+  return <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 5, borderLeftWidth: first ? 0 : 1, borderLeftColor: colors.rowBorder, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+    <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, lineHeight: 15, fontWeight: '600', textAlign: 'center' }}>{label}</Text>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ width: '100%', color: color ?? colors.text, fontSize: 14, lineHeight: 18, fontWeight: '800', textAlign: 'center', fontVariant: ['tabular-nums'] }}>{value}</Text>
+  </View>;
 }
 
 function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const colors = useAppTheme();
-  const chartItems = items.slice(-7);
-  const values = chartItems.map((item) => toNumber(item.request_count ?? item.count ?? item.requests));
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const chartItems = useMemo(() => buildRecentUsageTrend(items, 7), [items]);
+  const counts = chartItems.map((item) => {
+    const failed = toNumber(item.failed_count ?? item.failure_count ?? item.failed_requests ?? item.error_count ?? item.errors);
+    const suppliedSuccess = item.success_count ?? item.successful_count ?? item.successful_requests ?? item.success_requests;
+    const suppliedTotal = toNumber(item.request_count ?? item.total_requests ?? item.count ?? item.requests);
+    const success = suppliedSuccess === undefined ? Math.max(0, suppliedTotal - failed) : toNumber(suppliedSuccess);
+    return {
+      success,
+      failed,
+      total: Math.max(suppliedTotal, success + failed),
+      tokens: toNumber(item.total_tokens ?? item.tokens),
+      cost: toNumber(item.cost ?? item.cost_usd ?? item.total_cost),
+    };
+  });
+  const values = counts.map((item) => item.total);
   const maxValue = Math.max(1, ...values);
   const top = Math.max(4, Math.ceil(maxValue * 1.2));
-  const plotLeft = 34;
-  const plotRight = 586;
-  const plotTop = 18;
-  const plotBottom = 154;
+  const plotLeft = 42;
+  const plotRight = 592;
+  const plotTop = 22;
+  const plotBottom = 160;
   const plotHeight = plotBottom - plotTop;
   const slot = (plotRight - plotLeft) / Math.max(1, chartItems.length);
-  const barWidth = Math.min(30, slot * 0.46);
-  const labelStep = Math.max(1, Math.ceil(chartItems.length / 7));
+  const barWidth = Math.min(38, slot * 0.56);
+  const labels = chartItems.map((item, index) => usageTrendDateLabel(item, index, chartItems.length));
+  const dateKeys = chartItems.map((item, index) => String(item.bucket_start ?? labels[index]));
+  const matchedSelectedIndex = selectedDate ? dateKeys.indexOf(selectedDate) : -1;
+  const selectedIndex = matchedSelectedIndex >= 0 ? matchedSelectedIndex : chartItems.length - 1;
+  const selectedItem = chartItems[selectedIndex];
+  const selectedCount = counts[selectedIndex] ?? { success: 0, failed: 0, total: 0, tokens: 0, cost: 0 };
+  const selectedRate = selectedCount.total ? `${(selectedCount.success / selectedCount.total * 100).toFixed(1)}%` : '--';
+  const selectedDateLabel = selectedItem?.bucket_start ? String(selectedItem.bucket_start).replace(/-/g, '/') : labels[selectedIndex];
 
-  if (!chartItems.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
+  if (!items.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
 
-  return <View style={{ height: 196, overflow: 'hidden' }}>
-    <Svg width="100%" height="196" viewBox="0 0 600 196" preserveAspectRatio="none">
+  return <View style={{ gap: 4, paddingBottom: 8 }}>
+    <View style={{ minHeight: 36, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+        <IconTile icon={Gauge} size={28} iconSize={14} color={colors.primary} background={colors.primarySoft} />
+        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '800' }}>近 7 天请求趋势</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>成功</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.danger }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>失败</Text></View>
+      </View>
+    </View>
+    <View style={{ height: 170, overflow: 'hidden' }}><Svg width="100%" height="170" viewBox="0 0 600 170" preserveAspectRatio="none">
       {[0, 1, 2, 3, 4].map((index) => {
         const y = plotBottom - index * plotHeight / 4;
         const label = Math.round(top * index / 4);
         return <Fragment key={index}>
           <Line x1={plotLeft} x2={plotRight} y1={y} y2={y} stroke={colors.chartTrack} strokeWidth="1" strokeDasharray="3 4" />
-          <SvgText x="21" y={y + 4} fill={colors.subtext} fontSize="11" textAnchor="end">{label}</SvgText>
+          <SvgText x="34" y={y + 4} fill={colors.subtext} fontSize="11" fontWeight="600" textAnchor="end">{label}</SvgText>
         </Fragment>;
       })}
       {chartItems.map((item, index) => {
-        const value = values[index] ?? 0;
-        const height = Math.max(value ? 3 : 0, value / top * plotHeight);
+        const value = counts[index] ?? { success: 0, failed: 0, total: 0, tokens: 0, cost: 0 };
+        const successHeight = value.success ? Math.max(5, value.success / top * plotHeight) : 0;
+        const failedHeight = value.failed ? Math.max(4, value.failed / top * plotHeight) : 0;
+        const totalHeight = successHeight + failedHeight;
         const x = plotLeft + slot * index + (slot - barWidth) / 2;
-        const label = dateLabel(item, index);
-        const showLabel = index % labelStep === 0 || index === chartItems.length - 1;
-        return <Fragment key={`${label}-${index}`}>
-          <Rect x={x} y={plotBottom - height} width={barWidth} height={height} rx="2" fill={colors.cyan} />
-          {showLabel ? <SvgText x={x + barWidth / 2} y="181" fill={colors.subtext} fontSize="11" textAnchor="middle">{label}</SvgText> : null}
+        const valueLabelY = Math.max(13, plotBottom - totalHeight - 7);
+        const selected = index === selectedIndex;
+        return <Fragment key={`${labels[index]}-${index}`}>
+          <Rect x={x} y={plotTop} width={barWidth} height={plotHeight} rx={barWidth / 2} fill={selected ? colors.primarySoft : colors.mutedCard} stroke={selected ? colors.primary : 'transparent'} strokeWidth={selected ? 2 : 0} />
+          {successHeight > 0 ? <Rect x={x} y={plotBottom - successHeight} width={barWidth} height={successHeight} rx={Math.min(6, barWidth / 2)} fill={colors.cyan} opacity={selected ? 1 : 0.76} /> : null}
+          {failedHeight > 0 ? <Rect x={x} y={plotBottom - totalHeight} width={barWidth} height={failedHeight + Math.min(2, successHeight)} rx={Math.min(6, barWidth / 2)} fill={colors.danger} opacity={selected ? 1 : 0.78} /> : null}
+          {value.total > 0 ? <SvgText x={x + barWidth / 2} y={valueLabelY} fill={selected ? colors.primary : colors.text} fontSize="11" fontWeight="700" textAnchor="middle">{formatNumber(value.total)}</SvgText> : null}
+          <Rect
+            x={plotLeft + slot * index}
+            y={plotTop}
+            width={slot}
+            height={plotHeight}
+            fill="transparent"
+            accessibilityLabel={`${labels[index]}，请求 ${formatNumber(value.total)}`}
+            onPress={() => setSelectedDate(dateKeys[index])}
+          />
         </Fragment>;
       })}
-    </Svg>
+    </Svg></View>
+    <View style={{ marginLeft: 28, marginRight: 0, minHeight: 20, flexDirection: 'row', alignItems: 'center' }}>
+      {labels.map((label, index) => <Text key={`${label}-${index}`} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 11, lineHeight: 16, fontWeight: '600', textAlign: 'center', fontVariant: ['tabular-nums'] }}>{label}</Text>)}
+    </View>
+    <View style={{ marginHorizontal: 8, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.rowBorder, gap: 9 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{selectedDateLabel}</Text>
+        <View style={{ minHeight: 24, paddingHorizontal: 8, borderRadius: 8, backgroundColor: selectedCount.total ? colors.successBg : colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: selectedCount.total ? colors.success : colors.subtext, fontSize: 11, lineHeight: 15, fontWeight: '800' }}>成功率 {selectedRate}</Text>
+        </View>
+      </View>
+      <View style={{ minHeight: 48, flexDirection: 'row', alignItems: 'stretch' }}>
+        <TrendDetailStat first label="请求" value={formatNumber(selectedCount.total)} />
+        <TrendDetailStat label="成功" value={formatNumber(selectedCount.success)} color={colors.success} />
+        <TrendDetailStat label="失败" value={formatNumber(selectedCount.failed)} color={selectedCount.failed ? colors.danger : colors.subtext} />
+        <TrendDetailStat label="Token" value={formatNumber(selectedCount.tokens)} color={colors.warning} />
+        <TrendDetailStat label="费用" value={formatCost(selectedCount.cost)} color={colors.success} />
+      </View>
+    </View>
   </View>;
 }
 
@@ -271,48 +335,24 @@ type BreakdownType = 'provider' | 'account' | 'apiKey';
 
 function breakdownName(item: ApiRecord, type: BreakdownType, index: number) {
   if (type === 'apiKey') return apiKeyDisplayName(item);
+  if (type === 'account') return usageAccountName(item) || '未识别账号';
   const candidates = type === 'provider'
     ? [item.provider_name, item.provider, item.name, item.id]
-    : [item.account_name, item.account, item.email, item.label, item.name];
+    : [];
   const value = candidates.find((candidate) => {
     if (typeof candidate !== 'string' && typeof candidate !== 'number') return false;
     const text = String(candidate).trim();
     return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
   });
-  return value ? String(value) : `${type === 'provider' ? '供应商' : '账号'} ${index + 1}`;
+  return value ? String(value) : `供应商 ${index + 1}`;
 }
 
 function BreakdownTable({ title, icon, items, type }: { title: string; icon: LucideIcon; items: ApiRecord[]; type: BreakdownType }) {
   const colors = useAppTheme();
   const visible = items.slice(0, 8);
-  const account = type === 'account';
   const accent = type === 'provider' ? colors.cyan : type === 'account' ? colors.accentText : colors.warning;
   const accentBackground = type === 'provider' ? colors.cyanBg : type === 'account' ? colors.accentBg : colors.warningBg;
-  if (account) return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: accentBackground, backgroundColor: colors.card, padding: 14, gap: 10 }}>
-    <DimensionHeader title={title} icon={icon} count={items.length} accent={accent} background={accentBackground} />
-    {visible.length ? visible.map((item, index) => {
-      const requests = firstNumber(item, ['request_count', 'requests', 'count', 'total_requests']);
-      const tokens = firstNumber(item, ['total_tokens', 'tokens', 'token_count']);
-      const failed = firstNumber(item, ['failed_count', 'failed_requests', 'errors', 'error_count']);
-      const suppliedRate = item.success_rate ?? item.successRate;
-      const successRate = suppliedRate === undefined ? (requests ? (requests - failed) / requests * 100 : 0) : (toNumber(suppliedRate) <= 1 ? toNumber(suppliedRate) * 100 : toNumber(suppliedRate));
-      const cost = firstNumber(item, ['cost', 'cost_usd', 'total_cost', 'amount']);
-      return <View key={`${breakdownName(item, type, index)}-${index}`} style={{ minHeight: 76, paddingVertical: 11, borderTopWidth: index ? 1 : 0, borderTopColor: colors.rowBorder, gap: 9 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: colors.text, fontSize: 13, fontWeight: '800' }}>{breakdownName(item, type, index)}</Text>
-          <View style={{ maxWidth: '34%', minHeight: 26, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.cyanBg, alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ color: colors.cyan, fontSize: 11, fontWeight: '800' }}>{String(item.provider_name ?? item.provider ?? '--')}</Text></View>
-          <Text style={{ minWidth: 70, color: colors.success, fontSize: 13, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 7 }}>
-          <Text style={{ color: colors.subtext, fontSize: 11 }}>请求 <Text style={{ color: colors.cyan, fontWeight: '800' }}>{formatNumber(requests)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 11 }}>Token <Text style={{ color: colors.warning, fontWeight: '800' }}>{formatNumber(tokens)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 11 }}>失败 <Text style={{ color: failed ? colors.danger : colors.text, fontWeight: '800' }}>{formatNumber(failed)}</Text></Text>
-          <Text style={{ color: colors.subtext, fontSize: 11 }}>成功率 <Text style={{ color: failed ? colors.danger : colors.success, fontWeight: '800' }}>{successRate.toFixed(1)}%</Text></Text>
-        </View>
-      </View>;
-    }) : <EmptyState embedded icon={icon} message="暂无账号数据" />}
-  </View>;
-  const firstColumn = type === 'provider' ? '供应商' : 'API Key';
+  const firstColumn = type === 'provider' ? '供应商' : type === 'account' ? '账号' : 'API Key';
   return <View style={{ width: '100%', minWidth: 0, borderRadius: 18, borderWidth: 1, borderColor: accentBackground, backgroundColor: colors.card, padding: 14, gap: 10 }}>
     <DimensionHeader title={title} icon={icon} count={items.length} accent={accent} background={accentBackground} />
     {visible.length ? <>
@@ -333,7 +373,7 @@ function BreakdownTable({ title, icon, items, type }: { title: string; icon: Luc
           <Text style={{ width: 68, color: colors.success, fontSize: 11, fontWeight: '800', textAlign: 'right', fontVariant: ['tabular-nums'] }}>{formatCost(cost)}</Text>
         </View>;
       })}
-    </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : 'API Key'}数据`} />}
+    </> : <EmptyState embedded icon={icon} message={`暂无${type === 'provider' ? '供应商' : type === 'account' ? '账号' : 'API Key'}数据`} />}
   </View>;
 }
 
@@ -379,7 +419,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const trend = useQuery({
     queryKey: [dashboardScope, 'dashboard', 'trend', '7d'],
     queryFn: ({ signal }) => {
-      const params = localRecentDaysRange(7);
+      const params = { ...localRecentDaysRange(7), range: '7d' };
       return admin ? getAdminStatsTrend(params, signal) : getUsageTrend(params, signal);
     },
     ...dashboardQueryDefaults,
@@ -458,33 +498,14 @@ function UsageDashboard({ admin }: { admin: boolean }) {
     : models.data ?? []).map((item) => item as ModelItem & ApiRecord), [admin, analysis.data, models.data]);
   const userItems = useMemo(() => nestedRecords(analysis.data, ['users', 'by_user', 'user_usage']), [analysis.data]);
   const providerItems = useMemo(() => nestedRecords(analysis.data, ['by_provider', 'providers', 'provider_usage']), [analysis.data]);
-  const apiKeyItems = useMemo(() => enrichApiKeyUsage(
+  const apiKeyItems = useMemo(() => filterNamedApiKeyUsage(enrichApiKeyUsage(
     nestedRecords(analysis.data, ['by_api_key', 'by_api_keys', 'by_key', 'api_key_usage', 'key_usage', 'api_keys']),
     (apiKeyDirectory.data ?? []).map((item) => item as ApiRecord),
-  ), [analysis.data, apiKeyDirectory.data]);
-  const accountItems = useMemo(() => {
-    const directory = new Map<string, ApiRecord>();
-    for (const account of accountDirectory.data ?? []) {
-      for (const id of [account.id, account.account_id, account.auth_index]) {
-        if (id !== undefined && id !== null && String(id).trim()) directory.set(String(id), account);
-      }
-    }
-    return nestedRecords(analysis.data, ['by_account', 'accounts', 'account_usage']).map((item) => {
-      const id = [item.account_id, item.auth_index, item.id].find((value) => value !== undefined && value !== null && String(value).trim());
-      const account = id === undefined ? undefined : directory.get(String(id));
-      if (!account) return item;
-      const currentName = [item.account_name, item.account, item.email, item.label, item.name].find((value) => {
-        if (typeof value !== 'string' && typeof value !== 'number') return false;
-        const text = String(value).trim();
-        return text && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text);
-      });
-      return {
-        ...item,
-        account_name: currentName ?? account.label ?? account.name ?? account.email,
-        provider_name: item.provider_name ?? item.provider ?? account.provider,
-      };
-    });
-  }, [accountDirectory.data, analysis.data]);
+  )), [analysis.data, apiKeyDirectory.data]);
+  const accountItems = useMemo(() => enrichAccountUsage(
+    nestedRecords(analysis.data, ['by_account', 'accounts', 'account_usage']),
+    accountDirectory.data ?? [],
+  ), [accountDirectory.data, analysis.data]);
   const activeUsers = reportedActiveUsers || userItems.length;
   const dashboardError = overview.error ?? trend.error;
   const dashboardUnavailable = Boolean(overview.error && !overview.data);
@@ -537,10 +558,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
       </View> : null}
     </View>
 
-    <View style={{ gap: 7 }}>
-      <SectionHeader icon={Gauge} title="近 7 天请求趋势" />
-      <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 5 }}><RequestTrendChart items={trend.data ?? []} /></View>
-    </View>
+    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 5 }}><RequestTrendChart items={trend.data ?? []} /></View>
 
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
       <RankingPanel title={admin ? 'Top 模型' : '可用模型'} icon={Boxes} items={modelItems} type="model" wide={admin && wide} />

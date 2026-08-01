@@ -97,7 +97,11 @@ export function ResourceScreen(props: ResourceScreenProps) {
   });
   const removeMutation = useMutation({
     mutationFn: (item: ApiRecord) => props.remove!.run(item),
-    onSuccess: () => setSelectedId(''),
+    onSuccess: () => {
+      setSelectedId('');
+      setFormVisible('');
+      setFormItem(undefined);
+    },
     onError: (error) => Alert.alert('删除失败', error.message),
     onSettled: invalidate,
   });
@@ -136,6 +140,14 @@ export function ResourceScreen(props: ResourceScreenProps) {
     setSelectedId('');
     setFormVisible('edit');
     formMutation.reset();
+  }
+
+  function confirmRemove(item: ApiRecord) {
+    if (!props.remove || removeMutation.isPending) return;
+    Alert.alert('确认删除', props.remove.confirm(item), [
+      { text: '取消', style: 'cancel' },
+      { text: '删除', style: 'destructive', onPress: () => removeMutation.mutate(item) },
+    ]);
   }
 
   async function runAction(action: ResourceAction, item: ApiRecord) {
@@ -258,10 +270,7 @@ export function ResourceScreen(props: ResourceScreenProps) {
             {props.renderDetail ? props.renderDetail(selected) : <StructuredDataView value={selected} />}
           </ScrollView>
 
-          {props.remove ? <Pressable disabled={removeMutation.isPending} onPress={() => Alert.alert('确认删除', props.remove!.confirm(selected), [
-            { text: '取消', style: 'cancel' },
-            { text: '删除', style: 'destructive', onPress: () => removeMutation.mutate(selected) },
-          ])} style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.danger, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+          {props.remove ? <Pressable disabled={removeMutation.isPending} onPress={() => confirmRemove(selected)} style={{ minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.danger, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
             <Trash2 color={colors.danger} size={16} /><Text style={{ color: colors.danger, fontWeight: '800' }}>{removeMutation.isPending ? '删除中…' : '删除'}</Text>
           </Pressable> : null}
         </View> : null}
@@ -284,9 +293,15 @@ export function ResourceScreen(props: ResourceScreenProps) {
               : <StructuredForm value={formValue} onChange={(value) => { setFormValue(value); if (formMutation.isError) formMutation.reset(); }} />}
           </ScrollView>
           {formMutation.error ? <Text style={{ color: colors.danger, fontSize: 11 }}>{formMutation.error.message}</Text> : null}
-          <Pressable disabled={formMutation.isPending} onPress={() => formMutation.mutate()} style={{ minHeight: 48, borderRadius: 13, backgroundColor: formMutation.isPending ? colors.disabled : colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '800' }}>{formMutation.isPending ? '提交中…' : activeForm?.submitLabel ?? '提交'}</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {formVisible === 'edit' && formItem && props.remove ? <Pressable disabled={formMutation.isPending || removeMutation.isPending} onPress={() => confirmRemove(formItem)} style={{ minWidth: 94, minHeight: 48, paddingHorizontal: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.dangerBg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: formMutation.isPending ? 0.5 : 1 }}>
+              {removeMutation.isPending ? <ActivityIndicator color={colors.danger} size="small" /> : <Trash2 color={colors.danger} size={15} />}
+              <Text style={{ color: colors.danger, fontSize: 11, fontWeight: '800' }}>{removeMutation.isPending ? '删除中…' : '删除'}</Text>
+            </Pressable> : null}
+            <Pressable disabled={formMutation.isPending || removeMutation.isPending} onPress={() => formMutation.mutate()} style={{ flex: 1, minHeight: 48, borderRadius: 13, backgroundColor: formMutation.isPending || removeMutation.isPending ? colors.disabled : colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>{formMutation.isPending ? '提交中…' : activeForm?.submitLabel ?? '提交'}</Text>
+            </Pressable>
+          </View>
         </View>
       </FullScreenSafeArea>
     </Modal>

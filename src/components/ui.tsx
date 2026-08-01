@@ -43,7 +43,9 @@ export function Page({ title, subtitle, icon, children, refreshing, onRefresh, s
   const contentHeightRef = useRef(0);
   const viewportHeightRef = useRef(0);
   const offsetRef = useRef(0);
+  const keyboardVisibleRef = useRef(false);
   const clampScrollOffset = useCallback(() => {
+    if (keyboardVisibleRef.current || Keyboard.isVisible()) return;
     const maximum = Math.max(0, contentHeightRef.current - viewportHeightRef.current);
     const next = Math.max(0, Math.min(offsetRef.current, maximum));
     if (Math.abs(next - offsetRef.current) < 1) return;
@@ -51,19 +53,38 @@ export function Page({ title, subtitle, icon, children, refreshing, onRefresh, s
     scrollRef.current?.scrollTo({ y: next, animated: false });
   }, []);
 
+  const revealFocusedInput = useCallback(() => {
+    const focusedInput = TextInput.State.currentlyFocusedInput();
+    if (!focusedInput) return;
+    scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(focusedInput, 20, true);
+  }, []);
+
   useEffect(() => {
     if (!scrollable) return;
-    const subscription = Keyboard.addListener('keyboardDidHide', () => requestAnimationFrame(clampScrollOffset));
-    return () => subscription.remove();
-  }, [clampScrollOffset, scrollable]);
+    const willShowSubscription = Platform.OS === 'ios' ? Keyboard.addListener('keyboardWillShow', () => {
+      keyboardVisibleRef.current = true;
+    }) : undefined;
+    const didShowSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      keyboardVisibleRef.current = true;
+      requestAnimationFrame(revealFocusedInput);
+    });
+    const didHideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardVisibleRef.current = false;
+      requestAnimationFrame(clampScrollOffset);
+    });
+    return () => {
+      willShowSubscription?.remove();
+      didShowSubscription.remove();
+      didHideSubscription.remove();
+    };
+  }, [clampScrollOffset, revealFocusedInput, scrollable]);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     offsetRef.current = contentOffset.y;
     contentHeightRef.current = contentSize.height;
     viewportHeightRef.current = layoutMeasurement.height;
-    if (!Keyboard.isVisible()) clampScrollOffset();
-  }, [clampScrollOffset]);
+  }, []);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     viewportHeightRef.current = event.nativeEvent.layout.height;
@@ -97,7 +118,7 @@ export function Page({ title, subtitle, icon, children, refreshing, onRefresh, s
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={false}
-      scrollEventThrottle={16}
+      scrollEventThrottle={32}
       onContentSizeChange={handleContentSizeChange}
       onLayout={handleLayout}
       onMomentumScrollEnd={clampScrollOffset}

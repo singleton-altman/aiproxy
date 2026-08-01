@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { CircleAlert, Clock3, Coins, Eye, EyeOff, RefreshCw, Settings2 } from 'lucide-react-native';
+import { useMemo } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 
 import { ProviderIcon } from '@/src/components/provider-icon';
@@ -8,6 +9,7 @@ import { AppSwitch, EmptyState, ErrorState, Page } from '@/src/components/ui';
 import { maskAccountIdentity } from '@/src/lib/account-display';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
+import { useScreenFocus } from '@/src/lib/use-screen-focus';
 import { getAdminQuota, refreshAdminQuota, setAdminAccountEnabled } from '@/src/services/admin';
 import { setPrivacyMode, usePrivacyMode } from '@/src/store/privacy';
 import type { ApiRecord } from '@/src/types/api';
@@ -414,13 +416,14 @@ export default function AdminQuotaScreen() {
   const colors = useAppTheme();
   const router = useRouter();
   const privacy = usePrivacyMode();
+  const screenFocused = useScreenFocus();
   const quota = useQuery({
     queryKey: QUOTA_QUERY_KEY,
     queryFn: ({ signal }) => getAdminQuota(signal),
-    refetchInterval: 30_000,
+    refetchInterval: screenFocused ? 30_000 : false,
   });
-  const groups = quotaGroups(quota.data);
-  const accountCount = groups.reduce((total, group) => total + group.accounts.length, 0);
+  const groups = useMemo(() => quotaGroups(quota.data), [quota.data]);
+  const accountCount = useMemo(() => groups.reduce((total, group) => total + group.accounts.length, 0), [groups]);
   const refresh = useMutation({
     mutationFn: () => refreshAdminQuota(),
     onSuccess: (result) => {

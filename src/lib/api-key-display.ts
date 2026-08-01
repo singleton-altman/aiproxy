@@ -32,6 +32,10 @@ export function apiKeyDisplayName(item: ApiRecord) {
   return [item.prefix, item.key_prefix, item.preview].map(maskedPrefix).find(Boolean) || '未命名 Key';
 }
 
+export function filterNamedApiKeyUsage(items: ApiRecord[]) {
+  return items.filter((item) => apiKeyDisplayName(item) !== '未命名 Key');
+}
+
 export function enrichApiKeyUsage(items: ApiRecord[], keys: ApiRecord[]) {
   const keysById = new Map<string, ApiRecord>();
   for (const key of keys) {

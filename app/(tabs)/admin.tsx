@@ -92,7 +92,7 @@ export default function AdminScreen() {
       <ServiceButton icon={CloudCog} label="上游账号" detail="账号池与额度重置" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-accounts' as never)} />
       <ServiceButton icon={FileUp} label="账号导入" detail="批量导入与 OAuth" iconColor={colors.accentText} iconBackground={colors.accentBg} onPress={() => router.push('/admin-account-import' as never)} />
       <ServiceButton icon={Network} label="Providers" detail="上游服务与路由" iconColor={colors.success} iconBackground={colors.successBg} onPress={() => router.push('/admin-providers' as never)} />
-      <ServiceButton icon={Waypoints} label="代理管理" detail="出口代理与测试" iconColor={colors.accentText} iconBackground={colors.accentBg} onPress={() => router.push('/admin-proxies' as never)} />
+      <ServiceButton icon={Waypoints} label="网络与出口" detail="系统与账号出口" iconColor={colors.accentText} iconBackground={colors.accentBg} onPress={() => router.push('/admin-proxies' as never)} />
       <ServiceButton icon={TicketPercent} label="邀请码" detail="创建与使用记录" onPress={() => router.push('/admin-invites' as never)} />
       <ServiceButton icon={Package} label="套餐管理" detail="定价、限额与上下架" iconColor={colors.warning} iconBackground={colors.warningBg} onPress={() => router.push('/admin-plans' as never)} />
       <ServiceButton icon={KeySquare} label="管理令牌" detail="程序凭证与权限" iconColor={colors.cyan} iconBackground={colors.cyanBg} onPress={() => router.push('/admin-tokens' as never)} />

@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { memo } from 'react';
 import { Text, View } from 'react-native';
 
 import { accountProvider } from '@/src/lib/account-display';
@@ -39,7 +40,7 @@ const providerAliases: Record<string, string> = {
   aistudio: 'gemini',
 };
 
-export function ProviderIcon({ provider, size = 36 }: { provider: ApiRecord | string; size?: number }) {
+export const ProviderIcon = memo(function ProviderIcon({ provider, size = 36 }: { provider: ApiRecord | string; size?: number }) {
   const colors = useAppTheme();
   const definition = accountProvider(provider);
   const logo = providerLogos[providerAliases[definition.key] ?? definition.key];
@@ -55,4 +56,4 @@ export function ProviderIcon({ provider, size = 36 }: { provider: ApiRecord | st
   return <View style={{ width: size, height: size, borderRadius, borderWidth: 1, borderColor: colors.primarySoft, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
     <Image accessibilityLabel={`${definition.label} 图标`} source={colors.mode === 'dark' ? logo.dark : logo.light} contentFit="contain" style={{ width: imageSize, height: imageSize }} />
   </View>;
-}
+});

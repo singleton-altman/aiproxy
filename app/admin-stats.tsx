@@ -26,8 +26,9 @@ import Svg, { Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { AdminRequestLogs } from '@/src/components/admin-request-logs';
 import { EmptyState, ErrorState, IconTile, Page, SectionHeader } from '@/src/components/ui';
-import { apiKeyDisplayName, enrichApiKeyUsage } from '@/src/lib/api-key-display';
+import { apiKeyDisplayName, enrichApiKeyUsage, filterNamedApiKeyUsage } from '@/src/lib/api-key-display';
 import { useAppTheme } from '@/src/lib/theme';
+import { useScreenFocus } from '@/src/lib/use-screen-focus';
 import { getApiKeys } from '@/src/services/account';
 import {
   getAdminRealtimeUsage,
@@ -393,7 +394,7 @@ function OverviewContent({ bundle, apiKeys, trendMetric, onTrendMetricChange }: 
   const userRows = dimensionRows(bundle.users, 'user').length ? dimensionRows(bundle.users, 'user') : dimensionRows(analysis, 'user');
   const providerRows = dimensionRows(analysis, 'provider');
   const accountRows = dimensionRows(analysis, 'account');
-  const apiKeyRows = enrichApiKeyUsage(dimensionRows(analysis, 'apiKey'), apiKeys);
+  const apiKeyRows = filterNamedApiKeyUsage(enrichApiKeyUsage(dimensionRows(analysis, 'apiKey'), apiKeys));
   const endpointRows = dimensionRows(analysis, 'endpoint');
   return <>
     <MetricsGrid value={bundle.overview} />
@@ -420,7 +421,7 @@ function OverviewContent({ bundle, apiKeys, trendMetric, onTrendMetricChange }: 
 function AnalysisContent({ value, events, apiKeys }: { value: unknown; events?: unknown; apiKeys: ApiRecord[] }) {
   const analysis = unwrapRecord(value);
   const dimensions: Array<[string, LucideIcon, Dimension]> = [['按模型', Boxes, 'model'], ['按供应商', Server, 'provider'], ['按用户', UsersRound, 'user'], ['按账号', Waypoints, 'account'], ['按 API Key', KeyRound, 'apiKey']];
-  const rows = (dimension: Dimension) => dimension === 'apiKey' ? enrichApiKeyUsage(dimensionRows(analysis, dimension), apiKeys) : dimensionRows(analysis, dimension);
+  const rows = (dimension: Dimension) => dimension === 'apiKey' ? filterNamedApiKeyUsage(enrichApiKeyUsage(dimensionRows(analysis, dimension), apiKeys)) : dimensionRows(analysis, dimension);
   return <><Heatmap events={events} analysis={value} /><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>{dimensions.map(([title, icon, dimension]) => <DonutCard key={dimension} title={title} icon={icon} rows={rows(dimension)} dimension={dimension} />)}</View><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{dimensions.map(([title, icon, dimension]) => <BreakdownSection key={dimension} title={title} icon={icon} rows={rows(dimension)} dimension={dimension} />)}</View></>;
 }
 
@@ -430,6 +431,7 @@ function DimensionContent({ value, dimension }: { value: unknown; dimension: 'mo
 }
 
 export default function AdminStatsScreen() {
+  const screenFocused = useScreenFocus();
   const [tab, setTab] = useState<Tab>('overview');
   const [range, setRange] = useState<Range>('7d');
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('requests');
@@ -465,7 +467,7 @@ export default function AdminStatsScreen() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: heatmapEnabled ? 30_000 : false,
+    refetchInterval: heatmapEnabled && screenFocused ? 30_000 : false,
     refetchIntervalInBackground: false,
   });
   const heatmapEvents = useQuery<unknown, Error>({
@@ -477,7 +479,7 @@ export default function AdminStatsScreen() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: heatmapEnabled ? 15_000 : false,
+    refetchInterval: heatmapEnabled && screenFocused ? 15_000 : false,
     refetchIntervalInBackground: false,
   });
   const apiKeyDirectory = useQuery({
@@ -489,7 +491,7 @@ export default function AdminStatsScreen() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: heatmapEnabled ? 60_000 : false,
+    refetchInterval: heatmapEnabled && screenFocused ? 60_000 : false,
     refetchIntervalInBackground: false,
   });
 

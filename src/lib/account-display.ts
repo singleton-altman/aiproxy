@@ -83,6 +83,57 @@ export function accountIdentity(item: ApiRecord) {
   return { primary: email || accountProvider(item).label, secondary: '' };
 }
 
+const usageAccountNameKeys = ['account_name', 'account_label', 'display_name', 'account_email', 'email', 'account', 'label', 'name'];
+const usageAccountIdKeys = ['account_id', 'upstream_account_id', 'provider_account_id', 'account_uuid', 'auth_index', 'id', 'account', 'key'];
+const directoryAccountIdKeys = ['id', 'account_id', 'upstream_account_id', 'provider_account_id', 'account_uuid', 'uuid', 'auth_index', 'key'];
+
+function isInternalIdentifier(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    || /^[0-9a-f]{24,}$/i.test(value)
+    || /^\d{8,}$/.test(value);
+}
+
+function lookupKey(value: unknown) {
+  return text(value).toLowerCase();
+}
+
+export function usageAccountName(item: ApiRecord) {
+  for (const key of usageAccountNameKeys) {
+    const value = text(item[key]);
+    if (value && !isInternalIdentifier(value)) return value;
+  }
+  return '';
+}
+
+export function enrichAccountUsage(items: ApiRecord[], accounts: ApiRecord[]) {
+  const directory = new Map<string, ApiRecord>();
+  for (const account of accounts) {
+    for (const key of directoryAccountIdKeys) {
+      const value = lookupKey(account[key]);
+      if (value) directory.set(value, account);
+    }
+  }
+
+  return items.map((item) => {
+    const currentName = usageAccountName(item);
+    const account = usageAccountIdKeys
+      .map((key) => directory.get(lookupKey(item[key])))
+      .find(Boolean);
+    if (!account) return currentName ? { ...item, account_name: currentName } : item;
+
+    const resolvedName = currentName
+      || text(account.label)
+      || text(account.display_name)
+      || text(account.email)
+      || text(account.name);
+    return {
+      ...item,
+      account_name: resolvedName || undefined,
+      provider_name: item.provider_name ?? item.provider ?? account.provider_display_name ?? account.provider_label ?? account.provider,
+    };
+  });
+}
+
 function isSuspended(item: ApiRecord) {
   return /suspend/i.test(`${text(item.status_reason)} ${text(item.last_error)}`);
 }
