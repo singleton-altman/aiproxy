@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`;
-const { normalizeUsageTrend, usageTrendDateLabel } = await import(moduleUrl);
+const { buildRecentUsageTrend, normalizeUsageTrend, usageTrendDateLabel } = await import(moduleUrl);
 
 test('normalizes nested daily trend and derives request totals', () => {
   const items = normalizeUsageTrend({
@@ -54,6 +54,45 @@ test('supports APIs that return parallel trend arrays', () => {
   assert.deepEqual(items.map(({ bucket_start, request_count }) => ({ bucket_start, request_count })), [
     { bucket_start: '2026-07-30', request_count: 420 },
     { bucket_start: '2026-07-31', request_count: 442 },
+  ]);
+});
+
+test('aggregates and sorts web trend rows by bucket date', () => {
+  const items = normalizeUsageTrend([
+    { bucket_date: '2026-07-31', request_count: 4, failed_count: 1, total_tokens: 80, cost_usd: 0.4 },
+    { bucket_date: '2026-07-29', request_count: 3, failed_count: 0, total_tokens: 40, cost_usd: 0.1 },
+    { bucket_date: '2026-07-31', request_count: 6, failed_count: 2, total_tokens: 120, cost_usd: 0.6 },
+  ]);
+
+  assert.deepEqual(items.map(({ bucket_start, request_count, success_count, failed_count, total_tokens, cost }) => ({
+    bucket_start,
+    request_count,
+    success_count,
+    failed_count,
+    total_tokens,
+    cost,
+  })), [
+    { bucket_start: '2026-07-29', request_count: 3, success_count: 3, failed_count: 0, total_tokens: 40, cost: 0.1 },
+    { bucket_start: '2026-07-31', request_count: 10, success_count: 7, failed_count: 3, total_tokens: 200, cost: 1 },
+  ]);
+});
+
+test('fills missing local calendar days without shifting dated values', () => {
+  const now = new Date(2026, 7, 1, 20, 0);
+  const items = buildRecentUsageTrend(normalizeUsageTrend([
+    { bucket_date: '2026-07-26', request_count: 2, failed_count: 0 },
+    { bucket_date: '2026-07-29', request_count: 9, failed_count: 1 },
+    { bucket_date: '2026-08-01', request_count: 5, failed_count: 2 },
+  ]), 7, now);
+
+  assert.deepEqual(items.map(({ bucket_start, request_count, failed_count }) => ({ bucket_start, request_count, failed_count })), [
+    { bucket_start: '2026-07-26', request_count: 2, failed_count: 0 },
+    { bucket_start: '2026-07-27', request_count: 0, failed_count: 0 },
+    { bucket_start: '2026-07-28', request_count: 0, failed_count: 0 },
+    { bucket_start: '2026-07-29', request_count: 9, failed_count: 1 },
+    { bucket_start: '2026-07-30', request_count: 0, failed_count: 0 },
+    { bucket_start: '2026-07-31', request_count: 0, failed_count: 0 },
+    { bucket_start: '2026-08-01', request_count: 5, failed_count: 2 },
   ]);
 });
 

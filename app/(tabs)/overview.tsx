@@ -25,9 +25,9 @@ import { EmptyState, ErrorState, IconTile, Page, Panel, SectionHeader } from '@/
 import { apiJson, firstArray } from '@/src/lib/api';
 import { enrichAccountUsage, usageAccountName } from '@/src/lib/account-display';
 import { apiKeyDisplayName, enrichApiKeyUsage, filterNamedApiKeyUsage } from '@/src/lib/api-key-display';
-import { localCalendarRange, type CalendarRange } from '@/src/lib/calendar-range';
+import { localCalendarRange, localRecentDaysRange, type CalendarRange } from '@/src/lib/calendar-range';
 import { useAppTheme } from '@/src/lib/theme';
-import { usageTrendDateLabel } from '@/src/lib/usage-trend';
+import { buildRecentUsageTrend, usageTrendDateLabel } from '@/src/lib/usage-trend';
 import { getApiKeys, getKeyOverview, getModels, getUsageOverview, getUsageTrend } from '@/src/services/account';
 import {
   getAdminRealtimeUsage,
@@ -152,15 +152,30 @@ function RealtimeStat({ label, value, icon: Icon, accent, first }: { label: stri
   </View>;
 }
 
+function TrendDetailStat({ label, value, color }: { label: string; value: string; color?: string }) {
+  const colors = useAppTheme();
+  return <View style={{ flexGrow: 1, flexBasis: '29%', minWidth: 82, gap: 2 }}>
+    <Text numberOfLines={1} style={{ color: colors.subtext, fontSize: 11, lineHeight: 15, fontWeight: '600' }}>{label}</Text>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={{ color: color ?? colors.text, fontSize: 14, lineHeight: 18, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+  </View>;
+}
+
 function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const colors = useAppTheme();
-  const chartItems = items.slice(-7);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const chartItems = useMemo(() => buildRecentUsageTrend(items, 7), [items]);
   const counts = chartItems.map((item) => {
     const failed = toNumber(item.failed_count ?? item.failure_count ?? item.failed_requests ?? item.error_count ?? item.errors);
     const suppliedSuccess = item.success_count ?? item.successful_count ?? item.successful_requests ?? item.success_requests;
     const suppliedTotal = toNumber(item.request_count ?? item.total_requests ?? item.count ?? item.requests);
     const success = suppliedSuccess === undefined ? Math.max(0, suppliedTotal - failed) : toNumber(suppliedSuccess);
-    return { success, failed, total: Math.max(suppliedTotal, success + failed) };
+    return {
+      success,
+      failed,
+      total: Math.max(suppliedTotal, success + failed),
+      tokens: toNumber(item.total_tokens ?? item.tokens),
+      cost: toNumber(item.cost ?? item.cost_usd ?? item.total_cost),
+    };
   });
   const values = counts.map((item) => item.total);
   const maxValue = Math.max(1, ...values);
@@ -173,13 +188,26 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
   const slot = (plotRight - plotLeft) / Math.max(1, chartItems.length);
   const barWidth = Math.min(38, slot * 0.56);
   const labels = chartItems.map((item, index) => usageTrendDateLabel(item, index, chartItems.length));
+  const dateKeys = chartItems.map((item, index) => String(item.bucket_start ?? labels[index]));
+  const matchedSelectedIndex = selectedDate ? dateKeys.indexOf(selectedDate) : -1;
+  const selectedIndex = matchedSelectedIndex >= 0 ? matchedSelectedIndex : chartItems.length - 1;
+  const selectedItem = chartItems[selectedIndex];
+  const selectedCount = counts[selectedIndex] ?? { success: 0, failed: 0, total: 0, tokens: 0, cost: 0 };
+  const selectedRate = selectedCount.total ? `${(selectedCount.success / selectedCount.total * 100).toFixed(1)}%` : '--';
+  const selectedDateLabel = selectedItem?.bucket_start ? String(selectedItem.bucket_start).replace(/-/g, '/') : labels[selectedIndex];
 
-  if (!chartItems.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
+  if (!items.length) return <EmptyState embedded icon={BarChart3} message="暂无趋势数据" />;
 
   return <View style={{ gap: 4, paddingBottom: 8 }}>
-    <View style={{ height: 22, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>成功</Text></View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.danger }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>失败</Text></View>
+    <View style={{ minHeight: 36, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+        <IconTile icon={Gauge} size={28} iconSize={14} color={colors.primary} background={colors.primarySoft} />
+        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '800' }}>近 7 天请求趋势</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.cyan }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>成功</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: colors.danger }} /><Text style={{ color: colors.subtext, fontSize: 11, fontWeight: '700' }}>失败</Text></View>
+      </View>
     </View>
     <View style={{ height: 170, overflow: 'hidden' }}><Svg width="100%" height="170" viewBox="0 0 600 170" preserveAspectRatio="none">
       {[0, 1, 2, 3, 4].map((index) => {
@@ -191,22 +219,47 @@ function RequestTrendChart({ items }: { items: UsageTrendItem[] }) {
         </Fragment>;
       })}
       {chartItems.map((item, index) => {
-        const value = counts[index] ?? { success: 0, failed: 0, total: 0 };
+        const value = counts[index] ?? { success: 0, failed: 0, total: 0, tokens: 0, cost: 0 };
         const successHeight = value.success ? Math.max(5, value.success / top * plotHeight) : 0;
         const failedHeight = value.failed ? Math.max(4, value.failed / top * plotHeight) : 0;
         const totalHeight = successHeight + failedHeight;
         const x = plotLeft + slot * index + (slot - barWidth) / 2;
         const valueLabelY = Math.max(13, plotBottom - totalHeight - 7);
+        const selected = index === selectedIndex;
         return <Fragment key={`${labels[index]}-${index}`}>
-          <Rect x={x} y={plotTop} width={barWidth} height={plotHeight} rx={barWidth / 2} fill={colors.mutedCard} />
-          {successHeight > 0 ? <Rect x={x} y={plotBottom - successHeight} width={barWidth} height={successHeight} rx={Math.min(6, barWidth / 2)} fill={colors.cyan} /> : null}
-          {failedHeight > 0 ? <Rect x={x} y={plotBottom - totalHeight} width={barWidth} height={failedHeight + Math.min(2, successHeight)} rx={Math.min(6, barWidth / 2)} fill={colors.danger} /> : null}
-          {value.total > 0 ? <SvgText x={x + barWidth / 2} y={valueLabelY} fill={colors.text} fontSize="11" fontWeight="700" textAnchor="middle">{formatNumber(value.total)}</SvgText> : null}
+          <Rect x={x} y={plotTop} width={barWidth} height={plotHeight} rx={barWidth / 2} fill={selected ? colors.primarySoft : colors.mutedCard} stroke={selected ? colors.primary : 'transparent'} strokeWidth={selected ? 2 : 0} />
+          {successHeight > 0 ? <Rect x={x} y={plotBottom - successHeight} width={barWidth} height={successHeight} rx={Math.min(6, barWidth / 2)} fill={colors.cyan} opacity={selected ? 1 : 0.76} /> : null}
+          {failedHeight > 0 ? <Rect x={x} y={plotBottom - totalHeight} width={barWidth} height={failedHeight + Math.min(2, successHeight)} rx={Math.min(6, barWidth / 2)} fill={colors.danger} opacity={selected ? 1 : 0.78} /> : null}
+          {value.total > 0 ? <SvgText x={x + barWidth / 2} y={valueLabelY} fill={selected ? colors.primary : colors.text} fontSize="11" fontWeight="700" textAnchor="middle">{formatNumber(value.total)}</SvgText> : null}
+          <Rect
+            x={plotLeft + slot * index}
+            y={plotTop}
+            width={slot}
+            height={plotHeight}
+            fill="transparent"
+            accessibilityLabel={`${labels[index]}，请求 ${formatNumber(value.total)}`}
+            onPress={() => setSelectedDate(dateKeys[index])}
+          />
         </Fragment>;
       })}
     </Svg></View>
     <View style={{ marginLeft: 28, marginRight: 0, minHeight: 20, flexDirection: 'row', alignItems: 'center' }}>
       {labels.map((label, index) => <Text key={`${label}-${index}`} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ flex: 1, minWidth: 0, color: colors.subtext, fontSize: 11, lineHeight: 16, fontWeight: '600', textAlign: 'center', fontVariant: ['tabular-nums'] }}>{label}</Text>)}
+    </View>
+    <View style={{ marginHorizontal: 8, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.rowBorder, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{selectedDateLabel}</Text>
+        <View style={{ minHeight: 24, paddingHorizontal: 8, borderRadius: 8, backgroundColor: selectedCount.total ? colors.successBg : colors.mutedCard, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: selectedCount.total ? colors.success : colors.subtext, fontSize: 11, lineHeight: 15, fontWeight: '800' }}>成功率 {selectedRate}</Text>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 8 }}>
+        <TrendDetailStat label="请求" value={formatNumber(selectedCount.total)} />
+        <TrendDetailStat label="成功" value={formatNumber(selectedCount.success)} color={colors.success} />
+        <TrendDetailStat label="失败" value={formatNumber(selectedCount.failed)} color={selectedCount.failed ? colors.danger : colors.subtext} />
+        <TrendDetailStat label="Token" value={formatNumber(selectedCount.tokens)} color={colors.warning} />
+        <TrendDetailStat label="费用 (USD)" value={formatCost(selectedCount.cost)} color={colors.success} />
+      </View>
     </View>
   </View>;
 }
@@ -365,7 +418,10 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   });
   const trend = useQuery({
     queryKey: [dashboardScope, 'dashboard', 'trend', '7d'],
-    queryFn: ({ signal }) => admin ? getAdminStatsTrend({ range: '7d' }, signal) : getUsageTrend({ range: '7d' }, signal),
+    queryFn: ({ signal }) => {
+      const params = { ...localRecentDaysRange(7), range: '7d' };
+      return admin ? getAdminStatsTrend(params, signal) : getUsageTrend(params, signal);
+    },
     ...dashboardQueryDefaults,
     refetchInterval: screenFocused ? 30_000 : false,
   });
@@ -502,10 +558,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
       </View> : null}
     </View>
 
-    <View style={{ gap: 7 }}>
-      <SectionHeader icon={Gauge} title="近 7 天请求趋势" />
-      <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 5 }}><RequestTrendChart items={trend.data ?? []} /></View>
-    </View>
+    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 8, paddingTop: 5 }}><RequestTrendChart items={trend.data ?? []} /></View>
 
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
       <RankingPanel title={admin ? 'Top 模型' : '可用模型'} icon={Boxes} items={modelItems} type="model" wide={admin && wide} />
