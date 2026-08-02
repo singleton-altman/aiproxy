@@ -160,6 +160,7 @@ export default function AdminPlansScreen() {
     titleOf={(item) => String(item.name ?? planId(item)) || '套餐'}
     subtitleOf={planSummary}
     badgeOf={(item) => item.active === false ? { text: '已下架', tone: 'muted' } : { text: '已上架', tone: 'success' }}
+    editOnPress
     toggle={{
       label: '套餐上架',
       value: (item) => item.active !== false,

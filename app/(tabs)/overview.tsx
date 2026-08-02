@@ -491,6 +491,13 @@ function UsageDashboard({ admin }: { admin: boolean }) {
   const totalTokens = firstNumber(summary, ['total_tokens', 'tokens']);
   const inputTokens = firstNumber(summary, ['prompt_tokens', 'input_tokens']);
   const outputTokens = firstNumber(summary, ['completion_tokens', 'output_tokens']);
+  const cachedTokens = firstNumber(summary, ['cached_tokens', 'cache_read_tokens', 'cache_hit_tokens']);
+  const cacheWriteTokens = firstNumber(summary, ['cache_write_tokens', 'cache_creation_tokens']);
+  const cacheTokens = cachedTokens + cacheWriteTokens;
+  const nonCachedTokens = Math.max(0, totalTokens - cacheTokens);
+  const tokenDetail = cacheTokens > 0
+    ? `非缓存 ${formatNumber(nonCachedTokens)} · 缓存 ${formatNumber(cacheTokens)}`
+    : `输入 ${formatNumber(inputTokens)} · 输出 ${formatNumber(outputTokens)}`;
   const cost = firstNumber(summary, ['actual_cost', 'actualCost', 'cost', 'cost_usd', 'total_cost']);
   const latency = firstNumber(summary, ['average_latency_ms', 'avg_latency_ms', 'avg_response_time_ms', 'average_response_time_ms', 'avg_duration_ms', 'latency_ms', 'average_latency']);
   const modelItems = useMemo(() => (admin
@@ -543,7 +550,7 @@ function UsageDashboard({ admin }: { admin: boolean }) {
         <MetricCard label="请求数" value={formatNumber(requests)} icon={BarChart3} accent={colors.cyan} iconBackground={colors.cyanBg} basis={metricBasis} />
         <MetricCard label="成功率" value={formatRate(summary)} detail={`失败 ${formatNumber(failed)} 次`} icon={CheckCircle2} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
         <MetricCard label={admin ? '活跃用户' : '可用模型'} value={formatNumber(admin ? activeUsers : modelItems.filter((item) => !item.hidden).length)} detail={admin ? `${rangeLabel}内发起过调用` : undefined} icon={admin ? UsersRound : Boxes} accent={colors.primary} iconBackground={colors.primarySoft} basis={metricBasis} />
-        <MetricCard label="Token 数" value={formatNumber(totalTokens)} detail={`输入 ${formatNumber(inputTokens)} · 输出 ${formatNumber(outputTokens)}`} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
+        <MetricCard label="Token 数" value={formatNumber(totalTokens)} detail={tokenDetail} icon={Coins} accent={colors.warning} iconBackground={colors.warningBg} basis={metricBasis} />
         <MetricCard label="费用 (USD)" value={formatCost(cost)} icon={CircleDollarSign} accent={colors.success} iconBackground={colors.successBg} basis={metricBasis} />
         <MetricCard label="平均延迟" value={`${formatNumber(latency)} ms`} icon={Timer} accent={colors.accentText} iconBackground={colors.accentBg} basis={metricBasis} />
       </View>
