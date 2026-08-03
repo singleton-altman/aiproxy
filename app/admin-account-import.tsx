@@ -25,6 +25,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, Text, TextInput, useWindo
 import { StructuredDataView } from '@/src/components/structured-form';
 import { ProviderIcon } from '@/src/components/provider-icon';
 import { EmptyState, ErrorState, Page, Panel, SectionHeader } from '@/src/components/ui';
+import { accountImportProviderKey, oauthPollPayload, oauthStartPayload, oauthSubmitPayload } from '@/src/lib/account-oauth';
 import { apiJson, firstArray } from '@/src/lib/api';
 import { documentMultipartBody } from '@/src/lib/file-transfer';
 import { queryClient } from '@/src/lib/query-client';
@@ -158,7 +159,7 @@ export default function AdminAccountImportScreen() {
   const [label, setLabel] = useState('');
   const [secret, setSecret] = useState('');
   const [sessionId, setSessionId] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
+  const [callbackUrl, setCallbackUrl] = useState('');
   const [result, setResult] = useState<unknown>();
   const [showRaw, setShowRaw] = useState(false);
   const [file, setFile] = useState<DocumentPickerAsset>();
@@ -185,10 +186,14 @@ export default function AdminAccountImportScreen() {
 
   const flow = useMutation({
     mutationFn: ({ path, method: httpMethod, body, query }: FlowCall) => apiJson<ApiRecord>(path, { method: httpMethod, body: httpMethod === 'POST' ? JSON.stringify(body ?? {}) : undefined, query, timeoutMs: 60000 }),
-    onSuccess: (payload) => {
+    onSuccess: (payload, variables) => {
       setResult(payload);
       const nextSession = nestedString(payload, ['session_id', 'sessionId', 'state', 'flow_id', 'flowId']);
       if (nextSession) setSessionId(nextSession);
+      if (variables.action === 'start') {
+        const nextAuthUrl = nestedString(payload, ['auth_url', 'authorization_url', 'verify_url', 'verification_uri_complete', 'verification_uri']);
+        if (nextAuthUrl) void Linking.openURL(nextAuthUrl).catch(() => undefined);
+      }
       void queryClient.invalidateQueries({ queryKey: ['admin', 'accounts'] });
     },
     onError: (error) => Alert.alert('接入失败', error.message),
@@ -204,11 +209,11 @@ export default function AdminAccountImportScreen() {
     onError: (error) => Alert.alert('文件导入失败', error.message),
   });
 
-  const authUrl = nestedString(result, ['auth_url', 'authorization_url', 'verification_uri_complete', 'verification_uri', 'url']);
+  const authUrl = nestedString(result, ['auth_url', 'authorization_url', 'verify_url', 'verification_uri_complete', 'verification_uri', 'url']);
   const userCode = nestedString(result, ['user_code', 'device_code', 'code']);
   const status = nestedString(result, ['status', 'state', 'message']);
   const profiles = nestedRecords(result, ['profiles', 'accounts']);
-  const proxyPayload = proxyId ? { proxy_id: proxyId } : {};
+  const proxyPayload = oauthStartPayload(proxyId);
 
   function chooseProvider(provider: Provider) {
     setSelected(provider);
@@ -216,7 +221,7 @@ export default function AdminAccountImportScreen() {
     setLabel('');
     setSecret('');
     setSessionId('');
-    setVerificationCode('');
+    setCallbackUrl('');
     setResult(undefined);
     setShowRaw(false);
   }
@@ -228,29 +233,32 @@ export default function AdminAccountImportScreen() {
       if (method === 'sso') return flow.mutate({ action: 'start', path: '/admin/accounts/kiro/sso/start', method: 'POST', body: proxyPayload });
       if (method === 'iam') return flow.mutate({ action: 'start', path: '/admin/accounts/kiro/iam-sso/start', method: 'POST', body: proxyPayload });
     }
-    flow.mutate({ action: 'start', path: `/admin/accounts/oauth/${encodeURIComponent(selected.key)}/start`, method: 'POST', body: proxyPayload });
+    const provider = accountImportProviderKey(selected.key);
+    flow.mutate({ action: 'start', path: `/admin/accounts/oauth/${encodeURIComponent(provider)}/start`, method: 'POST', body: proxyPayload });
   }
 
   function pollFlow() {
     if (!selected) return;
-    const body = { session_id: sessionId || undefined };
+    const body = oauthPollPayload(sessionId);
     if (selected.key === 'kiro' && method === 'oauth') return flow.mutate({ action: 'poll', path: '/admin/accounts/oauth/kiro/poll', method: 'POST', body });
     if (selected.key === 'kiro' && method === 'sso') return flow.mutate({ action: 'poll', path: '/admin/accounts/kiro/sso/poll', method: 'POST', body });
-    flow.mutate({ action: 'poll', path: `/admin/accounts/oauth/${encodeURIComponent(selected.key)}/poll`, method: 'POST', body });
+    const provider = accountImportProviderKey(selected.key);
+    flow.mutate({ action: 'poll', path: `/admin/accounts/oauth/${encodeURIComponent(provider)}/poll`, method: 'POST', body });
   }
 
   function submitFlow() {
     if (!selected) return;
-    const body = { ...proxyPayload, session_id: sessionId || undefined, code: verificationCode.trim() || undefined };
+    const body = oauthSubmitPayload({ proxyId, sessionId, callbackUrl });
     if (selected.key === 'kiro' && method === 'sso') return flow.mutate({ action: 'submit', path: '/admin/accounts/kiro/sso/submit', method: 'POST', body });
     if (selected.key === 'kiro' && method === 'iam') return flow.mutate({ action: 'submit', path: '/admin/accounts/kiro/iam-sso/complete', method: 'POST', body });
-    flow.mutate({ action: 'submit', path: `/admin/accounts/oauth/${encodeURIComponent(selected.key)}/submit`, method: 'POST', body });
+    const provider = accountImportProviderKey(selected.key);
+    flow.mutate({ action: 'submit', path: `/admin/accounts/oauth/${encodeURIComponent(provider)}/submit`, method: 'POST', body });
   }
 
   function submitCredential() {
     if (!selected || !secret.trim()) return;
     const field = method === 'api_key' ? 'api_key' : 'token';
-    const body: ApiRecord = { ...proxyPayload, provider: selected.key, label: label.trim() || selected.label, [field]: secret.trim(), enabled: true };
+    const body: ApiRecord = { ...proxyPayload, provider: accountImportProviderKey(selected.key), label: label.trim() || selected.label, [field]: secret.trim(), enabled: true };
     if (selected.key === 'kiro') {
       const path = method === 'api_key' ? '/admin/accounts/kiro/api-key' : '/admin/accounts/kiro/sso-token';
       return flow.mutate({ action: 'direct', path, method: 'POST', body });
@@ -308,7 +316,7 @@ export default function AdminAccountImportScreen() {
       <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12 }}><ProviderMark provider={selected} size={50} /><View style={{ flex: 1 }}><Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>{selected.label}</Text><Text style={{ color: colors.subtext, fontSize: 11, marginTop: 3 }}>{methodLabels[method]}</Text></View></View>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, padding: 4, borderRadius: 10, backgroundColor: colors.mutedCard }}>
-        {selected.methods.map((item) => <Pressable key={item} onPress={() => { setMethod(item); setResult(undefined); setSessionId(''); }} style={{ flexGrow: 1, minHeight: 38, paddingHorizontal: 10, borderRadius: 7, backgroundColor: method === item ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: method === item ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{methodLabels[item]}</Text></Pressable>)}
+        {selected.methods.map((item) => <Pressable key={item} onPress={() => { setMethod(item); setResult(undefined); setSessionId(''); setCallbackUrl(''); }} style={{ flexGrow: 1, minHeight: 38, paddingHorizontal: 10, borderRadius: 7, backgroundColor: method === item ? colors.card : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: method === item ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{methodLabels[item]}</Text></Pressable>)}
       </View>
 
       <Panel>
@@ -322,7 +330,7 @@ export default function AdminAccountImportScreen() {
       {oauthMethod ? <Panel>
         <SectionHeader icon={ShieldCheck} title={methodLabels[method]} />
         {sessionId ? <CredentialField label="授权会话" value={sessionId} onChangeText={setSessionId} placeholder="自动获取" /> : null}
-        {(sessionId || result !== undefined) ? <CredentialField label="验证码（按需填写）" value={verificationCode} onChangeText={setVerificationCode} placeholder="授权页面未自动回传时填写" /> : null}
+        {(sessionId || result !== undefined) && authUrl ? <CredentialField label="授权回调地址（按需填写）" value={callbackUrl} onChangeText={setCallbackUrl} placeholder="粘贴浏览器授权完成后的完整回调地址" /> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Pressable disabled={flow.isPending} onPress={startFlow} style={{ flexGrow: 1, minHeight: 44, paddingHorizontal: 13, borderRadius: 12, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>{flow.isPending ? <ActivityIndicator color="#fff" /> : <Play color="#fff" size={15} />}<Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>开始授权</Text></Pressable>
           {method !== 'iam' ? <Pressable disabled={flow.isPending || !result} onPress={pollFlow} style={{ flexGrow: 1, minHeight: 44, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: result ? 1 : 0.45 }}><RefreshCw color={colors.primary} size={15} /><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>检查状态</Text></Pressable> : null}

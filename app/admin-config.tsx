@@ -1,11 +1,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
+  Eye,
   Github,
   Mail,
   Network,
+  Pencil,
   RotateCcw,
   Save,
+  Send,
   Server,
   Settings2,
   ShieldCheck,
@@ -17,9 +20,11 @@ import type { LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 
 import { StructuredDataView } from '@/src/components/structured-form';
 import { AppSwitch, ErrorState, FullScreenSafeArea, Page, Panel, SectionHeader } from '@/src/components/ui';
+import { emailPreviewDocument, normalizeEmailPreview } from '@/src/lib/email-preview';
 import { queryClient } from '@/src/lib/query-client';
 import { useAppTheme } from '@/src/lib/theme';
 import {
@@ -38,6 +43,7 @@ import type { ApiRecord } from '@/src/types/api';
 
 const tabs = [['config', '系统配置', Settings2], ['email', '邮件设置', Mail], ['github', 'GitHub', Github]] as const;
 type Tab = typeof tabs[number][0];
+type EmailTemplateMode = 'preview' | 'edit';
 
 const strategies = [
   ['round_robin', '轮询'],
@@ -128,7 +134,7 @@ function normalizedEmail(value: ApiRecord) {
   };
 }
 
-function ConfigField({ label, value, onChangeText, placeholder, numeric = false, multiline = false, secure = false }: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; numeric?: boolean; multiline?: boolean; secure?: boolean }) {
+function ConfigField({ label, value, onChangeText, placeholder, numeric = false, multiline = false, multilineHeight = 84, secure = false }: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; numeric?: boolean; multiline?: boolean; multilineHeight?: number; secure?: boolean }) {
   const colors = useAppTheme();
   return <View style={{ gap: 6 }}>
     <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{label}</Text>
@@ -143,7 +149,7 @@ function ConfigField({ label, value, onChangeText, placeholder, numeric = false,
       textAlignVertical={multiline ? 'top' : 'center'}
       autoCapitalize="none"
       autoCorrect={false}
-      style={{ minHeight: multiline ? 84 : 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: multiline ? 10 : 0, fontSize: 11, lineHeight: 18 }}
+      style={{ minHeight: multiline ? multilineHeight : 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 12, paddingVertical: multiline ? 10 : 0, fontSize: 11, lineHeight: 18 }}
     />
   </View>;
 }
@@ -205,7 +211,7 @@ function SystemConfigForm({ draft, onChange }: { draft: ApiRecord; onChange: (va
   </>;
 }
 
-function EmailForm({ draft, onChange, scene, onSceneChange }: { draft: ApiRecord; onChange: (value: ApiRecord) => void; scene: 'register' | 'reset'; onSceneChange: (value: 'register' | 'reset') => void }) {
+function EmailForm({ draft, onChange, scene, onSceneChange, mode, onModeChange, preview, previewLoading, previewError, onPreviewRetry, onRestoreDefaults }: { draft: ApiRecord; onChange: (value: ApiRecord) => void; scene: 'register' | 'reset'; onSceneChange: (value: 'register' | 'reset') => void; mode: EmailTemplateMode; onModeChange: (value: EmailTemplateMode) => void; preview: { subject: string; html: string }; previewLoading: boolean; previewError?: string; onPreviewRetry: () => void; onRestoreDefaults: () => void }) {
   const colors = useAppTheme();
   const templates = record(draft.templates);
   const template = record(templates[scene]);
@@ -224,11 +230,25 @@ function EmailForm({ draft, onChange, scene, onSceneChange }: { draft: ApiRecord
       <ChoiceRow value={String(draft.security ?? 'starttls')} options={[['starttls', 'STARTTLS'], ['tls', 'TLS'], ['none', '无']]} onChange={(value) => set('security', value)} />
       <ConfigField label="验证码有效期（分钟）" value={String(draft.code_ttl_minutes ?? 10)} onChangeText={(value) => set('code_ttl_minutes', value)} numeric />
     </Section>
-    <Section icon={Mail} title="邮件模板">
-      <ChoiceRow value={scene} options={[['register', '注册验证'], ['reset', '重置密码']]} onChange={(value) => onSceneChange(value as 'register' | 'reset')} />
-      <ConfigField label="主题" value={String(template.subject ?? '')} onChangeText={(value) => setTemplate('subject', value)} />
-      <ConfigField label="正文" value={String(template.body ?? '')} onChangeText={(value) => setTemplate('body', value)} multiline />
-    </Section>
+    <Panel>
+      <SectionHeader icon={Mail} title="邮件模板" />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7 }}>
+        <View style={{ flex: 1, minWidth: 180 }}><ChoiceRow value={scene} options={[['register', '注册'], ['reset', '密码找回']]} onChange={(value) => onSceneChange(value as 'register' | 'reset')} /></View>
+        <View style={{ flexDirection: 'row', gap: 4, padding: 3, borderRadius: 10, backgroundColor: colors.mutedCard }}>
+          {([['preview', '预览', Eye], ['edit', '编辑', Pencil]] as const).map(([key, label, Icon]) => <Pressable key={key} onPress={() => onModeChange(key)} style={{ minHeight: 34, paddingHorizontal: 9, borderRadius: 8, backgroundColor: mode === key ? colors.card : 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}><Icon color={mode === key ? colors.primary : colors.subtext} size={13} /><Text style={{ color: mode === key ? colors.primary : colors.subtext, fontSize: 11, fontWeight: '700' }}>{label}</Text></Pressable>)}
+        </View>
+      </View>
+      {mode === 'edit' ? <>
+        <ConfigField label="主题" value={String(template.subject ?? '')} onChangeText={(value) => setTemplate('subject', value)} />
+        <ConfigField label="正文" value={String(template.body ?? '')} onChangeText={(value) => setTemplate('body', value)} multiline multilineHeight={280} />
+        <Pressable onPress={onRestoreDefaults} style={{ minHeight: 40, borderRadius: 10, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}><RotateCcw color={colors.primary} size={14} /><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>恢复默认模板</Text></Pressable>
+      </> : <>
+        <View style={{ minHeight: 38, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.mutedCard, paddingHorizontal: 10, justifyContent: 'center' }}><Text numberOfLines={2} style={{ color: colors.text, fontSize: 11, lineHeight: 17 }}><Text style={{ color: colors.subtext }}>主题: </Text>{preview.subject || '暂无主题'}</Text></View>
+        {previewError ? <ErrorState message={previewError} retry={onPreviewRetry} /> : <View style={{ height: 390, overflow: 'hidden', borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: '#eef1f6' }}>
+          {previewLoading && !preview.html ? <ActivityIndicator color={colors.primary} style={{ flex: 1 }} /> : <WebView originWhitelist={['*']} source={{ html: emailPreviewDocument(preview.html || '<div style="padding:24px;color:#64748b;font-family:Arial,sans-serif">暂无模板内容</div>') }} style={{ flex: 1, backgroundColor: '#eef1f6' }} nestedScrollEnabled startInLoadingState renderLoading={() => <ActivityIndicator color={colors.primary} style={{ flex: 1 }} />}/>}
+        </View>}
+      </>}
+    </Panel>
   </>;
 }
 
@@ -240,6 +260,7 @@ export default function AdminConfigScreen() {
   const [resultTitle, setResultTitle] = useState('服务器响应');
   const [testTo, setTestTo] = useState('');
   const [scene, setScene] = useState<'register' | 'reset'>('register');
+  const [emailTemplateMode, setEmailTemplateMode] = useState<EmailTemplateMode>('preview');
   const [githubToken, setGithubToken] = useState('');
 
   const query = useQuery({
@@ -252,7 +273,22 @@ export default function AdminConfigScreen() {
   useEffect(() => {
     setResult(undefined);
     setGithubToken('');
+    setEmailTemplateMode('preview');
   }, [tab]);
+
+  const emailTemplate = record(record(draft.templates)[scene]);
+  const emailPreviewQuery = useQuery({
+    queryKey: ['admin', 'email', 'preview', scene, String(emailTemplate.subject ?? ''), String(emailTemplate.body ?? '')],
+    queryFn: () => runAdminEmailAction('preview', { scene, template: emailTemplate }),
+    enabled: tab === 'email' && emailTemplateMode === 'preview' && Boolean(emailTemplate.subject || emailTemplate.body),
+    staleTime: 30000,
+    retry: false,
+  });
+  const emailPreview = normalizeEmailPreview(emailPreviewQuery.data, emailTemplate, {
+    siteName: String(draft.site_name ?? 'AI Proxy'),
+    email: sessionState.profile?.email ?? 'user@example.com',
+    expiresMinutes: String(draft.code_ttl_minutes ?? 10),
+  });
 
   const save = useMutation({
     mutationFn: () => {
@@ -279,10 +315,8 @@ export default function AdminConfigScreen() {
     onError: (error) => Alert.alert('校验失败', error.message),
   });
   const emailAction = useMutation({
-    mutationFn: (action: 'test' | 'preview') => action === 'test'
-      ? runAdminEmailAction('test', { to: testTo.trim() })
-      : runAdminEmailAction('preview', { scene, template: record(record(draft.templates)[scene]) }),
-    onSuccess: (value, action) => { setResultTitle(action === 'test' ? '测试结果' : '模板预览'); setResult(value); },
+    mutationFn: () => runAdminEmailAction('test', { to: testTo.trim() }),
+    onSuccess: (value) => { setResultTitle('测试结果'); setResult(value); },
     onError: (error) => Alert.alert('操作失败', error.message),
   });
   const defaults = useMutation({
@@ -307,14 +341,25 @@ export default function AdminConfigScreen() {
 
     {tab === 'config' && query.data ? <SystemConfigForm draft={draft} onChange={setDraft} /> : null}
     {tab === 'email' && query.data ? <>
-      <EmailForm draft={draft} onChange={setDraft} scene={scene} onSceneChange={setScene} />
+      <EmailForm
+        draft={draft}
+        onChange={setDraft}
+        scene={scene}
+        onSceneChange={setScene}
+        mode={emailTemplateMode}
+        onModeChange={setEmailTemplateMode}
+        preview={emailPreview}
+        previewLoading={emailPreviewQuery.isFetching}
+        previewError={emailPreviewQuery.error?.message}
+        onPreviewRetry={() => void emailPreviewQuery.refetch()}
+        onRestoreDefaults={() => defaults.mutate()}
+      />
       <Panel>
-        <SectionHeader icon={TestTube} title="测试与预览" />
-        <ConfigField label="测试收件人" value={testTo} onChangeText={setTestTo} placeholder={sessionState.profile?.email ?? 'name@example.com'} />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Pressable disabled={busy || !testTo.trim()} onPress={() => emailAction.mutate('test')} style={{ flexGrow: 1, minHeight: 42, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>发送测试邮件</Text></Pressable>
-          <Pressable disabled={busy} onPress={() => emailAction.mutate('preview')} style={{ flexGrow: 1, minHeight: 42, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>预览当前模板</Text></Pressable>
-          <Pressable disabled={busy} onPress={() => defaults.mutate()} style={{ flexGrow: 1, minHeight: 42, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}><RotateCcw color={colors.primary} size={14} /><Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>恢复默认模板</Text></Pressable>
+        <SectionHeader icon={TestTube} title="测试发送" />
+        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>发送至</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <TextInput value={testTo} onChangeText={setTestTo} placeholder={sessionState.profile?.email ?? 'name@example.com'} placeholderTextColor={colors.placeholder} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} style={{ flex: 1, minWidth: 0, height: 42, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text, paddingHorizontal: 11, fontSize: 11 }} />
+          <Pressable disabled={busy || !testTo.trim()} onPress={() => emailAction.mutate()} style={{ minWidth: 102, height: 42, paddingHorizontal: 10, borderRadius: 11, borderWidth: 1, borderColor: colors.border, opacity: busy || !testTo.trim() ? 0.5 : 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}>{emailAction.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Send color={colors.primary} size={14} />}<Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>发送测试</Text></Pressable>
         </View>
       </Panel>
     </> : null}
